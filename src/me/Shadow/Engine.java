@@ -34,8 +34,6 @@ public class Engine
 	int positiveInfinity;
 	int negativeInfinity;
 	
-	int testDepth;
-
 	long startTime;
 	long moveGenTime, moveEvalTime, moveLegalityCheckTime;
 	long movePieceTime, moveBackTime;
@@ -61,8 +59,6 @@ public class Engine
 
 		boardGlobal.loadFEN(originalFEN);
 		
-		testDepth = 5;
-
 		positiveInfinity = 1000000;
 		negativeInfinity = -positiveInfinity;
 		engineIsWhite = false;
@@ -80,7 +76,7 @@ public class Engine
 	
 	public void runIt()
 	{
-		// System.out.println(countMoves(testDepth, boardGlobal));
+		testSuite();
 		
 		Timer timer = new Timer();
 		timer.schedule(new TimerTask()
@@ -190,6 +186,7 @@ public class Engine
 			}
 			
 			BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
+			ArrayList<PinnedPiece> pins = (ArrayList<PinnedPiece>) board.pinnedPieces.clone();
 			
 			tempTime = System.currentTimeMillis();
 			Piece captured = board.movePiece(move);
@@ -199,7 +196,7 @@ public class Engine
 			int evaluation = -posEval.getEvaluation();
 			
 			tempTime = System.currentTimeMillis();
-			board.moveBack(move, captured, boardInfoOld);
+			board.moveBack(move, captured, boardInfoOld, pins);
 			moveBackTime += System.currentTimeMillis() - tempTime;
 			
 			if (searchCancelled)
@@ -285,6 +282,7 @@ public class Engine
 			}
 			
 			BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
+			ArrayList<PinnedPiece> pins = (ArrayList<PinnedPiece>) board.pinnedPieces.clone();
 			
 			tempTime = System.currentTimeMillis();
 			Piece captured = board.movePiece(move);
@@ -293,7 +291,7 @@ public class Engine
 			evaluation = -(searchCaptures(-beta, -alpha, board).getEvaluation());
 			
 			tempTime = System.currentTimeMillis();
-			board.moveBack(move, captured, boardInfoOld);
+			board.moveBack(move, captured, boardInfoOld, pins);
 			moveBackTime += System.currentTimeMillis() - tempTime;
 
 			if (evaluation >= beta)
@@ -383,40 +381,6 @@ public class Engine
 		evaluation += (distBetweenKings);
 
 		return (int) (evaluation * endgameWeight);
-	}
-
-	public int countMoves(int depth, Board board)
-	{
-		if (depth == 0)
-			return 1;
-		int num = 0;
-		ArrayList<Move> moves = board.generateAllPseudoLegalMoves(board.boardInfo.isWhiteToMove(), false);
-		
-		Iterator<Move> moveIterator = moves.iterator();
-		
-		while (moveIterator.hasNext())
-		{
-			Move move = moveIterator.next();
-			if (!board.isMoveLegal(move))
-			{
-				moveIterator.remove();
-				continue;
-			}
-			else if (depth == 1)
-			{
-				num++;
-				continue;
-			}
-			
-			BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
-			Piece captured = board.movePiece(move);
-			int add = countMoves(depth - 1, board);
-			//if (depth == testDepth) System.out.println(move + " " + add);
-			//if (depth == testDepth-1 && board.boardInfo.getMoveList().get(0).equals("b4a4")) System.out.println("\t" + move + " " + add);
-			num += add;
-			board.moveBack(move, captured, boardInfoOld);
-		}		
-		return num;
 	}
 	
 	public PositionEvaluation engineMove()
@@ -524,6 +488,69 @@ public class Engine
 		}
 		
 		return false;
+	}
+	
+	public int countMoves(int depth, int originalDepth, Board board, boolean divide)
+	{
+		if (depth == 0)
+			return 1;
+		int num = 0;
+		ArrayList<Move> moves = board.generateAllPseudoLegalMoves(board.boardInfo.isWhiteToMove(), false);
+		
+		Iterator<Move> moveIterator = moves.iterator();
+		
+		while (moveIterator.hasNext())
+		{
+			Move move = moveIterator.next();
+			if (!board.isMoveLegal(move))
+			{
+				moveIterator.remove();
+				continue;
+			}
+			else if (depth == 1)
+			{
+				num++;
+				continue;
+			}
+			
+			BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
+			ArrayList<PinnedPiece> pins = (ArrayList<PinnedPiece>) board.pinnedPieces.clone();
+			Piece captured = board.movePiece(move);
+			int add = countMoves(depth - 1, originalDepth, board, divide);
+			if (depth == originalDepth && divide) System.out.println(move + " " + add + " " + board.pinnedPieces.size());
+			//if (depth == originalDepth-1 && divide) System.out.println("\t" + move + " " + add);
+			num += add;
+			board.moveBack(move, captured, boardInfoOld, pins);
+		}		
+		return num;
+	}
+	
+	public void testSuite()
+	{
+		long time = System.currentTimeMillis();
+		
+		testPerft(5, new Board(), 4865609);
+		testPerft(5, new Board("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1"), 15833292);
+		testPerft(4, new Board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -"), 4085603);
+		testPerft(6, new Board("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - "), 11030083);
+		testPerft(4, new Board("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8  "), 2103487);
+		testPerft(4, new Board("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10 "), 3894594);
+		testPerft(5, new Board("n1n5/PPPk4/8/8/8/8/4Kppp/5N1N b - - 0 1"), 3605103);
+				
+		System.out.println("Time Taken: " + (System.currentTimeMillis()-time));
+	}
+	
+	public void testPerft(int depth, Board board, int nodeCount)
+	{
+		int result = countMoves(depth, depth, board, false);
+		System.out.println(nodeCount + " " + result);
+		if (result != nodeCount)
+		{
+			System.out.println("Test Failed: " + Math.abs(result-nodeCount) + " nodes too " + (nodeCount > result ? "few" : "many"));
+			result = countMoves(depth, depth, board, true);
+			System.out.println(result);
+		}
+		System.out.println("\n");
 	}
 	
 	class Node<T>

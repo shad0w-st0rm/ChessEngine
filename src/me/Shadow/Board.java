@@ -1,15 +1,23 @@
 package me.Shadow;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.Random;
 
-import me.Shadow.pieces.*;
+import me.Shadow.pieces.Bishop;
+import me.Shadow.pieces.King;
+import me.Shadow.pieces.Knight;
+import me.Shadow.pieces.Pawn;
+import me.Shadow.pieces.Piece;
+import me.Shadow.pieces.Queen;
+import me.Shadow.pieces.Rook;
 
 public class Board
 {
 
 	ArrayList<Piece> pieces = new ArrayList<Piece>(32);
 	ArrayList<Piece> promotedSliders = new ArrayList<Piece>();
+	ArrayList<PinnedPiece> pinnedPieces = new ArrayList<PinnedPiece>();
 	ArrayList<Square> squares = new ArrayList<Square>(64);
 	BoardInfo boardInfo;
 	long[] zobristHashes;
@@ -45,7 +53,7 @@ public class Board
 	 * @param capturesOnly Generate all moves or only captures
 	 * 
 	 * @return ArrayList<Move> of all legal moves generated
-	 
+	 */
 	public ArrayList<Move> generateAllLegalMoves(boolean whiteToMove, boolean capturesOnly)
 	{
 		// white pieces are indices 16-31, black pieces are 0-15
@@ -72,7 +80,7 @@ public class Board
 		}
 		return allMoves;
 	}
-	*/
+	
 	
 	public ArrayList<Move> generateAllPseudoLegalMoves(boolean whiteToMove, boolean capturesOnly)
 	{
@@ -104,12 +112,13 @@ public class Board
 	public boolean isMoveLegal(Move move)
 	{
 		Piece piece = squares.get(move.getStartIndex()).getPiece();
+		PinnedPiece pinnedObj = isPiecePinned(piece);
 		
-		if (piece.getPiecePinning() != null && isPiecePinnedAbsolutely(piece, piece.getPiecePinning())) return false;
+		if (pinnedObj != null && isPiecePinnedAbsolutely(piece, pinnedObj.pinner)) return false; // TODO: update isPiecePinnedAbsolutely signature
 		if (boardInfo.isDoubleCheck() && !(piece instanceof King)) return false;
-		if (piece.getPiecePinning() != null && boardInfo.getCheckPiece() != null && piece instanceof Pawn) return false;
+		if (pinnedObj != null && boardInfo.getCheckPiece() != null && piece instanceof Pawn) return false;
 		
-		if (piece.getPiecePinning() == null && boardInfo.getCheckPiece() == null && !(piece instanceof King))
+		if (pinnedObj == null && boardInfo.getCheckPiece() == null && !(piece instanceof King))
 		{
 			if (piece instanceof Pawn && move.getEnPassantCaptureIndex() != -1)
 				return isEnPassantLegal(move);
@@ -163,7 +172,7 @@ public class Board
 		else // not moving a king (and cant be in double check)
 		{
 			Piece checkPiece = boardInfo.getCheckPiece();
-			if (checkPiece != null && piece.getPiecePinning() == null) // extra testing because in check and not pinned
+			if (checkPiece != null && pinnedObj == null) // extra testing because in check and not pinned
 			{
 				ArrayList<Square> blockSquares = getSquaresInBetween(checkPiece, pieces.get(piece.isWhite() ? 28 : 4).getSquare());
 				blockSquares.add(checkPiece.getSquare());
@@ -177,11 +186,11 @@ public class Board
 				// if the pawn is pinned vertically, this will be true only for advancing, not capturing left/right
 				// if it is pinned diagonally, it will only be true for the capture of the pinning piece so this works
 				if (piece instanceof Pawn)
-					return (move.getTargetIndex() % 8) == (piece.getPiecePinning().getSquare().getIndex() % 8);
+					return (move.getTargetIndex() % 8) == (pinnedObj.pinner.getSquare().getIndex() % 8);
 				
 				// cannot be a pawn, knight (always absolutely pinned), or king so must be a slider
-				ArrayList<Square> pinSquares = getSquaresInBetween(piece, piece.getPiecePinning().getSquare());
-				pinSquares.add(piece.getPiecePinning().getSquare());
+				ArrayList<Square> pinSquares = getSquaresInBetween(piece,pinnedObj.pinner.getSquare());
+				pinSquares.add(pinnedObj.pinner.getSquare());
 				pinSquares.addAll(getSquaresInBetween(piece, pieces.get(piece.isWhite() ? 28 : 4).getSquare()));
 				
 				return pinSquares.contains(squares.get(move.getTargetIndex()));
@@ -191,8 +200,8 @@ public class Board
 				ArrayList<Square> blockSquares = getSquaresInBetween(checkPiece, pieces.get(piece.isWhite() ? 28 : 4).getSquare());
 				blockSquares.add(checkPiece.getSquare());
 				
-				ArrayList<Square> pinSquares = getSquaresInBetween(piece, piece.getPiecePinning().getSquare());
-				pinSquares.add(piece.getPiecePinning().getSquare());
+				ArrayList<Square> pinSquares = getSquaresInBetween(piece, pinnedObj.pinner.getSquare());
+				pinSquares.add(pinnedObj.pinner.getSquare());
 				pinSquares.addAll(getSquaresInBetween(piece, pieces.get(piece.isWhite() ? 28 : 4).getSquare()));
 				
 				pinSquares.retainAll(blockSquares);
@@ -365,6 +374,7 @@ public class Board
 		ArrayList<Square> squaresList = new ArrayList<Square>();
 		if (!(piece instanceof Bishop || piece instanceof Rook || piece instanceof Queen)) return squaresList;
 		
+		int targetIndex = target.getIndex();
 		int targetRank = target.getRank();
 		int targetFile = target.getFile();
 		int pieceIndex = piece.getSquare().getIndex();
@@ -380,6 +390,7 @@ public class Board
 		
 		int step = 0;
 		int stepCount = 0;
+		
 		// if rook or queen attacking like rook, only one condition will be true, if bishop or queen attacking like bishop, both will be true
 		if (targetRank != pieceRank)
 		{
@@ -391,6 +402,7 @@ public class Board
 			step += ((targetFile > pieceFile) ? 1 : -1);
 			stepCount = Math.abs(targetFile - pieceFile);
 		}
+		
 		
 		for (int i = 1; i < stepCount; i++)
 		{
@@ -704,8 +716,6 @@ public class Board
 			Square rookStart = squares.get(move.getRookStartIndex());
 			Square rookTarget = squares.get(move.getRookTargetIndex());
 			
-			
-			
 			// move the rook
 			Piece rook = rookStart.getPiece();
 			rook.setSquare(rookTarget);
@@ -829,46 +839,152 @@ public class Board
 			}
 		}
 		
-		if (capturedPiece != null && capturedPiece.getPiecePinned() != null)
-		{
-			capturedPiece.getPiecePinned().setPiecePinning(null);
-			capturedPiece.setPiecePinned(null);
-		}
+		updateAllPins(move, capturedPiece);
 		
-		if (piece.getPiecePinned() != null)
-		{
-			piece.getPiecePinned().setPiecePinning(null);
-			piece.setPiecePinned(null);
-		}
-		
-		updateAllPins();
-		if (piece instanceof Bishop || piece instanceof Rook || piece instanceof Queen) updatePins(piece, pieces.get((piece.isWhite() ? 4 : 28)).getSquare());
 
 		return capturedPiece; // return the captured piece
 	}
 	
-	public void updateAllPins()
+	public void checkCreatedPin(Square start, Square king)
+	{
+		// get rank and files for both squares
+		int targetRank = king.getRank();
+		int targetFile = king.getFile();
+
+		int startIndex = start.getIndex();
+		int startRank = start.getRank();
+		int startFile = start.getFile();
+		
+		if ((targetRank != startRank && targetFile != startFile) && (Math.abs(targetRank - startRank) != Math.abs(targetFile - startFile)))
+			return;
+		
+		int step = 0;
+		boolean diagonal = true;
+		// if rook or queen attacking like rook, only one condition will be true, if bishop or queen attacking like bishop, both will be true
+		if (targetRank != startRank)
+		{
+			step += ((targetRank > startRank) ? -8 : 8);
+			diagonal = !diagonal;
+		}
+		if (targetFile != startFile)
+		{
+			step += ((targetFile > startFile) ? 1 : -1);
+			diagonal = !diagonal;
+		}
+		
+		step *= -1;
+		int index = startIndex + step;
+		boolean pieceFound = false;
+		while (true)
+		{
+			if (index < 0 || index > 63) break;
+			if (!diagonal && (index / 8 != startIndex / 8) && (index % 8 != startIndex % 8)) break;
+			if (diagonal && (Math.abs((index / 8) - (startIndex / 8)) != Math.abs((index % 8) - (startIndex % 8)))) break;
+			
+			if (squares.get(index).hasPiece())
+			{
+				Piece piece = squares.get(index).getPiece();
+				
+				if (piece.isWhite() != king.getPiece().isWhite())
+				{
+					Piece pinned = getPiecePinnedBySlider(piece, king);
+					if (pinned instanceof King)
+					{
+						if (boardInfo.getCheckPiece() != null && boardInfo.getCheckPiece() != piece) boardInfo.setDoubleCheck(true);
+						else boardInfo.setCheckPiece(piece);
+					}
+					else if (pinned != null)
+					{
+						PinnedPiece pinnedPiece = new PinnedPiece(pinned, piece);
+						pinnedPieces.add(pinnedPiece);;
+					}
+					return;
+				}
+				else
+				{
+					if (pieceFound) return;
+					else pieceFound = true;
+				}
+			}
+			
+			index += step;
+		}
+	}
+	
+	public void updateAllPins(Move move, Piece captured)
+	{
+		Square start = squares.get(move.getStartIndex());
+		Square target = squares.get(move.getTargetIndex());
+		Piece piece = target.getPiece();
+		
+		pinnedPieces.removeIf(pinnedPiece -> (pinnedPiece.pinner == captured || pinnedPiece.pinner == piece || pinnedPiece.pinned == captured || pinnedPiece.pinned == piece));
+		
+		if (piece instanceof King)
+		{
+			checkAllPins();
+			return;
+		}
+		
+		checkCreatedPin(start, pieces.get(4).getSquare());
+		checkCreatedPin(start, pieces.get(28).getSquare());
+		
+		if (move.getEnPassantCaptureIndex() != -1)
+		{
+			checkCreatedPin(squares.get(move.getEnPassantCaptureIndex()), pieces.get(4).getSquare());
+			checkCreatedPin(squares.get(move.getEnPassantCaptureIndex()), pieces.get(28).getSquare());
+		}
+		
+		checkCreatedPin(target, pieces.get((piece.isWhite() ? 28 : 4)).getSquare());
+		
+		Piece pinned = getPiecePinnedBySlider(piece, pieces.get((piece.isWhite() ? 4 : 28)).getSquare());
+		if (pinned instanceof King)
+		{
+			if (boardInfo.getCheckPiece() != null && boardInfo.getCheckPiece() != piece) boardInfo.setDoubleCheck(true);
+			else boardInfo.setCheckPiece(piece);
+		}
+		else if (pinned != null)
+		{
+			PinnedPiece pinnedPiece = new PinnedPiece(pinned, piece);
+			pinnedPieces.add(pinnedPiece);
+		}
+		
+		pinnedPieces.removeIf(pinnedPiece -> (getPiecePinnedBySlider(pinnedPiece.pinner, pieces.get((pinnedPiece.pinner.isWhite() ? 4 : 28)).getSquare()) == null));
+	}
+	
+	public PinnedPiece isPiecePinned(Piece piece)
+	{
+		for (PinnedPiece pinned : pinnedPieces)
+		{
+			if (pinned.pinned == piece) return pinned;
+		}
+		return null;
+	}
+	
+	public void checkAllPins()
 	{
 		// check all original slider pieces
 		for (int i = 0; i < sliderIndexes.length; i++)
 		{
 			Piece slider = pieces.get(sliderIndexes[i]);
-			if (!slider.isCaptured()) updatePins(slider, pieces.get((slider.isWhite() ? 4 : 28)).getSquare());
+			if (!slider.isCaptured()) updatePin(slider, pieces.get((slider.isWhite() ? 4 : 28)).getSquare());
 		}
 		
 		for (Piece slider : promotedSliders) // check promoted slider pieces
 		{
-			if (!slider.isCaptured()) updatePins(slider, pieces.get((slider.isWhite() ? 4 : 28)).getSquare());
+			if (!slider.isCaptured()) updatePin(slider, pieces.get((slider.isWhite() ? 4 : 28)).getSquare());
 		}
 	}
 	
-	public void updatePins(Piece slider, Square king)
+	public void updatePin(Piece slider, Square king)
 	{
+		pinnedPieces.removeIf(pinnedPiece -> (pinnedPiece.pinner == slider));
+		/*
 		if (slider.getPiecePinned() != null)
 		{
 			slider.getPiecePinned().setPiecePinning(null);
 			slider.setPiecePinned(null);
 		}
+		*/
 		
 		Piece pinned = getPiecePinnedBySlider(slider, king);
 		if (pinned instanceof King)
@@ -878,8 +994,8 @@ public class Board
 		}
 		else if (pinned != null)
 		{
-			slider.setPiecePinned(pinned);
-			pinned.setPiecePinning(slider);
+			PinnedPiece pinnedPiece = new PinnedPiece(pinned, slider);
+			pinnedPieces.add(pinnedPiece);
 		}
 	}
 	
@@ -937,9 +1053,10 @@ public class Board
 	 * @param captured     The captured piece, null if no captured piece
 	 * @param boardInfoOld The BoardInfo object for the original board state
 	 */
-	public void moveBack(Move move, Piece captured, BoardInfo boardInfoOld)
+	public void moveBack(Move move, Piece captured, BoardInfo boardInfoOld, ArrayList<PinnedPiece> pinnedPiecesOld)
 	{
 		boardInfo = boardInfoOld; // replace current BoardInfo object with the old BoardInfo object
+		pinnedPieces = pinnedPiecesOld;
 
 		Square start = squares.get(move.getStartIndex());
 		Square target = squares.get(move.getTargetIndex());
@@ -965,18 +1082,22 @@ public class Board
 			if (!(piece instanceof Knight))
 				promotedSliders.remove(piece);
 			
+			// pinnedPieces.removeIf(pinnedPiece -> (pinnedPiece.pinner == piece));
+			/*
 			if (piece.getPiecePinned() != null)
 			{
 				piece.getPiecePinned().setPiecePinning(null);
 				piece.setPiecePinned(null);
 			}
+			*/
 
 			Piece pawn = new Pawn(start, piece.isWhite());
 			// replace promoted piece with a pawn
 			pieces.set(pieces.indexOf(piece), pawn);
 			piece.getSquare().removePiece();
 			start.addPiece(pawn);
-			piece = null;
+			
+			// piece = null; // commented out because it should get garbage collected after this method finishes anyways
 		}
 		else if (move.getEnPassantCaptureIndex() != -1) // if en passant move
 		{
@@ -1000,7 +1121,16 @@ public class Board
 			}
 		}
 		
-		updateAllPins();
+		for (PinnedPiece pin : pinnedPieces)
+		{
+			if (pin.pinned instanceof Pawn && pieces.indexOf(pin.pinned) == -1)
+			{
+				pin.pinned = getPiecePinnedBySlider(pin.pinner, pieces.get((pin.pinner.isWhite() ? 4 : 28)).getSquare());
+				break;
+			}
+		}
+		
+		// updateAllPins();
 	}
 	
 	public boolean isPiecePinnedAbsolutely(Piece pinned, Piece pinner)
@@ -1298,7 +1428,7 @@ public class Board
 			}
 		}
 		
-		updateAllPins();
+		checkAllPins();
 
 		boardInfo.setWhiteMaterial(0);
 		boardInfo.setBlackMaterial(0);

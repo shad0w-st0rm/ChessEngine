@@ -2,6 +2,7 @@ package me.Shadow.pieces;
 
 import me.Shadow.Square;
 
+
 public interface Piece
 {
 	public Square getSquare();
@@ -14,9 +15,9 @@ public interface Piece
 	public int getValue();
 	public char getPieceSymbol();
 	public int getZobristOffset();
-	public Piece getPiecePinning();
-	public void setPiecePinning(Piece piece);
-	public Piece getPiecePinned();
-	public void setPiecePinned(Piece piece);
+	//public Piece getPiecePinning();
+	//public void setPiecePinning(Piece piece);
+	//public Piece getPiecePinned();
+	//public void setPiecePinned(Piece piece);
 	public int[] getPieceSquareTable(boolean endgame);
 }
