@@ -7,7 +7,6 @@ public class Knight implements Piece
 	private Square square;
 	private boolean isWhite;
 	private boolean isCaptured;
-	private Piece piecePinning;
 	
 	public Knight(Square squareIn, boolean isWhiteIn)
 	{
@@ -23,12 +22,6 @@ public class Knight implements Piece
 
 	@Override
 	public boolean isWhite() { return isWhite; }
-	
-	@Override
-	public boolean isCaptured() { return isCaptured; }
-
-	@Override
-	public void setCaptured(boolean captured) { isCaptured = captured; }
 
 	@Override
 	public String getName() { return "KNIGHT"; }
@@ -41,14 +34,6 @@ public class Knight implements Piece
 	
 	@Override
 	public int getZobristOffset() { return isWhite ? 8 : 9; }
-	
-	public void setPiecePinning(Piece piece) { piecePinning = piece; }
-	
-	public Piece getPiecePinning() { return piecePinning; }
-	
-	public void setPiecePinned(Piece piece) {}
-	
-	public Piece getPiecePinned() { return null; }
 	
 	@Override
 	public int[] getPieceSquareTable(boolean endgame)

@@ -20,7 +20,7 @@ public class PositionEvaluation
 	
 	public boolean isLowerBound()
 	{
-		return ((data >>> 21) & 1) == 1 ? true : false;
+		return (((data >>> 21) & 1) == 1);
 	}
 	
 	public int getEvalDepth()

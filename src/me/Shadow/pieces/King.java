@@ -22,12 +22,6 @@ public class King implements Piece
 
 	@Override
 	public boolean isWhite() { return isWhite; }
-	
-	@Override
-	public boolean isCaptured() { return isCaptured; }
-	
-	@Override
-	public void setCaptured(boolean captured) { isCaptured = captured; }
 
 	@Override
 	public String getName() { return "KING"; }
@@ -40,14 +34,6 @@ public class King implements Piece
 	
 	@Override
 	public int getZobristOffset() { return isWhite ? 0 : 1; }
-	
-	public void setPiecePinning(Piece piece) {}
-	
-	public Piece getPiecePinning() { return null; }
-	
-	public void setPiecePinned(Piece piece) {}
-	
-	public Piece getPiecePinned() { return null; }
 	
 	@Override
 	public int[] getPieceSquareTable(boolean endgame)

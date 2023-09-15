@@ -336,7 +336,7 @@ public class ChessGui
 
 			if (!moveMade && !engine.engineSearching && engine.boardGlobal.squares.get(index).hasPiece() && engine.boardGlobal.squares.get(index).getPiece().isWhite() != engine.engineIsWhite)
 			{
-				ArrayList<Move> moves = engine.boardGlobal.generateLegalMoves(engine.boardGlobal.squares.get(index).getPiece());
+				ArrayList<Move> moves = engine.boardGlobal.generateLegalMoves(engine.boardGlobal.squares.get(index).getPiece(), false);
 				for (Move move : moves)
 				{
 					setColor(move.getTargetIndex(), 2);

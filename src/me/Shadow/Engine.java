@@ -4,14 +4,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
+import me.Shadow.pieces.King;
 import me.Shadow.pieces.Piece;
 
 public class Engine
@@ -37,7 +34,8 @@ public class Engine
 	long startTime;
 	long moveGenTime, moveEvalTime, moveLegalityCheckTime;
 	long movePieceTime, moveBackTime;
-	long transpositionTime, positionEvaluationTime;
+	long transpositionTime, positionEvaluationTime, checkRepetitionTime;
+	long boardInfoTime;
 
 	Move engineMoveOld;
 	ArrayList<Move> movesOld = new ArrayList<Move>();
@@ -61,7 +59,7 @@ public class Engine
 		
 		positiveInfinity = 1000000;
 		negativeInfinity = -positiveInfinity;
-		engineIsWhite = false;
+		engineIsWhite = true;
 		if (engineIsWhite == boardGlobal.boardInfo.isWhiteToMove())
 			playerMoveMade = true;
 		transpositions = new HashMap<Long, PositionEvaluation>();
@@ -76,7 +74,7 @@ public class Engine
 	
 	public void runIt()
 	{
-		testSuite();
+		// testSuite();
 		
 		Timer timer = new Timer();
 		timer.schedule(new TimerTask()
@@ -98,8 +96,6 @@ public class Engine
 
 					boardGlobal.boardInfo.setBoardFEN(boardGlobal.createFEN(false));
 					PositionEvaluation posEval = engineMove();
-					
-					
 
 					gui.setColor(posEval.getMove().getStartIndex(), 1);
 					gui.setColor(posEval.getMove().getTargetIndex(), 1);
@@ -141,18 +137,20 @@ public class Engine
 			alpha = Math.max(alpha, transposEval.getEvaluation());
 		}
 		
+		tempTime = System.currentTimeMillis();
 		if (!board.hasLegalMoves(board.boardInfo.isWhiteToMove()))
 		{
+			moveLegalityCheckTime += System.currentTimeMillis() - tempTime;
 			if (board.boardInfo.getCheckPiece() != null)
 				return new PositionEvaluation(negativeInfinity, depth, false, null);
 			else
 				return new PositionEvaluation(0, depth, false, null);
 		}
+		moveLegalityCheckTime += System.currentTimeMillis() - tempTime;
 		
 		if (depth == 0)
 		{
-			PositionEvaluation posEval = searchCaptures(alpha, beta, board);
-			return posEval;
+			return searchCaptures(alpha, beta, board);
 		}
 		
 		if (node.children.size() == 0)
@@ -163,8 +161,10 @@ public class Engine
 			
 			tempTime = System.currentTimeMillis();
 			guessMoveEvals(board, newMoves);
-			moveEvalTime += System.currentTimeMillis() - tempTime;
+			
 			node.setChildren(newMoves);
+			moveEvalTime += System.currentTimeMillis() - tempTime;
+			
 		}
 		
 		boolean failedHigh = false;
@@ -174,7 +174,7 @@ public class Engine
 		{
 			Node<Move> moveNode = nodeIterator.next();
 			Move move = moveNode.data;
-			
+						
 			tempTime = System.currentTimeMillis();
 			boolean moveLegal = board.isMoveLegal(move);
 			moveLegalityCheckTime += System.currentTimeMillis() - tempTime;
@@ -185,8 +185,10 @@ public class Engine
 				continue;
 			}
 			
+			tempTime = System.currentTimeMillis();
 			BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
 			ArrayList<PinnedPiece> pins = (ArrayList<PinnedPiece>) board.pinnedPieces.clone();
+			boardInfoTime += System.currentTimeMillis() - tempTime;
 			
 			tempTime = System.currentTimeMillis();
 			Piece captured = board.movePiece(move);
@@ -220,8 +222,11 @@ public class Engine
 				break;
 			}
 		}
-		
+				
+		tempTime = System.currentTimeMillis();
 		node.sortChildren(nodeComparator);
+		moveEvalTime += System.currentTimeMillis() - tempTime;
+		
 		Move moveBest = node.children.get(0).data;
 		transposEval = new PositionEvaluation(moveBest.getEvalGuess(), depth, failedHigh, moveBest);
 		tempTime = System.currentTimeMillis();
@@ -246,9 +251,8 @@ public class Engine
 		}
 		
 		// captures arent forced so check eval before capturing something
-		tempTime = System.currentTimeMillis();
 		int evaluation = staticEvaluation(board);
-		positionEvaluationTime += System.currentTimeMillis() - tempTime;
+		
 		if (evaluation >= beta)
 		{
 			transposEval = new PositionEvaluation(evaluation, 0, true, null);
@@ -281,8 +285,10 @@ public class Engine
 				continue;
 			}
 			
+			tempTime = System.currentTimeMillis();
 			BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
 			ArrayList<PinnedPiece> pins = (ArrayList<PinnedPiece>) board.pinnedPieces.clone();
+			boardInfoTime += System.currentTimeMillis() - tempTime;
 			
 			tempTime = System.currentTimeMillis();
 			Piece captured = board.movePiece(move);
@@ -312,51 +318,58 @@ public class Engine
 
 	public void guessMoveEvals(Board board, ArrayList<Move> moves)
 	{
-		Piece piece = null;
-		if (moves.size() > 0) piece = board.squares.get(moves.get(0).getStartIndex()).getPiece();
 		boolean endgame = board.boardInfo.getWhiteMaterial() + board.boardInfo.getBlackMaterial() < 4000;
-		
-		for (Move move : moves)
+		moves.forEach(move -> guessMoveEval(board, move, endgame));
+		moves.sort(Comparator.comparing(Move::getEvalGuess).reversed());
+	}
+	
+	public void guessMoveEval(Board board, Move move, boolean endgame)
+	{		
+		Piece piece = board.squares.get(move.getStartIndex()).getPiece();
+		int evalGuess = 0;
+		if (piece.isWhite())
 		{
-			int evalGuess = 0;
-			if (piece.isWhite())
+			evalGuess -= (piece.getPieceSquareTable(endgame)[move.getStartIndex()]);
+			evalGuess += (piece.getPieceSquareTable(endgame)[move.getTargetIndex()]);
+		}
+		else
+		{
+			evalGuess -= (piece.getPieceSquareTable(endgame)[((63 - move.getStartIndex()) / 8) * 8 + (move.getStartIndex() % 8)]);
+			evalGuess += (piece.getPieceSquareTable(endgame)[((63 - move.getTargetIndex()) / 8) * 8 + (move.getTargetIndex() % 8)]);
+		}
+		if (board.squares.get(move.getTargetIndex()).hasPiece())
+		{
+			if (piece instanceof King)
 			{
-				evalGuess -= (piece.getPieceSquareTable(endgame)[move.getStartIndex()]);
-				evalGuess += (piece.getPieceSquareTable(endgame)[move.getTargetIndex()]);
+				evalGuess += (100.0 * board.squares.get(move.getTargetIndex()).getPiece().getValue()) / 100; // TODO: this is an arbitary value
 			}
 			else
-			{
-				evalGuess -= (piece.getPieceSquareTable(endgame)[((63 - move.getStartIndex()) / 8) * 8 + (move.getStartIndex() % 8)]);
-				evalGuess += (piece.getPieceSquareTable(endgame)[((63 - move.getTargetIndex()) / 8) * 8 + (move.getTargetIndex() % 8)]);
-			}
-			if (board.squares.get(move.getTargetIndex()).hasPiece())
-			{
-				evalGuess += board.squares.get(move.getTargetIndex()).getPiece().getValue() - board.squares.get(move.getStartIndex()).getPiece().getValue();
-			}
-			if (move.getPromotedPiece() != 0)
-			{
-				if (move.getPromotedPiece() == 1) evalGuess += 900;
-				else if (move.getPromotedPiece() == 2) evalGuess += 500;
-				else if (move.getPromotedPiece() == 3) evalGuess += 330;
-				else if (move.getPromotedPiece() == 4) evalGuess += 320;
-			}
-			move.setEvalGuess(evalGuess);
+				evalGuess += (100.0 * board.squares.get(move.getTargetIndex()).getPiece().getValue()) / piece.getValue();
 		}
-		moves.sort(Comparator.comparing(Move::getEvalGuess).reversed());
+		if (move.getPromotedPiece() != 0)
+		{
+			if (move.getPromotedPiece() == 1) evalGuess += 900;
+			else if (move.getPromotedPiece() == 2) evalGuess += 500;
+			else if (move.getPromotedPiece() == 3) evalGuess += 330;
+			else if (move.getPromotedPiece() == 4) evalGuess += 320;
+		}
+		move.setEvalGuess(evalGuess);
 	}
 
 	public int staticEvaluation(Board board)
 	{
+		long tempTime = System.currentTimeMillis();
 		numPositions++;
 		double evaluation = 0;
 		evaluation = board.boardInfo.getWhiteMaterial() + board.boardInfo.getWhiteSquareBonus();
 		evaluation -= (board.boardInfo.getBlackMaterial() + board.boardInfo.getBlackSquareBonus());
 		
-		evaluation += forceKingToCorner(board.pieces.get(28), board.pieces.get(4), 1 - (board.boardInfo.getBlackMaterial() / 2000));
-		evaluation -= forceKingToCorner(board.pieces.get(4), board.pieces.get(28), 1 - (board.boardInfo.getWhiteMaterial() / 2000));
+		evaluation += forceKingToCorner(board.whiteKing, board.blackKing, 1 - (board.boardInfo.getBlackMaterial() / 2000));
+		evaluation -= forceKingToCorner(board.blackKing, board.whiteKing, 1 - (board.boardInfo.getWhiteMaterial() / 2000));
 		
 		evaluation *= board.boardInfo.isWhiteToMove() ? 1 : -1;
 		
+		positionEvaluationTime += System.currentTimeMillis() - tempTime;
 		return (int)evaluation;
 	}
 
@@ -392,7 +405,7 @@ public class Engine
 		
 		numPositions = numTranspositions = 0;
 		moveGenTime = movePieceTime = moveBackTime = moveLegalityCheckTime = moveEvalTime = 0;
-		transpositionTime = positionEvaluationTime = 0;
+		transpositionTime = positionEvaluationTime = boardInfoTime = 0;
 		startTime = System.currentTimeMillis();
 		
 		PositionEvaluation posEval = null;
@@ -415,15 +428,13 @@ public class Engine
 			posEval = temp; // set posEval to results of previous search
 			temp = search(depth, negativeInfinity, positiveInfinity, boardCopy, gameTree);
 			depth++;
-			// eventually try and stop early if checkmate found while considering repetition draws
+			// TODO: eventually try and stop early if checkmate found while considering repetition draws
 		}
 		
 		if (temp.getMove() != null)
 		{
 			posEval = temp; // utilize results of previous search
 		}
-		
-		//updateTranspositionsList();
 		
 		engineSearching = false;
 		
@@ -434,7 +445,9 @@ public class Engine
 		System.out.println("Number of positions: " + numPositions + "\t\tNumber of Transpositions: " + numTranspositions + "\t\tStored Transpositions: " + transpositions.size());
 		System.out.println("Move Generation Time: " + moveGenTime + "\t\tMove Eval Time: " + moveEvalTime + "\t\t\tMove Legality Time: " + moveLegalityCheckTime);
 		System.out.println("Move Piece Time: " + movePieceTime + "\t\t\tMove Back Time: " + moveBackTime + "\t\t\tEvaluation Time: " + positionEvaluationTime);
-		System.out.println("Transposition Lookup Time: " + transpositionTime + "\n");
+		System.out.println("Transposition Lookup Time: " + transpositionTime + "\t\t\tBoard Info Time: " + boardInfoTime + "\t\tCheck Repetition Time: " + checkRepetitionTime + "\n");
+		long sum = moveGenTime + moveEvalTime + moveLegalityCheckTime + movePieceTime + moveBackTime + positionEvaluationTime + transpositionTime + boardInfoTime + checkRepetitionTime;
+		System.out.println("Tracked Time: " + sum);
 		
 		boardGlobal.movePiece(posEval.getMove());
 		
@@ -447,22 +460,25 @@ public class Engine
 	
 	public boolean checkRepetition(Board board)
 	{
+		long temp = System.currentTimeMillis();
 		long zobristHash = board.boardInfo.getZobristHash();
-		ArrayList<Long> posList = (ArrayList<Long>) board.boardInfo.getPositionList().clone();
-		posList.remove(posList.size()-1);
-		int index = posList.indexOf(zobristHash);
-		if (index != -1)
+		ArrayList<Long> positions = board.boardInfo.getPositionList();
+		int duplicates = 0;
+		for (int i = (positions.size()-2); i >= 0; i--) // ignore the last position, we dont need to check it
 		{
-			posList.remove(zobristHash);
-			index = posList.indexOf(zobristHash);
-			if (index != -1)
+			if (positions.get(i) == zobristHash)
 			{
-				return true;
+				duplicates++;
+				if (duplicates == 2)
+				{
+					break;
+				}
 			}
 		}
-		return false;
+		
+		checkRepetitionTime += System.currentTimeMillis() - temp;
+		return (duplicates >= 2);
 	}
-
 	
 	public boolean isGameOver(Board board)
 	{
@@ -495,33 +511,23 @@ public class Engine
 		if (depth == 0)
 			return 1;
 		int num = 0;
-		ArrayList<Move> moves = board.generateAllPseudoLegalMoves(board.boardInfo.isWhiteToMove(), false);
+		ArrayList<Move> moves = board.generateAllLegalMoves(board.boardInfo.isWhiteToMove(), false);
 		
-		Iterator<Move> moveIterator = moves.iterator();
+		if (depth == 1) return moves.size();
 		
-		while (moveIterator.hasNext())
+		for (Move move : moves)
 		{
-			Move move = moveIterator.next();
-			if (!board.isMoveLegal(move))
-			{
-				moveIterator.remove();
-				continue;
-			}
-			else if (depth == 1)
-			{
-				num++;
-				continue;
-			}
-			
 			BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
 			ArrayList<PinnedPiece> pins = (ArrayList<PinnedPiece>) board.pinnedPieces.clone();
 			Piece captured = board.movePiece(move);
 			int add = countMoves(depth - 1, originalDepth, board, divide);
-			if (depth == originalDepth && divide) System.out.println(move + " " + add + " " + board.pinnedPieces.size());
-			//if (depth == originalDepth-1 && divide) System.out.println("\t" + move + " " + add);
+			
+			if (depth == originalDepth && divide) System.out.println(move + " " + add);
+			
 			num += add;
 			board.moveBack(move, captured, boardInfoOld, pins);
-		}		
+		}
+		
 		return num;
 	}
 	
@@ -556,28 +562,29 @@ public class Engine
 	class Node<T>
 	{
 		ArrayList<Node<T>> children;
+		//LinkedList<Node<T>> children;
 		T data;
 		
 		public Node(T dataIn)
 		{
 			data = dataIn;
 			children = new ArrayList<Node<T>>();
+			//children = new LinkedList<Node<T>>();
 		}
 		
 		public Node(T dataIn, ArrayList<T> childrenIn)
 		{
 			data = dataIn;
 			children = new ArrayList<Node<T>>(childrenIn.size());
+			//children = new LinkedList<Node<T>>();
 			setChildren(childrenIn);
 		}
 		
 		public void setChildren(ArrayList<T> childrenIn)
 		{
 			children = new ArrayList<Node<T>>(childrenIn.size());
-			for (T child : childrenIn)
-			{
-				children.add(new Node<T>(child));
-			}
+			//children = new LinkedList<Node<T>>();
+			childrenIn.forEach(child -> children.add(new Node<T>(child)));
 		}
 		
 		public void sortChildren(NodeComparator<T> comparator)
