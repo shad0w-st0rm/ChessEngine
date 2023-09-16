@@ -3,12 +3,12 @@ package me.Shadow;
 public class Move
 {
 	private short data;
-	private int evalGuess;
+	private short evalGuess;
 	
 	public Move (int start, int target, int eval)
 	{
 		data |= (start | (target << 6));
-		evalGuess = eval;
+		evalGuess = (short) eval;
 	}
 	
 	public Move (int start, int target, int eval, boolean enPassantCapture, boolean enPassantNew)
@@ -99,8 +99,14 @@ public class Move
 		return data;
 	}
 	
-	public int getEvalGuess() { return evalGuess; }
-	public void setEvalGuess(int eval) { evalGuess = eval; }
+	public int getEvalGuess()
+	{
+		return evalGuess;
+	}
+	public void setEvalGuess(int eval)
+	{
+		evalGuess = (short) eval;
+	}
 	
 	public String toString()
 	{

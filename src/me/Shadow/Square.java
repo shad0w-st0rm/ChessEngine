@@ -1,7 +1,5 @@
 package me.Shadow;
 
-import me.Shadow.pieces.Piece;
-
 public class Square
 {
   private int rank, file;

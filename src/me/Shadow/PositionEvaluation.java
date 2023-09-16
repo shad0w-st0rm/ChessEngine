@@ -15,7 +15,7 @@ public class PositionEvaluation
 	
 	public int getEvaluation()
 	{
-		return ((data << 11) >> 11);
+		return ((data << 11) >> 11); // take advantage of sign extending here
 	}
 	
 	public boolean isLowerBound()
@@ -36,5 +36,10 @@ public class PositionEvaluation
 	public void setMove(Move newMove)
 	{
 		move = newMove;
+	}
+	
+	public String toString()
+	{
+		return "Evaluation: " + getEvaluation() + "\nLower Bound: " + isLowerBound() + "\nDepth: " + getEvalDepth() + "\nMove: " + move.toString();
 	}
 }

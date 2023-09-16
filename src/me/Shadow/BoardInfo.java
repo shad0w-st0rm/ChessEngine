@@ -1,8 +1,6 @@
 package me.Shadow;
 import java.util.ArrayList;
 
-import me.Shadow.pieces.Piece;
-
 public class BoardInfo
 {
 	private boolean whiteToMove;	// 1 bit
@@ -18,6 +16,7 @@ public class BoardInfo
 	private int moveNum;	// 14 bits maximum
 	private int halfMoves;	// 7 bits
 	private ArrayList<Long> positionList = new ArrayList<Long>();
+	private ArrayList<Move> moveList = new ArrayList<Move>();
 	private long zobristHash;
 	
 	final static String defaultFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -47,7 +46,8 @@ public class BoardInfo
 		blackSquareBonus = boardInfoCopy.blackSquareBonus;
 		moveNum = boardInfoCopy.moveNum;
 		halfMoves = boardInfoCopy.halfMoves;
-		positionList = (ArrayList<Long>) boardInfoCopy.positionList.clone(); // this gets cleared sometimes so cannot push and pop positions
+		positionList = boardInfoCopy.positionList;
+		moveList = boardInfoCopy.moveList;
 		// boardFEN = boardInfoCopy.boardFEN;		// this probably doesnt need to be copied over
 		zobristHash = boardInfoCopy.zobristHash;
 	}
@@ -71,7 +71,8 @@ public class BoardInfo
 	public int getBlackSquareBonus() { return blackSquareBonus; }
 	public int getMoveNum() { return moveNum; }
 	public int getHalfMoves() { return halfMoves; }
-	public ArrayList<Long> getPositionList() { return (ArrayList<Long>) positionList; }
+	public ArrayList<Long> getPositionList() { return positionList; }
+	public ArrayList<Move> getMoveList() { return moveList; }
 	public long getZobristHash() { return zobristHash; }
 	public String getBoardFEN() { return boardFEN; }
 	

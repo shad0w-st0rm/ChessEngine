@@ -4,12 +4,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.Timer;
 import java.util.TimerTask;
-
-import me.Shadow.pieces.King;
-import me.Shadow.pieces.Piece;
 
 public class Engine
 {
@@ -50,16 +46,12 @@ public class Engine
 		// originalFEN = "3r4/3r4/3k4/8/8/3K4/8/8 w - - 0 1"; //white king vs black king + 2 rooks
 		// originalFEN = "3r4/8/3k4/8/8/3K4/8/8 w - - 0 1"; //white king vs black king + rook
 		// originalFEN = "8/7k/4p3/2p1P2p/2P1P2P/8/8/7K w - - 0 1"; // king and pawns vs king and pawns
-		// originalFEN = "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - ";
-		// originalFEN = "7k/8/8/8/8/8/8/7K w - - ";
-		// originalFEN = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1";
-		// originalFEN = "r2q1rk1/pP1p2pp/Q4n2/bbp1p3/Np6/1B3NBn/pPPP1PPP/R3K2R b KQ - 0 1";
 
 		boardGlobal.loadFEN(originalFEN);
 		
-		positiveInfinity = 1000000;
+		positiveInfinity = 32767;
 		negativeInfinity = -positiveInfinity;
-		engineIsWhite = true;
+		engineIsWhite = false;
 		if (engineIsWhite == boardGlobal.boardInfo.isWhiteToMove())
 			playerMoveMade = true;
 		transpositions = new HashMap<Long, PositionEvaluation>();
@@ -327,19 +319,13 @@ public class Engine
 	{		
 		Piece piece = board.squares.get(move.getStartIndex()).getPiece();
 		int evalGuess = 0;
-		if (piece.isWhite())
-		{
-			evalGuess -= (piece.getPieceSquareTable(endgame)[move.getStartIndex()]);
-			evalGuess += (piece.getPieceSquareTable(endgame)[move.getTargetIndex()]);
-		}
-		else
-		{
-			evalGuess -= (piece.getPieceSquareTable(endgame)[((63 - move.getStartIndex()) / 8) * 8 + (move.getStartIndex() % 8)]);
-			evalGuess += (piece.getPieceSquareTable(endgame)[((63 - move.getTargetIndex()) / 8) * 8 + (move.getTargetIndex() % 8)]);
-		}
+		
+		evalGuess -= piece.getPieceSquareValue(move.getStartIndex(), endgame);
+		evalGuess -= piece.getPieceSquareValue(move.getTargetIndex(), endgame);
+		
 		if (board.squares.get(move.getTargetIndex()).hasPiece())
 		{
-			if (piece instanceof King)
+			if (piece.getPieceType() == Piece.KING)
 			{
 				evalGuess += (100.0 * board.squares.get(move.getTargetIndex()).getPiece().getValue()) / 100; // TODO: this is an arbitary value
 			}
@@ -428,6 +414,7 @@ public class Engine
 			posEval = temp; // set posEval to results of previous search
 			temp = search(depth, negativeInfinity, positiveInfinity, boardCopy, gameTree);
 			depth++;
+			
 			// TODO: eventually try and stop early if checkmate found while considering repetition draws
 		}
 		
@@ -464,15 +451,13 @@ public class Engine
 		long zobristHash = board.boardInfo.getZobristHash();
 		ArrayList<Long> positions = board.boardInfo.getPositionList();
 		int duplicates = 0;
-		for (int i = (positions.size()-2); i >= 0; i--) // ignore the last position, we dont need to check it
+		int max = Math.min(board.boardInfo.getHalfMoves(), positions.size()); // we only care about positions which could actually be duplicates
+		for (int i = 0; i < max; i++)
 		{
-			if (positions.get(i) == zobristHash)
+			if (positions.get(positions.size() - 2 - i) == zobristHash) // ignore the last position, we dont need to check it
 			{
 				duplicates++;
-				if (duplicates == 2)
-				{
-					break;
-				}
+				if (duplicates == 2) break;
 			}
 		}
 		

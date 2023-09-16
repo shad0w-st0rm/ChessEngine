@@ -29,8 +29,6 @@ import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 
-import me.Shadow.pieces.*;
-
 public class ChessGui
 {
 	final JPanel gui = new JPanel(new BorderLayout(3, 3));
@@ -261,17 +259,17 @@ public class ChessGui
 			ImageIcon icon = new ImageIcon(new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB));
 			if (square.hasPiece())
 			{
-				if (square.getPiece() instanceof Pawn)
+				if (square.getPiece().getPieceType() == Piece.PAWN)
 					icon = new ImageIcon(chessPieceImages[square.getPiece().isWhite() ? WHITE : BLACK][PAWN]);
-				else if (square.getPiece() instanceof Knight)
+				else if (square.getPiece().getPieceType() == Piece.KNIGHT)
 					icon = new ImageIcon(chessPieceImages[square.getPiece().isWhite() ? WHITE : BLACK][KNIGHT]);
-				else if (square.getPiece() instanceof Rook)
+				else if (square.getPiece().getPieceType() == Piece.ROOK)
 					icon = new ImageIcon(chessPieceImages[square.getPiece().isWhite() ? WHITE : BLACK][ROOK]);
-				else if (square.getPiece() instanceof Bishop)
+				else if (square.getPiece().getPieceType() == Piece.BISHOP)
 					icon = new ImageIcon(chessPieceImages[square.getPiece().isWhite() ? WHITE : BLACK][BISHOP]);
-				else if (square.getPiece() instanceof Queen)
+				else if (square.getPiece().getPieceType() == Piece.QUEEN)
 					icon = new ImageIcon(chessPieceImages[square.getPiece().isWhite() ? WHITE : BLACK][QUEEN]);
-				else if (square.getPiece() instanceof King)
+				else if (square.getPiece().getPieceType() == Piece.KING)
 					icon = new ImageIcon(chessPieceImages[square.getPiece().isWhite() ? WHITE : BLACK][KING]);
 			}
 			chessBoardSquares[squareRow][squareCol].setIcon(icon);

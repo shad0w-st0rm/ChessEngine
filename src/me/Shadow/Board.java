@@ -1,16 +1,7 @@
 package me.Shadow;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.Random;
-
-import me.Shadow.pieces.Bishop;
-import me.Shadow.pieces.King;
-import me.Shadow.pieces.Knight;
-import me.Shadow.pieces.Pawn;
-import me.Shadow.pieces.Piece;
-import me.Shadow.pieces.Queen;
-import me.Shadow.pieces.Rook;
 
 public class Board
 {
@@ -88,17 +79,17 @@ public class Board
 		PinnedPiece pinnedObj = isPiecePinned(piece);
 		
 		if (pinnedObj != null && isPiecePinnedAbsolutely(piece, pinnedObj.pinner)) return false; // TODO: update isPiecePinnedAbsolutely signature
-		if (boardInfo.isDoubleCheck() && !(piece instanceof King)) return false;
-		if (pinnedObj != null && boardInfo.getCheckPiece() != null && piece instanceof Pawn) return false;
+		if (boardInfo.isDoubleCheck() && (piece.getPieceType() != Piece.KING)) return false;
+		if (pinnedObj != null && boardInfo.getCheckPiece() != null && (piece.getPieceType() == Piece.PAWN)) return false;
 		
-		if (pinnedObj == null && boardInfo.getCheckPiece() == null && !(piece instanceof King))
+		if (pinnedObj == null && boardInfo.getCheckPiece() == null && (piece.getPieceType() != Piece.KING))
 		{
-			if (piece instanceof Pawn && move.getEnPassantCaptureIndex() != -1)
+			if ((piece.getPieceType() == Piece.PAWN) && move.getEnPassantCaptureIndex() != -1)
 				return isEnPassantLegal(move);
 			return true;
 		}
 		
-		if (piece instanceof King) // if moving a king
+		if (piece.getPieceType() == Piece.KING) // if moving a king
 		{
 			if (move.isCastleMove())
 				return castleLegalityHelper(piece, move);
@@ -153,7 +144,7 @@ public class Board
 			{
 				// if the pawn is pinned vertically, this will be true only for advancing, not capturing left/right
 				// if it is pinned diagonally, it will only be true for the capture of the pinning piece so this works
-				if (piece instanceof Pawn)
+				if (piece.getPieceType() == Piece.PAWN)
 					return (move.getTargetIndex() % 8) == (pinnedObj.pinner.getSquare().getIndex() % 8);
 				
 				// cannot be a pawn, knight (always absolutely pinned), or king so must be a slider
@@ -233,13 +224,13 @@ public class Board
 		int pieceRank = piece.getSquare().getRank();
 		int pieceFile = piece.getSquare().getFile();
 		
-		if (piece instanceof Rook || piece instanceof Bishop || piece instanceof Queen)
+		if (piece.getPieceType() == Piece.QUEEN || piece.getPieceType() == Piece.ROOK || piece.getPieceType() == Piece.BISHOP)
 		{
-			if (piece instanceof Rook && (targetRank != pieceRank && targetFile != pieceFile))
+			if ((piece.getPieceType() == Piece.ROOK) && (targetRank != pieceRank && targetFile != pieceFile))
 				return false;
-			else if (piece instanceof Bishop && (Math.abs(targetRank - pieceRank) != Math.abs(targetFile - pieceFile)))
+			else if ((piece.getPieceType() == Piece.BISHOP) && (Math.abs(targetRank - pieceRank) != Math.abs(targetFile - pieceFile)))
 				return false;
-			else if (piece instanceof Queen && ((targetRank != pieceRank && targetFile != pieceFile) && (Math.abs(targetRank - pieceRank) != Math.abs(targetFile - pieceFile))))
+			else if ((piece.getPieceType() == Piece.QUEEN) && ((targetRank != pieceRank && targetFile != pieceFile) && (Math.abs(targetRank - pieceRank) != Math.abs(targetFile - pieceFile))))
 				return false;
 			
 			int step = 0;
@@ -264,7 +255,7 @@ public class Board
 			}
 			return true; // if no piece in between, move is not legal
 		}
-		else if (piece instanceof Pawn)
+		else if (piece.getPieceType() == Piece.PAWN)
 		{
 			if (target.isDark() != piece.getSquare().isDark()) return false; // pawns attack the same color square
 			
@@ -274,7 +265,7 @@ public class Board
 			}
 			return false;
 		}
-		else if (piece instanceof King)
+		else if (piece.getPieceType() == Piece.KING)
 		{
 			// if enemy king is not within one rank AND one file, move must be legal
 			if (Math.abs(targetRank - pieceRank) > 1 || Math.abs(targetFile - pieceFile) > 1)
@@ -282,7 +273,7 @@ public class Board
 			else
 				return true; // if within that distance, move is not legal
 		}
-		else if (piece instanceof Knight)
+		else if (piece.getPieceType() == Piece.KNIGHT)
 		{
 			if (target.isDark() == piece.getSquare().isDark()) return false; // knights cannot attack the same color square
 			if (Math.abs(targetIndex - pieceIndex) > 17) return false; // maximum index movement of a knight
@@ -332,20 +323,19 @@ public class Board
 	public ArrayList<Square> getSquaresInBetween(Piece piece, Square target)
 	{
 		ArrayList<Square> squaresList = new ArrayList<Square>();
-		if (!(piece instanceof Bishop || piece instanceof Rook || piece instanceof Queen)) return squaresList;
+		if (piece.getPieceType() != Piece.QUEEN && piece.getPieceType() != Piece.ROOK && piece.getPieceType() != Piece.BISHOP) return squaresList;
 		
-		int targetIndex = target.getIndex();
 		int targetRank = target.getRank();
 		int targetFile = target.getFile();
 		int pieceIndex = piece.getSquare().getIndex();
 		int pieceRank = piece.getSquare().getRank();
 		int pieceFile = piece.getSquare().getFile();
 		
-		if (piece instanceof Rook && (targetRank != pieceRank && targetFile != pieceFile))
+		if (piece.getPieceType() == Piece.ROOK && (targetRank != pieceRank && targetFile != pieceFile))
 			return squaresList;
-		else if (piece instanceof Bishop && (Math.abs(targetRank - pieceRank) != Math.abs(targetFile - pieceFile)))
+		else if (piece.getPieceType() == Piece.BISHOP && (Math.abs(targetRank - pieceRank) != Math.abs(targetFile - pieceFile)))
 			return squaresList;
-		else if (piece instanceof Queen && ((targetRank != pieceRank && targetFile != pieceFile) && (Math.abs(targetRank - pieceRank) != Math.abs(targetFile - pieceFile))))
+		else if (piece.getPieceType() == Piece.QUEEN && ((targetRank != pieceRank && targetFile != pieceFile) && (Math.abs(targetRank - pieceRank) != Math.abs(targetFile - pieceFile))))
 			return squaresList;
 		
 		int step = 0;
@@ -399,7 +389,7 @@ public class Board
 			if (newSquare.getPiece() != null && newSquare.getPiece() != enemy)
 			{
 				Piece piece = newSquare.getPiece();
-				if (piece.isWhite() != pawn.isWhite() && (piece instanceof Rook || piece instanceof Queen)) return false;
+				if (piece.isWhite() != pawn.isWhite() && (piece.getPieceType() == Piece.ROOK || piece.getPieceType() == Piece.QUEEN)) return false;
 				
 				return true;
 			}
@@ -424,7 +414,7 @@ public class Board
 
 		boolean isWhite = piece.isWhite();
 
-		if (piece instanceof Pawn)
+		if (piece.getPieceType() == Piece.PAWN)
 		{
 			int targetRankIndex = index + (isWhite ? -8 : 8);
 			if (targetRankIndex > 63 || targetRankIndex < 0)
@@ -486,7 +476,7 @@ public class Board
 			}
 		}
 
-		else if (piece instanceof Knight)
+		else if (piece.getPieceType() == Piece.KNIGHT)
 		{
 			// knightMoves[] gives the index offsets for the 8 possible knight moves
 			for (int i = 0; i < knightMoves.length; i++)
@@ -502,11 +492,11 @@ public class Board
 			}
 		}
 
-		else if (piece instanceof Queen || piece instanceof Rook || piece instanceof Bishop)
+		else if (piece.getPieceType() == Piece.QUEEN || piece.getPieceType() == Piece.ROOK || piece.getPieceType() == Piece.BISHOP)
 		{
 			// sets which indices of sliderMoves[] to check depending on piece;
-			int sliderArrayStart = piece instanceof Bishop ? 4 : 0; // start at 4 if bishop, 0 if rook or queen
-			int sliderArrayLength = piece instanceof Queen ? 8 : 4; // iterate over all 8 elements if queen, otherwise only 4 for rook and bishop
+			int sliderArrayStart = piece.getPieceType() == Piece.BISHOP ? 4 : 0; // start at 4 if bishop, 0 if rook or queen
+			int sliderArrayLength = piece.getPieceType() == Piece.QUEEN ? 8 : 4; // iterate over all 8 elements if queen, otherwise only 4 for rook and bishop
 
 			for (int i = sliderArrayStart; i < sliderArrayStart + sliderArrayLength; i++)
 			{
@@ -543,7 +533,7 @@ public class Board
 			}
 		}
 
-		else if (piece instanceof King)
+		else if (piece.getPieceType() == Piece.KING)
 		{
 			for (int i = 0; i < sliderMoves.length; i++)
 			{
@@ -604,12 +594,9 @@ public class Board
 		Piece capturedPiece = null;
 
 		long newZobristHash = updateZobristHash(move);
-		if (capturedPiece != null || piece instanceof Pawn)
-		{
-			boardInfo.getPositionList().clear();
-		}
 		boardInfo.setZobristHash(newZobristHash);	// set the hash
 		boardInfo.getPositionList().add(newZobristHash);
+		boardInfo.getMoveList().add(move);
 		
 
 		// update boardInfo information
@@ -617,35 +604,28 @@ public class Board
 		boardInfo.setCheckPiece(null);
 		boardInfo.setDoubleCheck(false);
 		boardInfo.setHalfMoves(boardInfo.getHalfMoves() + 1);
-		if (piece instanceof Pawn)
+		if (piece.getPieceType() == Piece.PAWN)
 			boardInfo.setHalfMoves(0); // reset half moves for 50 move rule
 		if (!piece.isWhite())
 			boardInfo.setMoveNum(boardInfo.getMoveNum() + 1);
 		
 		// update the material
 		boolean endgame = boardInfo.getWhiteMaterial() + boardInfo.getBlackMaterial() < 4000;
+		int differential = piece.getPieceSquareValue(move.getTargetIndex(), endgame) - piece.getPieceSquareValue(move.getStartIndex(), endgame);
+		
 		if (piece.isWhite())
-		{
-			int newBonus = boardInfo.getWhiteSquareBonus();
-			newBonus -= (piece.getPieceSquareTable(endgame)[move.getStartIndex()]);
-			newBonus += (piece.getPieceSquareTable(endgame)[move.getTargetIndex()]);
-			boardInfo.setWhiteSquareBonus(newBonus);
-		}
+			boardInfo.setWhiteSquareBonus(boardInfo.getWhiteSquareBonus() + differential);
 		else
-		{
-			int newBonus = boardInfo.getBlackSquareBonus();
-			newBonus -= (piece.getPieceSquareTable(endgame)[((63 - piece.getSquare().getIndex()) / 8) * 8 + (piece.getSquare().getIndex() % 8)]);
-			newBonus += (piece.getPieceSquareTable(endgame)[((63 - move.getTargetIndex()) / 8) * 8 + (move.getTargetIndex() % 8)]);
-			boardInfo.setBlackSquareBonus(newBonus);
-		}
+			boardInfo.setBlackSquareBonus(boardInfo.getBlackSquareBonus() + differential);
 
 		if (capture.hasPiece()) // if move is a capture
 		{
 			boardInfo.setHalfMoves(0); // reset half moves for 50 move rule
 			capturedPiece = capture.getPiece();
 			
-			if (capturedPiece instanceof King)
+			if (capturedPiece.getPieceType() == Piece.KING)
 			{
+				System.out.println(boardInfo.getMoveList());
 				printBoard();
 			}
 			
@@ -653,15 +633,15 @@ public class Board
 			if (capturedPiece.isWhite())
 			{
 				boardInfo.setWhiteMaterial(boardInfo.getWhiteMaterial() - capturedPiece.getValue());
-				boardInfo.setWhiteSquareBonus(boardInfo.getWhiteSquareBonus() - (capturedPiece.getPieceSquareTable(endgame)[capturedPiece.getSquare().getIndex()]));
+				boardInfo.setWhiteSquareBonus(boardInfo.getWhiteSquareBonus() - (capturedPiece.getPieceSquareValue(capture.getIndex(), endgame)));
 			}
 			else
 			{
 				boardInfo.setBlackMaterial(boardInfo.getBlackMaterial() - capturedPiece.getValue());
-				boardInfo.setBlackSquareBonus(boardInfo.getBlackSquareBonus() - (capturedPiece.getPieceSquareTable(endgame)[((63 - capturedPiece.getSquare().getIndex()) / 8) * 8 + (capturedPiece.getSquare().getIndex() % 8)]));
+				boardInfo.setBlackSquareBonus(boardInfo.getBlackSquareBonus() - (capturedPiece.getPieceSquareValue(capture.getIndex(), endgame)));
 			}
 			
-			if (capturedPiece instanceof Rook) // update castling rights if rook was captured
+			if (capturedPiece.getPieceType() == Piece.ROOK) // update castling rights if rook was captured
 			{
 				boolean[] castlingRights = boardInfo.getCastlingRights();
 				if (castlingRights[0] && target.getIndex() == 63)
@@ -682,13 +662,13 @@ public class Board
 			if (capturedPiece.isWhite())
 			{
 				whitePieces.remove(capturedPiece);
-				if (!(capturedPiece instanceof Pawn || capturedPiece instanceof Knight))
+				if (capturedPiece.getPieceType() != Piece.PAWN && capturedPiece.getPieceType() != Piece.KNIGHT)
 					whiteSliders.remove(capturedPiece);
 			}
 			else
 			{
 				blackPieces.remove(capturedPiece);
-				if (!(capturedPiece instanceof Pawn || capturedPiece instanceof Knight))
+				if (capturedPiece.getPieceType() != Piece.PAWN && capturedPiece.getPieceType() != Piece.KNIGHT)
 					blackSliders.remove(capturedPiece);
 			}
 		}
@@ -704,11 +684,6 @@ public class Board
 			rookStart.removePiece();
 			rookTarget.addPiece(rook);
 
-			// move the king
-			piece.setSquare(target);
-			start.removePiece();
-			target.addPiece(piece);
-
 			// update castling rights
 			boolean[] castlingRights = boardInfo.getCastlingRights();
 			if (piece.isWhite())
@@ -717,75 +692,41 @@ public class Board
 				castlingRights[2] = castlingRights[3] = false;
 			boardInfo.setCastlingRights(castlingRights);
 			
+			int rookDifferential = rook.getPieceSquareValue(rookTarget.getIndex(), endgame) - rook.getPieceSquareValue(rookStart.getIndex(), endgame);
 			if (piece.isWhite())
-			{
-				int newBonus = boardInfo.getWhiteSquareBonus();
-				newBonus -= (rook.getPieceSquareTable(endgame)[rookStart.getIndex()]);
-				newBonus += (rook.getPieceSquareTable(endgame)[rookTarget.getIndex()]);
-				boardInfo.setWhiteSquareBonus(newBonus);
-			}
+				boardInfo.setWhiteSquareBonus(boardInfo.getWhiteSquareBonus() + rookDifferential);
 			else
-			{
-				int newBonus = boardInfo.getBlackSquareBonus();
-				newBonus -= (rook.getPieceSquareTable(endgame)[((63 - rookStart.getIndex()) / 8) * 8 + (rookStart.getIndex() % 8)]);
-				newBonus += (rook.getPieceSquareTable(endgame)[((63 - rookTarget.getIndex()) / 8) * 8 + (rookTarget.getIndex() % 8)]);
-				boardInfo.setBlackSquareBonus(newBonus);
-			}
+				boardInfo.setBlackSquareBonus(boardInfo.getBlackSquareBonus() + rookDifferential);
 		}
 		else if (move.getPromotedPiece() != 0) // if move is promotion
 		{
-			Piece promoted = null;
-			
-			if (move.getPromotedPiece() == 1) promoted = new Queen(null, piece.isWhite());
-			else if (move.getPromotedPiece() == 2) promoted = new Rook(null, piece.isWhite());
-			else if (move.getPromotedPiece() == 3) promoted = new Bishop(null, piece.isWhite());
-			else if (move.getPromotedPiece() == 4) promoted = new Knight(null, piece.isWhite());
-			
-			// replace the pawn with the new piece
-			if (piece.isWhite())
-			{
-				whitePieces.set(whitePieces.indexOf(piece), promoted);
-				if (!(promoted instanceof Knight)) whiteSliders.add(promoted);
-			}
-			else
-			{
-				blackPieces.set(blackPieces.indexOf(piece), promoted);
-				if (!(promoted instanceof Knight)) blackSliders.add(promoted);
-			}
-			piece.getSquare().addPiece(promoted);
-
-			// place the new piece on the board
-			promoted.setSquare(target);
-			start.removePiece();
-			target.addPiece(promoted);
-
 			// update material
-			if (piece.isWhite())
-				boardInfo.setWhiteMaterial(boardInfo.getWhiteMaterial() - piece.getValue() + promoted.getValue());
-			else
-				boardInfo.setBlackMaterial(boardInfo.getBlackMaterial() - piece.getValue() + promoted.getValue());
+			int materialDifference = piece.getValue();
+			int promotedDifferential = piece.getPieceSquareValue(target.getIndex(), endgame);
 			
+			piece.setPieceType(move.getPromotedPiece());
+			if (piece.getPieceType() != Piece.KNIGHT)
+			{
+				if (piece.isWhite()) whiteSliders.add(piece);
+				else blackSliders.add(piece);
+			}
+			
+			// update material
+			materialDifference = piece.getValue() - materialDifference;
 			if (piece.isWhite())
-			{
-				int newBonus = boardInfo.getWhiteSquareBonus();
-				newBonus -= (piece.getPieceSquareTable(endgame)[target.getIndex()]);
-				newBonus += (promoted.getPieceSquareTable(endgame)[target.getIndex()]);
-				boardInfo.setWhiteSquareBonus(newBonus);
-			}
+				boardInfo.setWhiteMaterial(boardInfo.getWhiteMaterial() + materialDifference);
 			else
-			{
-				int newBonus = boardInfo.getBlackSquareBonus();
-				newBonus -= (piece.getPieceSquareTable(endgame)[((63 - target.getIndex()) / 8) * 8 + (target.getIndex() % 8)]);
-				newBonus += (promoted.getPieceSquareTable(endgame)[((63 - target.getIndex()) / 8) * 8 + (target.getIndex() % 8)]);
-				boardInfo.setBlackSquareBonus(newBonus);
-			}
-
-			// set piece to the new piece
-			piece = promoted;
+				boardInfo.setBlackMaterial(boardInfo.getBlackMaterial() + materialDifference);
+			
+			promotedDifferential = piece.getPieceSquareValue(target.getIndex(), endgame) - promotedDifferential;
+			if (piece.isWhite())
+				boardInfo.setWhiteSquareBonus(boardInfo.getWhiteSquareBonus() + promotedDifferential);
+			else
+				boardInfo.setBlackSquareBonus(boardInfo.getBlackSquareBonus() + promotedDifferential);
 		}
 		else // if it is a normal move
 		{
-			if (piece instanceof Rook) // update castling rights if rook move
+			if (piece.getPieceType() == Piece.ROOK) // update castling rights if rook move
 			{
 				boolean[] castlingRights = boardInfo.getCastlingRights();
 				if (castlingRights[0] && move.getStartIndex() == 63)
@@ -799,7 +740,7 @@ public class Board
 				boardInfo.setCastlingRights(castlingRights);
 			}
 
-			else if (piece instanceof King) // update castling rights if king move
+			else if (piece.getPieceType() == Piece.KING) // update castling rights if king move
 			{
 				boolean[] castlingRights = boardInfo.getCastlingRights();
 				if (piece.isWhite())
@@ -808,17 +749,17 @@ public class Board
 					castlingRights[2] = castlingRights[3] = false;
 				boardInfo.setCastlingRights(castlingRights);
 			}
-
-			// move the piece to the new square
-			piece.setSquare(target);
-			start.removePiece();
-			target.addPiece(piece);
 		}
+		
+		// move the piece to the new square
+		piece.setSquare(target);
+		start.removePiece();
+		target.addPiece(piece);
 
 		// set or reset en passant index
 		boardInfo.setEnPassantIndex(move.getEnPassantNewIndex());
 		
-		if (piece instanceof Knight || piece instanceof Pawn)
+		if (piece.getPieceType() == Piece.KNIGHT || piece.getPieceType() == Piece.PAWN)
 		{
 			if (canPieceAttackSquare(piece, (piece.isWhite() ? blackKing : whiteKing).getSquare()))
 			{
@@ -839,7 +780,7 @@ public class Board
 		
 		pinnedPieces.removeIf(pinnedPiece -> (pinnedPiece.pinner == captured || pinnedPiece.pinner == piece || pinnedPiece.pinned == captured || pinnedPiece.pinned == piece));
 		
-		if (piece instanceof King)
+		if (piece.getPieceType() == Piece.KING)
 		{
 			checkAllPins();
 			return;
@@ -857,16 +798,7 @@ public class Board
 		checkCreatedPin(target, (piece.isWhite() ? whiteKing : blackKing).getSquare());
 		
 		Piece pinned = getPiecePinnedBySlider(piece, (piece.isWhite() ? blackKing : whiteKing).getSquare());
-		if (pinned instanceof King)
-		{
-			if (boardInfo.getCheckPiece() != null && boardInfo.getCheckPiece() != piece) boardInfo.setDoubleCheck(true);
-			else boardInfo.setCheckPiece(piece);
-		}
-		else if (pinned != null)
-		{
-			PinnedPiece pinnedPiece = new PinnedPiece(pinned, piece);
-			pinnedPieces.add(pinnedPiece);
-		}
+		createPin(pinned, piece);
 		
 		pinnedPieces.removeIf(pinnedPiece -> (getPiecePinnedBySlider(pinnedPiece.pinner, (pinnedPiece.pinner.isWhite() ? blackKing : whiteKing).getSquare()) == null));
 	}
@@ -914,16 +846,7 @@ public class Board
 				if (piece.isWhite() != king.getPiece().isWhite())
 				{
 					Piece pinned = getPiecePinnedBySlider(piece, king);
-					if (pinned instanceof King)
-					{
-						if (boardInfo.getCheckPiece() != null && boardInfo.getCheckPiece() != piece) boardInfo.setDoubleCheck(true);
-						else boardInfo.setCheckPiece(piece);
-					}
-					else if (pinned != null)
-					{
-						PinnedPiece pinnedPiece = new PinnedPiece(pinned, piece);
-						pinnedPieces.add(pinnedPiece);;
-					}
+					createPin(pinned, piece);
 					return;
 				}
 				else
@@ -958,33 +881,42 @@ public class Board
 		pinnedPieces.removeIf(pinnedPiece -> (pinnedPiece.pinner == slider));
 		
 		Piece pinned = getPiecePinnedBySlider(slider, king);
-		if (pinned instanceof King)
+		createPin(pinned, slider);
+	}
+	
+	public void createPin(Piece pinned, Piece slider)
+	{
+		if (pinned != null)
 		{
-			if (boardInfo.getCheckPiece() != null && boardInfo.getCheckPiece() != slider) boardInfo.setDoubleCheck(true);
-			else boardInfo.setCheckPiece(slider);
-		}
-		else if (pinned != null)
-		{
-			PinnedPiece pinnedPiece = new PinnedPiece(pinned, slider);
-			pinnedPieces.add(pinnedPiece);
+			if (pinned.getPieceType() == Piece.KING)
+			{
+				if (boardInfo.getCheckPiece() != null && boardInfo.getCheckPiece() != slider) boardInfo.setDoubleCheck(true);
+				else boardInfo.setCheckPiece(slider);
+			}
+			else
+			{
+				PinnedPiece pinnedPiece = new PinnedPiece(pinned, slider);
+				pinnedPieces.add(pinnedPiece);
+			}
 		}
 	}
 	
-	public Piece getPiecePinnedBySlider(Piece friendlySlider, Square enemyKing)
+	public Piece getPiecePinnedBySlider(Piece slider, Square enemyKing)
 	{
-		if (!(friendlySlider instanceof Bishop || friendlySlider instanceof Rook || friendlySlider instanceof Queen)) return null;
+		if (slider.getPieceType() != Piece.QUEEN && slider.getPieceType() != Piece.ROOK && slider.getPieceType() != Piece.BISHOP)
+			return null;
 		
-		int sliderIndex = friendlySlider.getSquare().getIndex();
-		int sliderRank = friendlySlider.getSquare().getRank();
-		int sliderFile = friendlySlider.getSquare().getFile();
+		int sliderIndex = slider.getSquare().getIndex();
+		int sliderRank = slider.getSquare().getRank();
+		int sliderFile = slider.getSquare().getFile();
 		int kingRank = enemyKing.getRank();
 		int kingFile = enemyKing.getFile();
 		
-		if (friendlySlider instanceof Rook && (kingRank != sliderRank && kingFile != sliderFile))
+		if (slider.getPieceType() == Piece.ROOK && (kingRank != sliderRank && kingFile != sliderFile))
 			return null;
-		else if (friendlySlider instanceof Bishop && (Math.abs(kingRank - sliderRank) != Math.abs(kingFile - sliderFile)))
+		else if (slider.getPieceType() == Piece.BISHOP && (Math.abs(kingRank - sliderRank) != Math.abs(kingFile - sliderFile)))
 			return null;
-		else if (friendlySlider instanceof Queen && ((kingRank != sliderRank && kingFile != sliderFile) && (Math.abs(kingRank - sliderRank) != Math.abs(kingFile - sliderFile))))
+		else if (slider.getPieceType() == Piece.QUEEN && ((kingRank != sliderRank && kingFile != sliderFile) && (Math.abs(kingRank - sliderRank) != Math.abs(kingFile - sliderFile))))
 			return null;
 		
 		int step = 0;
@@ -1013,7 +945,7 @@ public class Board
 		}
 		// if this is reached, at most one piece found between slider and king
 		if (pinnedPiece == null) return enemyKing.getPiece(); // no pinned piece, king attacked directly
-		else if(pinnedPiece.isWhite() == friendlySlider.isWhite()) return null; // TODO: at some point track discovered check pieces as well but for now cannot pin your own piece
+		else if(pinnedPiece.isWhite() == slider.isWhite()) return null; // TODO: at some point track discovered check pieces as well but for now cannot pin your own piece
 		else return pinnedPiece; // return the pinned piece
 	}
 
@@ -1027,6 +959,8 @@ public class Board
 	public void moveBack(Move move, Piece captured, BoardInfo boardInfoOld, ArrayList<PinnedPiece> pinnedPiecesOld)
 	{
 		boardInfo = boardInfoOld; // replace current BoardInfo object with the old BoardInfo object
+		boardInfo.getPositionList().remove(boardInfo.getPositionList().size()-1); // remove the most recent position
+		boardInfo.getMoveList().remove(boardInfo.getMoveList().size()-1); // remove the most recent move
 		pinnedPieces = pinnedPiecesOld;
 
 		Square start = squares.get(move.getStartIndex());
@@ -1049,22 +983,12 @@ public class Board
 		}
 		else if (move.getPromotedPiece() != 0) // if it was a promotion
 		{
-			Piece pawn = new Pawn(start, piece.isWhite());
-			// replace promoted piece with a pawn
-			if (piece.isWhite())
+			if (piece.getPieceType() != Piece.KNIGHT)
 			{
-				whitePieces.set(whitePieces.indexOf(piece), pawn);
-				if (!(piece instanceof Knight))
-					whiteSliders.remove(piece);
+				if (piece.isWhite()) whiteSliders.remove(piece);
+				else blackSliders.remove(piece);
 			}
-			else
-			{
-				blackPieces.set(blackPieces.indexOf(piece), pawn);
-				if (!(piece instanceof Knight))
-					blackSliders.remove(piece);
-			}
-			piece.getSquare().removePiece();
-			start.addPiece(pawn);
+			piece.setPieceType(Piece.PAWN);
 		}
 		else if (move.getEnPassantCaptureIndex() != -1) // if en passant move
 		{
@@ -1080,32 +1004,22 @@ public class Board
 			if (captured.isWhite())
 			{
 				whitePieces.add(captured);
-				if (!(captured instanceof Knight || captured instanceof Pawn)) whiteSliders.add(captured);
+				if (captured.getPieceType() != Piece.KNIGHT && captured.getPieceType() != Piece.PAWN) whiteSliders.add(captured);
 			}
 			else
 			{
 				blackPieces.add(captured);
-				if (!(captured instanceof Knight || captured instanceof Pawn)) blackSliders.add(captured);
-			}
-		}
-		
-		for (PinnedPiece pin : pinnedPieces)
-		{
-			if (pin.pinned instanceof Pawn && (whitePieces.indexOf(pin.pinned) == -1 && blackPieces.indexOf(pin.pinned) == -1)) // TODO: technically wasteful to check both lists, fix at some point
-			{
-				pin.pinned = getPiecePinnedBySlider(pin.pinner, (pin.pinner.isWhite() ? blackKing : whiteKing).getSquare());
-				break;
+				if (captured.getPieceType() != Piece.KNIGHT && captured.getPieceType() != Piece.PAWN) blackSliders.add(captured);
 			}
 		}
 	}
 	
 	public boolean isPiecePinnedAbsolutely(Piece pinned, Piece pinner)
 	{
-		if (pinned instanceof Queen) return false; // quick exit to avoid calling canPieceAttackSquare
-		if (pinned instanceof Knight) return true; // quick exit to avoid calling canPieceAttackSquare
-		if (pinned.getClass() == pinner.getClass()) return false; // quick exit to avoid calling canPieceAttackSquare
+		if (pinned.getPieceType() == Piece.QUEEN) return false; // quick exit to avoid calling canPieceAttackSquare
+		if (pinned.getPieceType() == Piece.KNIGHT) return true; // quick exit to avoid calling canPieceAttackSquare
 		if (canPieceAttackSquare(pinned, pinner.getSquare())) return false; // if the pinned piece can capture the pinner, at least one legal move exists (no piece can be double pinned to the king)
-		if (pinned instanceof Pawn && (pinner instanceof Rook || pinner instanceof Queen))
+		if (pinned.getPieceType() == Piece.PAWN && (pinner.getPieceType() == Piece.QUEEN || pinner.getPieceType() == Piece.ROOK))
 			return (pinned.getSquare().getFile() != pinner.getSquare().getFile());
 		
 		return true;
@@ -1164,7 +1078,7 @@ public class Board
 		
 		boolean [] castlingRights = boardInfo.getCastlingRights();
 		
-		if (captured instanceof Rook)
+		if (captured != null && captured.getPieceType() == Piece.ROOK)
 		{
 			// remove castling rights because rook captured
 			if (castlingRights[0] && move.getTargetIndex() == 63)
@@ -1177,7 +1091,7 @@ public class Board
 				zobristHash ^= zobristHashes[772];
 		}
 		
-		if (piece instanceof Rook)
+		if (piece.getPieceType() == Piece.ROOK)
 		{
 			// remove castling rights because rook move
 			if (castlingRights[0] && move.getStartIndex() == 63)
@@ -1189,7 +1103,7 @@ public class Board
 			else if (castlingRights[3] && move.getStartIndex() == 0)
 				zobristHash ^= zobristHashes[772];
 		}
-		else if (piece instanceof King)
+		else if (piece.getPieceType() == Piece.KING)
 		{
 			// remove castling rights (and removes castling rights if this is a castle move as well)
 			if (piece.isWhite())
@@ -1263,29 +1177,29 @@ public class Board
 					boolean isWhite = ((int) c) > 65 && ((int) c) < 90; // check if isWhite by looking at the case of the letter c
 										
 					if (c == 'k' || c == 'K')
-						piece = new King(square, isWhite);
+						piece = new Piece(Piece.KING, isWhite, square);
 					else if (c == 'q' || c == 'Q')
-						piece = new Queen(square, isWhite);
+						piece = new Piece(Piece.QUEEN, isWhite, square);
 					else if (c == 'r' || c == 'R')
-						piece = new Rook(square, isWhite);
+						piece = new Piece(Piece.ROOK, isWhite, square);
 					else if (c == 'b' || c == 'B')
-						piece = new Bishop(square, isWhite);
+						piece = new Piece(Piece.BISHOP, isWhite, square);
 					else if (c == 'n' || c == 'N')
-						piece = new Knight(square, isWhite);
+						piece = new Piece(Piece.KNIGHT, isWhite, square);
 					else if (c == 'p' || c == 'P')
-						piece = new Pawn(square, isWhite);
+						piece = new Piece(Piece.PAWN, isWhite, square);
 					
 					piece.setSquare(square);
 					square.addPiece(piece);
 					if (isWhite) whitePieces.add(piece);
 					else blackPieces.add(piece);
 					
-					if (piece instanceof King)
+					if (piece.getPieceType() == Piece.KING)
 					{
 						if (piece.isWhite()) whiteKing = piece;
 						else blackKing = piece;
 					}
-					else if (!(piece instanceof Knight || piece instanceof Pawn))
+					else if (piece.getPieceType() != Piece.KNIGHT && piece.getPieceType() != Piece.PAWN)
 					{
 						if (piece.isWhite()) whiteSliders.add(piece);
 						else blackSliders.add(piece);
@@ -1347,7 +1261,7 @@ public class Board
 		// iterate over only knights and pawns to check if king is in check
 		for (Piece piece : (boardInfo.isWhiteToMove() ? blackPieces : whitePieces))
 		{
-			if (piece instanceof Knight || piece instanceof Pawn)
+			if (piece.getPieceType() == Piece.KNIGHT || piece.getPieceType() == Piece.PAWN)
 			{
 				if (canPieceAttackSquare(piece, (boardInfo.isWhiteToMove() ? whiteKing : blackKing).getSquare()))
 				{
@@ -1373,10 +1287,10 @@ public class Board
 		boardInfo.setBlackSquareBonus(0);
 		
 		for (Piece piece : whitePieces)
-			boardInfo.setWhiteSquareBonus(boardInfo.getWhiteSquareBonus() + (piece.getPieceSquareTable(endgame)[piece.getSquare().getIndex()]));
+			boardInfo.setWhiteSquareBonus(boardInfo.getWhiteSquareBonus() + (piece.getPieceSquareValue(piece.getSquare().getIndex(), endgame)));
 		
 		for (Piece piece : blackPieces)
-			boardInfo.setBlackSquareBonus(boardInfo.getBlackSquareBonus() + (piece.getPieceSquareTable(endgame)[((63 - piece.getSquare().getIndex()) / 8) * 8 + (piece.getSquare().getIndex() % 8)]));
+			boardInfo.setWhiteSquareBonus(boardInfo.getBlackSquareBonus() + (piece.getPieceSquareValue(piece.getSquare().getIndex(), endgame)));
 		
 		boardInfo.setZobristHash(createZobristHash());
 		boardInfo.getPositionList().add(boardInfo.getZobristHash());
