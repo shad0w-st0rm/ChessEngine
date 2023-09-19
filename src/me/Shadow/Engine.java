@@ -106,12 +106,12 @@ public class Engine
 	{
 		if(searchCancelled)
 		{
-			return new PositionEvaluation(0, depth, false, null);
+			return new PositionEvaluation(0, depth, false, false, null);
 		}
 		
-		if (checkRepetition(board) || board.boardInfo.getHalfMoves() >= 100)
+		if (isDuplicatePosition(board) || board.boardInfo.getHalfMoves() >= 100)
 		{
-			return new PositionEvaluation(0, depth, false, null);
+			return new PositionEvaluation(0, depth, false, false, null);
 		}
 		
 		long tempTime = System.currentTimeMillis();
@@ -120,13 +120,13 @@ public class Engine
 		if (transposEval != null && transposEval.getEvalDepth() >= depth)
 		{
 			numTranspositions++;
-			// if the evaluation is a full search or if only lower bounded, if it beats beta, return that evaluation
-			if (!transposEval.isLowerBound() || transposEval.getEvaluation() >= beta)
-			{
-				return transposEval;
-			}
-			// the evaluation was lower bounded and didn't beat beta but if it beats alpha, update alpha
-			alpha = Math.max(alpha, transposEval.getEvaluation());
+			
+			if (transposEval.isExact()) return transposEval;
+			if (transposEval.isLowerBound() && transposEval.getEvaluation() >= beta) return transposEval;
+			if (transposEval.isUpperBound() && transposEval.getEvaluation() <= alpha) return transposEval;
+			
+			// this should only be updated on a lower bound
+			if (transposEval.isLowerBound()) alpha = Math.max(alpha, transposEval.getEvaluation());
 		}
 		
 		tempTime = System.currentTimeMillis();
@@ -134,15 +134,15 @@ public class Engine
 		{
 			moveLegalityCheckTime += System.currentTimeMillis() - tempTime;
 			if (board.boardInfo.getCheckPiece() != null)
-				return new PositionEvaluation(negativeInfinity, depth, false, null);
+				return new PositionEvaluation(negativeInfinity, depth, false, false, null);
 			else
-				return new PositionEvaluation(0, depth, false, null);
+				return new PositionEvaluation(0, depth, false, false, null);
 		}
 		moveLegalityCheckTime += System.currentTimeMillis() - tempTime;
 		
 		if (depth == 0)
 		{
-			return searchCaptures(alpha, beta, board);
+			return new PositionEvaluation(searchCaptures(alpha, beta, board), 0, false, false, null);
 		}
 		
 		if (node.children.size() == 0)
@@ -156,7 +156,6 @@ public class Engine
 			
 			node.setChildren(newMoves);
 			moveEvalTime += System.currentTimeMillis() - tempTime;
-			
 		}
 		
 		boolean failedHigh = false;
@@ -195,7 +194,8 @@ public class Engine
 			
 			if (searchCancelled)
 			{
-				return new PositionEvaluation(0, depth, false, null);
+				// not actually getting any partial search results
+				return new PositionEvaluation(0, depth, false, false, null);
 			}
 			
 			if (evaluation > (positiveInfinity - depth) || evaluation < (negativeInfinity + depth))
@@ -209,7 +209,6 @@ public class Engine
 			if (evaluation >= beta)
 			{
 				// move was too good so opponent will avoid this branch
-				// return beta
 				failedHigh = true;
 				break;
 			}
@@ -220,40 +219,27 @@ public class Engine
 		moveEvalTime += System.currentTimeMillis() - tempTime;
 		
 		Move moveBest = node.children.get(0).data;
-		transposEval = new PositionEvaluation(moveBest.getEvalGuess(), depth, failedHigh, moveBest);
+		transposEval = new PositionEvaluation(moveBest.getEvalGuess(), depth, failedHigh, (moveBest.getEvalGuess() < alpha), moveBest);
 		tempTime = System.currentTimeMillis();
 		transpositions.put(board.boardInfo.getZobristHash(), transposEval);
 		transpositionTime += System.currentTimeMillis() - tempTime;
 		return transposEval;
 	}
 	
-	public PositionEvaluation searchCaptures(int alpha, int beta, Board board)
+	public int searchCaptures(int alpha, int beta, Board board)
 	{
-		long tempTime = System.currentTimeMillis();
-		PositionEvaluation transposEval = transpositions.get(board.boardInfo.getZobristHash());
-		transpositionTime += System.currentTimeMillis() - tempTime;
-		if (transposEval != null)
-		{
-			numTranspositions++;
-			if (!transposEval.isLowerBound() || transposEval.getEvaluation() >= beta)
-			{
-				return transposEval;
-			}
-			alpha = Math.max(alpha, transposEval.getEvaluation());
-		}
+		if (searchCancelled) return 0;
 		
 		// captures arent forced so check eval before capturing something
 		int evaluation = staticEvaluation(board);
 		
 		if (evaluation >= beta)
 		{
-			transposEval = new PositionEvaluation(evaluation, 0, true, null);
-			//transpositions.put(board.boardInfo.getZobristHash(), transposEval);
-			return transposEval;
+			return evaluation;
 		}
 		alpha = Math.max(alpha, evaluation);
 		
-		tempTime = System.currentTimeMillis();
+		long tempTime = System.currentTimeMillis();
 		ArrayList<Move> captures = board.generateAllPseudoLegalMoves(board.boardInfo.isWhiteToMove(), true);
 		moveGenTime += System.currentTimeMillis() - tempTime;
 		
@@ -286,7 +272,7 @@ public class Engine
 			Piece captured = board.movePiece(move);
 			movePieceTime += System.currentTimeMillis() - tempTime;
 			
-			evaluation = -(searchCaptures(-beta, -alpha, board).getEvaluation());
+			evaluation = -(searchCaptures(-beta, -alpha, board));
 			
 			tempTime = System.currentTimeMillis();
 			board.moveBack(move, captured, boardInfoOld, pins);
@@ -295,17 +281,12 @@ public class Engine
 			if (evaluation >= beta)
 			{
 				// move was too good so opponent will avoid this branch
-				// return beta
-				transposEval = new PositionEvaluation(evaluation, 0, true, null);
-				//transpositions.put(board.boardInfo.getZobristHash(), transposEval);
-				return transposEval;
+				return evaluation;
 			}
 			alpha = Math.max(alpha, evaluation);
 		}
 		
-		transposEval = new PositionEvaluation(alpha, 0, false, null);
-		//transpositions.put(board.boardInfo.getZobristHash(), transposEval);
-		return transposEval;
+		return alpha;
 	}
 
 	public void guessMoveEvals(Board board, ArrayList<Move> moves)
@@ -407,20 +388,29 @@ public class Engine
 			}
 		}, timeLimit*1000);
 		
-		int depth = 1;
-		PositionEvaluation temp = null;
+		int depth = 0;
 		while (!searchCancelled)
 		{
-			posEval = temp; // set posEval to results of previous search
-			temp = search(depth, negativeInfinity, positiveInfinity, boardCopy, gameTree);
 			depth++;
+			PositionEvaluation result = search(depth, negativeInfinity, positiveInfinity, boardCopy, gameTree);
+			
+			if (result.getMove() != null)
+			{
+				posEval = result;
+				
+				if (posEval.getEvaluation() >= (positiveInfinity - depth))
+				{
+					System.out.println("Stopping search early because forced checkmate for engine found");
+					break;
+				}
+				else if (posEval.getEvaluation() <= (negativeInfinity + depth))
+				{
+					System.out.println("Stopping search early because forced checkmate against engine found");
+					break;
+				}
+			}
 			
 			// TODO: eventually try and stop early if checkmate found while considering repetition draws
-		}
-		
-		if (temp.getMove() != null)
-		{
-			posEval = temp; // utilize results of previous search
 		}
 		
 		engineSearching = false;
@@ -445,29 +435,31 @@ public class Engine
 		return posEval;
 	}
 	
-	public boolean checkRepetition(Board board)
+	public boolean isDuplicatePosition(Board board)
 	{
 		long temp = System.currentTimeMillis();
 		long zobristHash = board.boardInfo.getZobristHash();
 		ArrayList<Long> positions = board.boardInfo.getPositionList();
-		int duplicates = 0;
-		int max = Math.min(board.boardInfo.getHalfMoves(), positions.size()); // we only care about positions which could actually be duplicates
-		for (int i = 0; i < max; i++)
+		checkRepetitionTime += System.currentTimeMillis() - temp;
+		return (positions.indexOf(zobristHash) != (positions.size()-1));
+	}
+	
+	public boolean isThreeFoldRepetition(Board board)
+	{
+		long zobristHash = board.boardInfo.getZobristHash();
+		ArrayList<Long> positions = board.boardInfo.getPositionList();
+		int duplicateCount = 0;
+		for (long position : positions)
 		{
-			if (positions.get(positions.size() - 2 - i) == zobristHash) // ignore the last position, we dont need to check it
-			{
-				duplicates++;
-				if (duplicates == 2) break;
-			}
+			if (position == zobristHash) duplicateCount++;
 		}
 		
-		checkRepetitionTime += System.currentTimeMillis() - temp;
-		return (duplicates >= 2);
+		return duplicateCount >= 3;
 	}
 	
 	public boolean isGameOver(Board board)
 	{
-		if(checkRepetition(board))
+		if(isThreeFoldRepetition(board))
 		{
 			gui.message.setText("Game Over! " + "Draw by Three Times Repetition");
 			return true;

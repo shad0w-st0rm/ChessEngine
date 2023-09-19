@@ -29,6 +29,11 @@ public class Move
 		data |= ((castlingKingside ? 7 : 8) << 12);
 	}
 	
+	public Move (int data)
+	{
+		this.data = (short) (data & Short.MAX_VALUE);
+	}
+	
 	public int getStartIndex()
 	{
 		return (data & 63); // isolate last 6 bits
@@ -94,9 +99,9 @@ public class Move
 		else return (getTargetIndex() + 1);
 	}
 	
-	public short getData()
+	public int getData()
 	{
-		return data;
+		return (data & Short.MAX_VALUE);
 	}
 	
 	public int getEvalGuess()

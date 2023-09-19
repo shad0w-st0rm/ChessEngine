@@ -13,7 +13,7 @@ public class Piece
 	public static final int KNIGHT = 4;
 	public static final int PAWN = 5;
 	
-	static final int [][] pieceSquareValues = {
+	static final int [][] PIECE_SQUARE_VALUES = {
 			// KING
 		{	-30,-40,-40,-50,-50,-40,-40,-30,
 			-30,-40,-40,-50,-50,-40,-40,-30,
@@ -70,7 +70,7 @@ public class Piece
 			0,  0,  0,  0,  0,  0,  0,  0}
 	};
 	
-	static final int [] kingEndgameValues = {
+	static final int [] KING_ENDGAME_VALUES = {
 			-50,-40,-30,-20,-20,-30,-40,-50,
 			-30,-20,-10,  0,  0,-10,-20,-30,
 			-30,-10, 20, 30, 30, 20,-10,-30,
@@ -130,7 +130,7 @@ public class Piece
 	{
 		if (!isWhite) index = (7 - (index / 8))*8 + (7 - (index % 8));
 		
-		if (endgame && pieceType == Piece.KING) return kingEndgameValues[index];
-		else return pieceSquareValues[pieceType][index];
+		if (endgame && pieceType == Piece.KING) return KING_ENDGAME_VALUES[index];
+		else return PIECE_SQUARE_VALUES[pieceType][index];
 	}
 }
