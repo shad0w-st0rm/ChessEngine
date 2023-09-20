@@ -43,7 +43,7 @@ public class Square
   
   public int getIndex()
   {
-	  int index = ((8 - rank)*8) + file - 1;
+	  int index = ((rank - 1) * 8) + file - 1;
 	  return index;
   }
 }

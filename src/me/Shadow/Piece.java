@@ -163,7 +163,7 @@ public class Piece
 	
 	public int getPieceSquareValue(int index, boolean endgame)
 	{
-		if ((pieceInfo & COLOR_MASK) == BLACK_PIECE) index = (7 - (index / 8))*8 + (7 - (index % 8));
+		if ((pieceInfo & COLOR_MASK) == WHITE_PIECE) index = (7 - (index / 8))*8 + ((index % 8));
 		
 		if (endgame && getPieceType() == Piece.KING) return KING_ENDGAME_VALUES[index];
 		else return PIECE_SQUARE_VALUES[getPieceType() - 1][index];

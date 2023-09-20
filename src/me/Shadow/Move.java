@@ -94,15 +94,15 @@ public class Move
 	
 	public String toString()
 	{
-		String notation = ((char)((getStartIndex() % 8) + 97) + "" + (8 - (getStartIndex() / 8)));
-		notation += ((char)((getTargetIndex() % 8) + 97) + "" + (8 - (getTargetIndex() / 8)));
+		String notation = Board.getSquareName(getStartIndex());
+		notation += Board.getSquareName(getTargetIndex());
 		if (getEnPassantCaptureIndex() != -1) notation += " En Passant";
 		if (getPromotedPiece() != 0) notation += " Promotion to " + getPromotedPiece();
 		if (isCastleMove())
 		{
 			notation += " Castling: ";
-			notation += ((char)((getRookStartIndex() % 8) + 97) + "" + (8 - (getRookStartIndex() / 8)));
-			notation += ((char)((getRookTargetIndex() % 8) + 97) + "" + (8 - (getRookTargetIndex() / 8)));
+			notation += Board.getSquareName(getRookStartIndex());
+			notation += Board.getSquareName(getRookTargetIndex());
 		}
 		return notation;
 	}

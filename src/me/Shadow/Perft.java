@@ -37,6 +37,17 @@ public class Perft
 			"5,6323457,8/1p4p1/8/q1PK1P1r/3p1k2/8/4P3/4Q3 b - - 0 1"
 	};
 	
+	public static void runPerftSuite(int runCount)
+	{
+		long totalTimeSum = 0;
+		for (int i = 0; i < runCount; i++)
+		{
+			totalTimeSum += runPerftSuite();
+		}
+		System.out.println("\n\nTotal Time: " + totalTimeSum);
+		System.out.println("Average time: " + totalTimeSum/runCount);
+	}
+	
 	// average time so far is 53 seconds
 	public static long runPerftSuite()
 	{

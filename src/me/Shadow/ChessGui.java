@@ -58,8 +58,8 @@ public class ChessGui
 			@Override
 			public void run()
 			{
-				initializeGui();
 				engine = engineIn;
+				initializeGui();
 				updatePieces();
 
 				JFrame f = new JFrame("Chess Engine");
@@ -160,12 +160,12 @@ public class ChessGui
 
 		// create the chess board squares
 		Insets buttonMargin = new Insets(0, 0, 0, 0);
-		for (int ii = 0; ii < chessBoardSquares.length; ii++)
+		for (int i = 0; i < chessBoardSquares.length; i++)
 		{
-			for (int jj = 0; jj < chessBoardSquares[ii].length; jj++)
+			for (int j = 0; j < chessBoardSquares[i].length; j++)
 			{
 				JButton b = new JButton();
-				b.setActionCommand("" + ((ii * 8) + jj));
+				b.setActionCommand("" + ((i * 8) + j));
 				ButtonSquare listener = new ButtonSquare();
 				b.addActionListener(listener);
 				b.setMargin(buttonMargin);
@@ -174,23 +174,35 @@ public class ChessGui
 				// 'fill this in' using a transparent icon..
 				ImageIcon icon = new ImageIcon(new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB));
 				b.setIcon(icon);
-				if ((jj % 2 == 1 && ii % 2 == 1) || (jj % 2 == 0 && ii % 2 == 0))
+				if ((j % 2 == 1 && i % 2 == 1) || (j % 2 == 0 && i % 2 == 0))
 					b.setBackground(lightBoard);
 				else
 					b.setBackground(darkBoard);
-				chessBoardSquares[ii][jj] = b;
+				chessBoardSquares[i][j] = b;
 			}
 		}
 
 		/*
 		 * fill the chess board
 		 */
-		// fill the black non-pawn piece row
-		for (int ii = 0; ii < 8; ii++)
+		if (!engine.engineIsWhite)
 		{
-			for (int jj = 0; jj < 8; jj++)
+			for (int i = 7; i >= 0; i--)
 			{
-				chessBoard.add(chessBoardSquares[ii][jj]);
+				for (int j = 0; j < 8; j++)
+				{
+					chessBoard.add(chessBoardSquares[i][j]);
+				}
+			}
+		}
+		else
+		{
+			for (int i = 0; i < 8; i++)
+			{
+				for (int j = 7; j >= 0; j--)
+				{
+					chessBoard.add(chessBoardSquares[i][j]);
+				}
 			}
 		}
 	}

@@ -1,6 +1,7 @@
 package me.Shadow;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Random;
 
 public class Board
@@ -237,7 +238,7 @@ public class Board
 			// if rook or queen attacking like rook, only one condition will be true, if bishop or queen attacking like bishop, both will be true
 			if (targetRank != pieceRank)
 			{
-				step += ((targetRank > pieceRank) ? -8 : 8);
+				step += ((targetRank > pieceRank) ? 8 : -8);
 				stepCount = Math.abs(targetRank - pieceRank);
 			}
 			if (targetFile != pieceFile)
@@ -258,7 +259,7 @@ public class Board
 		{
 			if (((targetRank + targetFile) % 2) != ((pieceRank + pieceFile) % 2)) return false; // pawns attack the same color square
 			
-			if (targetIndex == (pieceIndex + (isWhite ? -7 : 7)) || targetIndex == (pieceIndex + (isWhite ? -9 : 9)))
+			if (targetIndex == (pieceIndex + (isWhite ? 7 : -7)) || targetIndex == (pieceIndex + (isWhite ? 9 : -9)))
 			{
 				return true;
 			}
@@ -343,7 +344,7 @@ public class Board
 		// if rook or queen attacking like rook, only one condition will be true, if bishop or queen attacking like bishop, both will be true
 		if (targetRank != pieceRank)
 		{
-			step += ((targetRank > pieceRank) ? -8 : 8);
+			step += ((targetRank > pieceRank) ? 8 : -8);
 			stepCount = Math.abs(targetRank - pieceRank);
 		}
 		if (targetFile != pieceFile)
@@ -415,7 +416,7 @@ public class Board
 
 		if (piece.getPieceType() == Piece.PAWN)
 		{
-			int targetRankIndex = index + (isWhite ? -8 : 8);
+			int targetRankIndex = index + (isWhite ? 8 : -8);
 			if (targetRankIndex > 63 || targetRankIndex < 0)
 				return moves; // cannot go off the board though this should never happen
 			if (!squares.get(targetRankIndex).hasPiece() && !capturesOnly) // if no piece, pawn can move forward one
@@ -430,11 +431,11 @@ public class Board
 				}
 				else
 					moves.add(new Move(index, targetRankIndex, Move.NO_FLAG)); // otherwise just one move for pushing pawn
-				if (index / 8 == (isWhite ? 6 : 1))
+				if (index / 8 == (isWhite ? 1 : 6))
 				{
 					// potentially a second move for moving pawn two squares if it has not moved yet
-					if (!squares.get(targetRankIndex + (isWhite ? -8 : 8)).hasPiece())
-						moves.add(new Move(index, targetRankIndex + (isWhite ? -8 : 8), Move.PAWN_DOUBLE_PUSH_FLAG));
+					if (!squares.get(targetRankIndex + (isWhite ? 8 : -8)).hasPiece())
+						moves.add(new Move(index, targetRankIndex + (isWhite ? 8 : -8), Move.PAWN_DOUBLE_PUSH_FLAG));
 				}
 			}
 			if (((targetRankIndex + 1) / 8 == targetRankIndex / 8 && (targetRankIndex + 1) < 64) && (targetRankIndex + 1 == boardInfo.getEnPassantIndex() || (squares.get(targetRankIndex + 1).hasPiece() && squares.get(targetRankIndex + 1).getPiece().isWhite() != isWhite)))
@@ -643,13 +644,13 @@ public class Board
 			if (capturedPiece.getPieceType() == Piece.ROOK) // update castling rights if rook was captured
 			{
 				boolean[] castlingRights = boardInfo.getCastlingRights();
-				if (castlingRights[0] && target.getIndex() == 63)
+				if (castlingRights[0] && target.getIndex() == 7)
 					castlingRights[0] = false;
-				else if (castlingRights[1] && target.getIndex() == 56)
+				else if (castlingRights[1] && target.getIndex() == 0)
 					castlingRights[1] = false;
-				else if (castlingRights[2] && target.getIndex() == 7)
+				else if (castlingRights[2] && target.getIndex() == 63)
 					castlingRights[2] = false;
-				else if (castlingRights[3] && target.getIndex() == 0)
+				else if (castlingRights[3] && target.getIndex() == 56)
 					castlingRights[3] = false;
 				boardInfo.setCastlingRights(castlingRights);
 			}
@@ -728,13 +729,13 @@ public class Board
 			if (piece.getPieceType() == Piece.ROOK) // update castling rights if rook move
 			{
 				boolean[] castlingRights = boardInfo.getCastlingRights();
-				if (castlingRights[0] && move.getStartIndex() == 63)
+				if (castlingRights[0] && move.getStartIndex() == 7)
 					castlingRights[0] = false;
-				else if (castlingRights[1] && move.getStartIndex() == 56)
+				else if (castlingRights[1] && move.getStartIndex() == 0)
 					castlingRights[1] = false;
-				else if (castlingRights[2] && move.getStartIndex() == 7)
+				else if (castlingRights[2] && move.getStartIndex() == 63)
 					castlingRights[2] = false;
-				else if (castlingRights[3] && move.getStartIndex() == 0)
+				else if (castlingRights[3] && move.getStartIndex() == 56)
 					castlingRights[3] = false;
 				boardInfo.setCastlingRights(castlingRights);
 			}
@@ -820,7 +821,7 @@ public class Board
 		// if rook or queen attacking like rook, only one condition will be true, if bishop or queen attacking like bishop, both will be true
 		if (targetRank != startRank)
 		{
-			step += ((targetRank > startRank) ? -8 : 8);
+			step += ((targetRank > startRank) ? 8 : -8);
 			diagonal = !diagonal;
 		}
 		if (targetFile != startFile)
@@ -916,7 +917,7 @@ public class Board
 		// if rook or queen attacking like rook, only one condition will be true, if bishop or queen attacking like bishop, both will be true
 		if (kingRank != sliderRank)
 		{
-			step += ((kingRank > sliderRank) ? -8 : 8);
+			step += ((kingRank > sliderRank) ? 8 : -8);
 			stepCount = Math.abs(kingRank - sliderRank);
 		}
 		if (kingFile != sliderFile)
@@ -1077,26 +1078,26 @@ public class Board
 		if (captured != null && captured.getPieceType() == Piece.ROOK)
 		{
 			// remove castling rights because rook captured
-			if (castlingRights[0] && move.getTargetIndex() == 63)
+			if (castlingRights[0] && move.getTargetIndex() == 7)
 				zobristHash ^= zobristHashes[769];
-			else if (castlingRights[1] && move.getTargetIndex() == 56)
+			else if (castlingRights[1] && move.getTargetIndex() == 0)
 				zobristHash ^= zobristHashes[770];
-			else if (castlingRights[2] && move.getTargetIndex() == 7)
+			else if (castlingRights[2] && move.getTargetIndex() == 63)
 				zobristHash ^= zobristHashes[771];
-			else if (castlingRights[3] && move.getTargetIndex() == 0)
+			else if (castlingRights[3] && move.getTargetIndex() == 56)
 				zobristHash ^= zobristHashes[772];
 		}
 		
 		if (piece.getPieceType() == Piece.ROOK)
 		{
 			// remove castling rights because rook move
-			if (castlingRights[0] && move.getStartIndex() == 63)
+			if (castlingRights[0] && move.getStartIndex() == 7)
 				zobristHash ^= zobristHashes[769];
-			else if (castlingRights[1] && move.getStartIndex() == 56)
+			else if (castlingRights[1] && move.getStartIndex() == 0)
 				zobristHash ^= zobristHashes[770];
-			else if (castlingRights[2] && move.getStartIndex() == 7)
+			else if (castlingRights[2] && move.getStartIndex() == 63)
 				zobristHash ^= zobristHashes[771];
-			else if (castlingRights[3] && move.getStartIndex() == 0)
+			else if (castlingRights[3] && move.getStartIndex() == 56)
 				zobristHash ^= zobristHashes[772];
 		}
 		else if (piece.getPieceType() == Piece.KING)
@@ -1145,10 +1146,11 @@ public class Board
 		fenPieces.trim();
 		fenOther.trim();
 		int file = 1;
-		int rank = 8;
+		int rank = 1;
 		ArrayList<Square> newSquares = new ArrayList<Square>(64);
 		String[] rows = fenPieces.split("/"); // split the string into each rank
-		for (int i = 0; i < 8; i++) // loop will run 8 times for each rank
+		
+		for (int i = 7; i >= 0; i--) // loop will run 8 times for each rank
 		{
 			String row = rows[i]; // get substring for current rank of the board
 			for (int j = 0; j < row.length(); j++) // iterate over each character in substring
@@ -1205,7 +1207,7 @@ public class Board
 					file++; // increment file to move onto next square
 				}
 			}
-			rank--; // decrement rank
+			rank++; // decrement rank
 			file = 1; // reset file
 		}
 		squares = newSquares; // replace squares with filled in ArrayList
@@ -1239,7 +1241,7 @@ public class Board
 				{
 					int enPassantRank = string.charAt(1) - 48;
 					int enPassantFile = string.charAt(0) - 96;
-					boardInfo.setEnPassantIndex(((8 - enPassantRank) * 8) + enPassantFile - 1); // set the en passant index
+					boardInfo.setEnPassantIndex(getIndex(enPassantRank, enPassantFile)); // set the en passant index
 				}
 			}
 			else if (i == 4) // checks and sets half moves for 50 move rule
@@ -1302,17 +1304,19 @@ public class Board
 	public String createFEN(boolean includeMoveNums)
 	{
 		int count = 0;
-		String newFEN = "";
+		
+		String row = "";
+		ArrayList<String> rows = new ArrayList<String>();
 		for (int i = 0; i < 64; i++) // iterate over all squares
 		{
 			if (squares.get(i).hasPiece()) // if an uncaptured piece on this square
 			{
 				if (count != 0) // if count number of empty squares preceded this piece
 				{
-					newFEN += "" + count; // add the number count to the string
+					row += "" + count; // add the number count to the string
 					count = 0; // reset count
 				}
-				newFEN += "" + squares.get(i).getPiece().getPieceSymbol(); // add the piece symbol of this piece
+				row += "" + squares.get(i).getPiece().getPieceSymbol(); // add the piece symbol of this piece
 			}
 			else
 				count++; // otherwise increase count for another empty square
@@ -1321,13 +1325,22 @@ public class Board
 			{
 				if (count != 0) // if count is not 0
 				{
-					newFEN += "" + count; // add count, the number of empty squares
+					row += "" + count; // add count, the number of empty squares
 					count = 0;
 				}
-				newFEN += "/"; // add a slash to signify next row
+				
+				if (i >= 8) row += "/"; // add a slash to signify next row
+				
+				rows.add(row);
+				row = "";
 			}
 		}
-
+		
+		String newFEN = "";
+		Collections.reverse(rows);
+		for (String string : rows)
+			newFEN += string;
+		
 		newFEN += " " + (boardInfo.isWhiteToMove() ? "w" : "b") + " "; // color to move
 		boolean[] castlingRights = boardInfo.getCastlingRights(); // set castling rights
 		if (castlingRights[0])
@@ -1344,9 +1357,7 @@ public class Board
 		else
 		{
 			int index = boardInfo.getEnPassantIndex();
-			char file = (char) ((index % 8) + 97);
-			int rank = 8 - (index / 8);
-			newFEN += file + "" + rank + " "; // add square of en passant index
+			newFEN += getSquareName(index);
 		}
 		if (includeMoveNums)
 			newFEN += boardInfo.getHalfMoves() + " " + boardInfo.getMoveNum(); // add moves numbers if includeMoveNums is true
@@ -1355,6 +1366,21 @@ public class Board
 
 		return newFEN; // return the created FEN string
 	}
+	
+	public static String getSquareName(int rank, int file)
+	{
+		return getSquareName(getIndex(rank, file));
+	}
+	
+	public static String getSquareName(int index)
+	{
+		return ((char)((index % 8) + 97) + "" + ((index / 8) + 1));
+	}
+	
+	public static int getIndex(int rank, int file)
+	{
+		return ((rank - 1) * 8) + file - 1;
+	}
 
 	/**
 	 * Prints the representation of the board onto the screen
@@ -1362,6 +1388,8 @@ public class Board
 	 */
 	public void printBoard()
 	{
+		// TODO: THIS DOES NOT WORK
+		// a1 is now 0 square not a8
 		for (int i = 0; i < 64; i++)
 		{
 			if (i % 8 == 0)

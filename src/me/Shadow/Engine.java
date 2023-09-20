@@ -20,16 +20,7 @@ public class Engine
 
 	public Engine()
 	{
-		/*
-		long totalTimeSum = 0;
-		int runCount = 5;
-		for (int i = 0; i < runCount; i++)
-		{
-			totalTimeSum += Perft.runPerftSuite();
-		}
-		System.out.println("\n\nTotal Time: " + totalTimeSum);
-		System.out.println("Average time: " + totalTimeSum/runCount);
-		*/
+		// Perft.runPerftSuite();
 		
 		gui = new ChessGui();
 		gui.createGui(this);
@@ -42,7 +33,7 @@ public class Engine
 
 		board.loadFEN(originalFEN);
 		
-		engineIsWhite = false;
+		engineIsWhite = true;
 		if (engineIsWhite == board.boardInfo.isWhiteToMove())
 			playerMoveMade = true;
 		transpositionTable = new TranspositionTable();
