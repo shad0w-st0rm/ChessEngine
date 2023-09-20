@@ -9,7 +9,9 @@ public class TranspositionTable
 	static final int UPPER_BOUND = 2;
 	
 	static final int DEFAULT_TABLE_SIZE_MB = 128;
-	static final int BYTES_PER_ENTRY = 6;
+	static final int BYTES_PER_ENTRY = 8;
+	
+	static final int PARTIAL_KEY_MASK = 0xFFFF;
 	
 	// first 32 bits represent the transposition
 	// 		first 21 bits is the evaluation
@@ -20,6 +22,8 @@ public class TranspositionTable
 	// the index to the table is the lowest n order bits of the key where n is the amount of bits in the size
 	long [] table;
 	long size;
+	long indexBitMask = 0;
+	int numStored;
 	
 	public TranspositionTable()
 	{
@@ -32,17 +36,26 @@ public class TranspositionTable
 		int numEntries = (totalTableBytes / BYTES_PER_ENTRY);
 		table = new long[numEntries];
 		size = numEntries;
+		for (int i = 1 ; i < 100; i++)
+		{
+			if (Math.pow(2, i) > size)
+			{
+				size = (long) Math.pow(2, i-1);
+				indexBitMask = (1 << (i-1)) - 1;
+				break;
+			}
+		}
 	}
 	
 	public int lookupEvaluation(long zobristKey, int depth, int alpha, int beta)
 	{
 		long entry = getEntry(zobristKey);
-		if (getPartialKeyFromEntry(entry) == ((zobristKey >>> 48) & Short.MAX_VALUE))
+		if ((entry & PARTIAL_KEY_MASK) == ((zobristKey >>> 48) & PARTIAL_KEY_MASK))
 		{
-			if (getDepthFromEntry(entry) >= depth)
+			if (((entry >>> 32) & 0b111111111) >= depth) // shift 32 times and then isolate last 9 bits
 			{
-				int evaluation = getEvaluationFromEntry(entry);
-				int bound = getBoundFromEntry(entry);
+				int evaluation = (int) (entry >> 43);	// take advantage of sign extending here
+				long bound = ((entry >>> 41) & 0b11); // shift 41 times and then isolate last 2 bits
 				
 				if (bound == EXACT_BOUND) return evaluation;
 				else if (bound == LOWER_BOUND && evaluation >= beta) return evaluation;
@@ -56,46 +69,23 @@ public class TranspositionTable
 	public Move lookupMove(long zobristKey)
 	{
 		long entry = getEntry(zobristKey);
-		if (getPartialKeyFromEntry(entry) == ((zobristKey >>> 48) & Short.MAX_VALUE))
+		if ((entry & PARTIAL_KEY_MASK) == ((zobristKey >>> 48) & PARTIAL_KEY_MASK))
 		{
-			return new Move(getMoveFromEntry(entry));
+			return new Move((int) ((entry >>> 16) & PARTIAL_KEY_MASK));	// shift 48 times and then isolate last 16 bits
 		}
-		return new Move(0);
+		return Move.NULL_MOVE;
 	}
 	
-	public void storeEvaluation(long zobristKey, int evaluation, int depth, int bound, int move)
+	public void storeEvaluation(long zobristKey, int evaluation, int depth, int bound, Move move)
 	{
-		long entry = evaluation << 43;
-		entry |= bound << 41;
-		entry |= depth << 32;
-		entry |= move << 16;
+		if (getEntry(zobristKey) != 0) numStored++;
+		
+		long entry = ((long)evaluation) << 43;
+		entry |= ((long)bound) << 41;
+		entry |= ((long)depth) << 32;
+		entry |= (((long)move.getData()) & PARTIAL_KEY_MASK) << 16;
 		entry |= (zobristKey >>> 48);
 		table[getIndex(zobristKey)] = entry;
-	}
-	
-	public int getEvaluationFromEntry(long entry)
-	{
-		return (int) (entry >> 43);	// take advantage of sign extending here
-	}
-	
-	public int getBoundFromEntry(long entry)
-	{
-		return (int) ((entry >>> 41) & 0b11); // shift 41 times and then isolate last 2 bits
-	}
-	
-	public int getDepthFromEntry(long entry)
-	{
-		return (int) ((entry >>> 32) & 0b111111111); // shift 32 times and then isolate last 9 bits
-	}
-	
-	public int getMoveFromEntry(long entry)
-	{
-		return (int) ((entry >>> 16) & Short.MAX_VALUE); // shift 48 times and then isolate last 16 bits
-	}
-	
-	public int getPartialKeyFromEntry(long entry)
-	{
-		return (int) (entry & Short.MAX_VALUE);
 	}
 	
 	public long getEntry(long zobristKey)
@@ -105,6 +95,7 @@ public class TranspositionTable
 	
 	private int getIndex(long zobristKey)
 	{
-		return (int)(zobristKey % size);
+		//assert((zobristKey & indexBitMask) == Long.remainderUnsigned(zobristKey, size));
+		return (int)(zobristKey & indexBitMask);
 	}
 }

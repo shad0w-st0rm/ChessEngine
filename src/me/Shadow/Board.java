@@ -61,7 +61,7 @@ public class Board
 	}
 	
 	
-	public ArrayList<Move> generateAllPseudoLegalMoves(boolean whiteToMove, boolean capturesOnly)
+	public Move[] generateAllPseudoLegalMoves(boolean whiteToMove, boolean capturesOnly)
 	{
 		ArrayList<Move> allMoves = new ArrayList<Move>();
 		for (Piece piece : (whiteToMove ? whitePieces : blackPieces))
@@ -70,7 +70,7 @@ public class Board
 			ArrayList<Move> moves = generatePseudoLegalMoves(piece, capturesOnly);
 			allMoves.addAll(moves);
 		}
-		return allMoves;
+		return allMoves.toArray(new Move[0]);
 	}
 	
 	public boolean isMoveLegal(Move move)
@@ -80,7 +80,7 @@ public class Board
 		
 		if (pinnedObj != null && isPiecePinnedAbsolutely(piece, pinnedObj.pinner)) return false; // TODO: update isPiecePinnedAbsolutely signature
 		if (boardInfo.isDoubleCheck() && (piece.getPieceType() != Piece.KING)) return false;
-		if (pinnedObj != null && boardInfo.getCheckPiece() != null && (piece.getPieceType() == Piece.PAWN)) return false;
+		if (pinnedObj != null && boardInfo.getCheckPiece() != null && (piece.getPieceType() != Piece.KING)) return false;
 		
 		if (pinnedObj == null && boardInfo.getCheckPiece() == null && (piece.getPieceType() != Piece.KING))
 		{
@@ -110,7 +110,7 @@ public class Board
 			// runs for every enemy piece
 			for (Piece enemyPiece : (piece.isWhite() ? blackPieces : whitePieces))
 			{
-				if (enemyPiece != captured && canPieceAttackSquare(enemyPiece, targetSquare)) // moveLegalityHelper determines if it is legal for a given piece
+				if (enemyPiece != captured && canPieceAttackSquare(enemyPiece.getSquare(), targetSquare, enemyPiece.pieceInfo)) // moveLegalityHelper determines if it is legal for a given piece
 				{
 					legal = false;
 					break;
@@ -131,7 +131,7 @@ public class Board
 		else // not moving a king (and cant be in double check)
 		{
 			Piece checkPiece = boardInfo.getCheckPiece();
-			if (checkPiece != null && pinnedObj == null) // extra testing because in check and not pinned
+			if (checkPiece != null) // extra testing because in check and not pinned
 			{
 				ArrayList<Square> blockSquares = getSquaresInBetween(checkPiece, (piece.isWhite() ? whiteKing : blackKing).getSquare());
 				blockSquares.add(checkPiece.getSquare());
@@ -140,30 +140,29 @@ public class Board
 				
 				return blockSquares.contains(squares.get(captureIndex));
 			}
-			else if (checkPiece == null)// extra testing because partially pinned (and not in check)
+			else // extra testing because partially pinned (and not in check)
 			{
 				// if the pawn is pinned vertically, this will be true only for advancing, not capturing left/right
 				// if it is pinned diagonally, it will only be true for the capture of the pinning piece so this works
 				if (piece.getPieceType() == Piece.PAWN)
-					return (move.getTargetIndex() % 8) == (pinnedObj.pinner.getSquare().getIndex() % 8);
+				{
+					if (move.getStartIndex() % 8 == (pinnedObj.pinner.getSquare().getIndex() % 8))
+					{
+						return (move.getTargetIndex() % 8) == (pinnedObj.pinner.getSquare().getIndex() % 8);
+					}
+					else if (move.getTargetIndex() == pinnedObj.pinner.getSquare().getIndex()) return true;
+					else if (move.getEnPassantCaptureIndex() != -1)
+					{
+						Square target = squares.get(move.getTargetIndex());
+						if (Math.abs(pinnedObj.pinner.getSquare().getRank() - target.getRank()) == Math.abs(pinnedObj.pinner.getSquare().getFile() - target.getFile())) return true;
+					}
+				}
 				
 				// cannot be a pawn, knight (always absolutely pinned), or king so must be a slider
 				ArrayList<Square> pinSquares = getSquaresInBetween(piece,pinnedObj.pinner.getSquare());
 				pinSquares.add(pinnedObj.pinner.getSquare());
 				pinSquares.addAll(getSquaresInBetween(piece, (piece.isWhite() ? whiteKing : blackKing).getSquare()));
 				
-				return pinSquares.contains(squares.get(move.getTargetIndex()));
-			}
-			else // both in check and partially pinned (getting here means piece is only a slider)
-			{
-				ArrayList<Square> blockSquares = getSquaresInBetween(checkPiece, (piece.isWhite() ? whiteKing : blackKing).getSquare());
-				blockSquares.add(checkPiece.getSquare());
-				
-				ArrayList<Square> pinSquares = getSquaresInBetween(piece, pinnedObj.pinner.getSquare());
-				pinSquares.add(pinnedObj.pinner.getSquare());
-				pinSquares.addAll(getSquaresInBetween(piece, (piece.isWhite() ? whiteKing : blackKing).getSquare()));
-				
-				pinSquares.retainAll(blockSquares);
 				return pinSquares.contains(squares.get(move.getTargetIndex()));
 			}
 		}
@@ -210,27 +209,27 @@ public class Board
 	 * 
 	 * @return True if move is legal (piece cannot attack the king) or false if move is not legal (piece is able to attack the king)
 	 */
-	public boolean canPieceAttackSquare(Piece piece, Square target)
+	public boolean canPieceAttackSquare(Square start, Square target, int pieceInfo)
 	{
-		if (target.hasPiece() && piece.isWhite() == target.getPiece().isWhite())
-			return false;
-
 		// get rank and files for both squares
 		int targetIndex = target.getIndex();
 		int targetRank = target.getRank();
 		int targetFile = target.getFile();
 
-		int pieceIndex = piece.getSquare().getIndex();
-		int pieceRank = piece.getSquare().getRank();
-		int pieceFile = piece.getSquare().getFile();
+		int pieceIndex = start.getIndex();
+		int pieceRank = start.getRank();
+		int pieceFile = start.getFile();
 		
-		if (piece.getPieceType() == Piece.QUEEN || piece.getPieceType() == Piece.ROOK || piece.getPieceType() == Piece.BISHOP)
+		int pieceType = pieceInfo & Piece.TYPE_MASK;
+		boolean isWhite = (pieceInfo & Piece.COLOR_MASK) == Piece.WHITE_PIECE;
+		
+		if (pieceType == Piece.QUEEN || pieceType == Piece.ROOK || pieceType == Piece.BISHOP)
 		{
-			if ((piece.getPieceType() == Piece.ROOK) && (targetRank != pieceRank && targetFile != pieceFile))
+			if ((pieceType == Piece.ROOK) && (targetRank != pieceRank && targetFile != pieceFile))
 				return false;
-			else if ((piece.getPieceType() == Piece.BISHOP) && (Math.abs(targetRank - pieceRank) != Math.abs(targetFile - pieceFile)))
+			else if ((pieceType == Piece.BISHOP) && (Math.abs(targetRank - pieceRank) != Math.abs(targetFile - pieceFile)))
 				return false;
-			else if ((piece.getPieceType() == Piece.QUEEN) && ((targetRank != pieceRank && targetFile != pieceFile) && (Math.abs(targetRank - pieceRank) != Math.abs(targetFile - pieceFile))))
+			else if ((pieceType == Piece.QUEEN) && ((targetRank != pieceRank && targetFile != pieceFile) && (Math.abs(targetRank - pieceRank) != Math.abs(targetFile - pieceFile))))
 				return false;
 			
 			int step = 0;
@@ -255,17 +254,17 @@ public class Board
 			}
 			return true; // if no piece in between, move is not legal
 		}
-		else if (piece.getPieceType() == Piece.PAWN)
+		else if (pieceType == Piece.PAWN)
 		{
-			if (target.isDark() != piece.getSquare().isDark()) return false; // pawns attack the same color square
+			if (((targetRank + targetFile) % 2) != ((pieceRank + pieceFile) % 2)) return false; // pawns attack the same color square
 			
-			if (targetIndex == (pieceIndex + (piece.isWhite() ? -7 : 7)) || targetIndex == (pieceIndex + (piece.isWhite() ? -9 : 9)))
+			if (targetIndex == (pieceIndex + (isWhite ? -7 : 7)) || targetIndex == (pieceIndex + (isWhite ? -9 : 9)))
 			{
 				return true;
 			}
 			return false;
 		}
-		else if (piece.getPieceType() == Piece.KING)
+		else if (pieceType == Piece.KING)
 		{
 			// if enemy king is not within one rank AND one file, move must be legal
 			if (Math.abs(targetRank - pieceRank) > 1 || Math.abs(targetFile - pieceFile) > 1)
@@ -273,9 +272,9 @@ public class Board
 			else
 				return true; // if within that distance, move is not legal
 		}
-		else if (piece.getPieceType() == Piece.KNIGHT)
+		else if (pieceType == Piece.KNIGHT)
 		{
-			if (target.isDark() == piece.getSquare().isDark()) return false; // knights cannot attack the same color square
+			if (((targetRank + targetFile) % 2) == ((pieceRank + pieceFile) % 2)) return false; // knights cannot attack the same color square
 			if (Math.abs(targetIndex - pieceIndex) > 17) return false; // maximum index movement of a knight
 			
 			// knightMoves[] gives the index offsets for the 8 possible knight moves
@@ -312,7 +311,7 @@ public class Board
 		for (Piece piece : (king.isWhite() ? blackPieces : whitePieces)) // iterate over all enemy pieces
 		{
 			// otherwise just check if the piece can attack either square
-			if (canPieceAttackSquare(piece, kingOne) || canPieceAttackSquare(piece, kingTwo))
+			if (canPieceAttackSquare(piece.getSquare(), kingOne, piece.pieceInfo) || canPieceAttackSquare(piece.getSquare(), kingTwo, piece.pieceInfo))
 			{
 				return false;
 			}
@@ -424,18 +423,18 @@ public class Board
 				if (targetRankIndex / 8 == 0 || targetRankIndex / 8 == 7)
 				{
 					// 4 possible moves for each promotion piece
-					moves.add(new Move(index, targetRankIndex, 0, 1));
-					moves.add(new Move(index, targetRankIndex, 0, 2));
-					moves.add(new Move(index, targetRankIndex, 0, 3));
-					moves.add(new Move(index, targetRankIndex, 0, 4));
+					moves.add(new Move(index, targetRankIndex, Move.PROMOTION_QUEEN_FLAG));
+					moves.add(new Move(index, targetRankIndex, Move.PROMOTION_ROOK_FLAG));
+					moves.add(new Move(index, targetRankIndex, Move.PROMOTION_BISHOP_FLAG));
+					moves.add(new Move(index, targetRankIndex, Move.PROMOTION_KNIGHT_FLAG));
 				}
 				else
-					moves.add(new Move(index, targetRankIndex, 0)); // otherwise just one move for pushing pawn
+					moves.add(new Move(index, targetRankIndex, Move.NO_FLAG)); // otherwise just one move for pushing pawn
 				if (index / 8 == (isWhite ? 6 : 1))
 				{
 					// potentially a second move for moving pawn two squares if it has not moved yet
 					if (!squares.get(targetRankIndex + (isWhite ? -8 : 8)).hasPiece())
-						moves.add(new Move(index, targetRankIndex + (isWhite ? -8 : 8), 0, false, true));
+						moves.add(new Move(index, targetRankIndex + (isWhite ? -8 : 8), Move.PAWN_DOUBLE_PUSH_FLAG));
 				}
 			}
 			if (((targetRankIndex + 1) / 8 == targetRankIndex / 8 && (targetRankIndex + 1) < 64) && (targetRankIndex + 1 == boardInfo.getEnPassantIndex() || (squares.get(targetRankIndex + 1).hasPiece() && squares.get(targetRankIndex + 1).getPiece().isWhite() != isWhite)))
@@ -444,17 +443,17 @@ public class Board
 				if ((targetRankIndex + 1) / 8 == 0 || (targetRankIndex + 1) / 8 == 7)
 				{
 					// 4 possible moves for each promotion piece
-					moves.add(new Move(index, (targetRankIndex + 1), 0, 1));
-					moves.add(new Move(index, (targetRankIndex + 1), 0, 2));
-					moves.add(new Move(index, (targetRankIndex + 1), 0, 3));
-					moves.add(new Move(index, (targetRankIndex + 1), 0, 4));
+					moves.add(new Move(index, targetRankIndex + 1, Move.PROMOTION_QUEEN_FLAG));
+					moves.add(new Move(index, targetRankIndex + 1, Move.PROMOTION_ROOK_FLAG));
+					moves.add(new Move(index, targetRankIndex + 1, Move.PROMOTION_BISHOP_FLAG));
+					moves.add(new Move(index, targetRankIndex + 1, Move.PROMOTION_KNIGHT_FLAG));
 				}
 				else if (targetRankIndex + 1 == boardInfo.getEnPassantIndex()) // pawn can capture enemy pawn with en passant
 				{
-					moves.add(new Move(index, (targetRankIndex + 1), 0,  true, false));
+					moves.add(new Move(index, (targetRankIndex + 1), Move.EN_PASSANT_CAPTURE_FLAG));
 				}
 				else
-					moves.add(new Move(index, (targetRankIndex + 1), 0)); // otherwise just normal pawn capture
+					moves.add(new Move(index, (targetRankIndex + 1), Move.NO_FLAG)); // otherwise just normal pawn capture
 			}
 			if (((targetRankIndex - 1) / 8 == targetRankIndex / 8 && (targetRankIndex - 1) >= 0) && (targetRankIndex - 1 == boardInfo.getEnPassantIndex() || (squares.get(targetRankIndex - 1).hasPiece() && squares.get(targetRankIndex - 1).getPiece().isWhite() != isWhite)))
 			{
@@ -462,17 +461,17 @@ public class Board
 				if ((targetRankIndex - 1) / 8 == 0 || (targetRankIndex - 1) / 8 == 7)
 				{
 					// 4 possible moves for each promotion piece
-					moves.add(new Move(index, (targetRankIndex - 1), 0, 1));
-					moves.add(new Move(index, (targetRankIndex - 1), 0, 2));
-					moves.add(new Move(index, (targetRankIndex - 1), 0, 3));
-					moves.add(new Move(index, (targetRankIndex - 1), 0, 4));
+					moves.add(new Move(index, targetRankIndex - 1, Move.PROMOTION_QUEEN_FLAG));
+					moves.add(new Move(index, targetRankIndex - 1, Move.PROMOTION_ROOK_FLAG));
+					moves.add(new Move(index, targetRankIndex - 1, Move.PROMOTION_BISHOP_FLAG));
+					moves.add(new Move(index, targetRankIndex - 1, Move.PROMOTION_KNIGHT_FLAG));
 				}
 				else if (targetRankIndex - 1 == boardInfo.getEnPassantIndex()) // pawn can capture enemy pawn with en passant
 				{
-					moves.add(new Move(index, (targetRankIndex - 1), 0, true, false));
+					moves.add(new Move(index, (targetRankIndex - 1), Move.EN_PASSANT_CAPTURE_FLAG));
 				}
 				else
-					moves.add(new Move(index, (targetRankIndex - 1), 0)); // otherwise just normal pawn capture
+					moves.add(new Move(index, (targetRankIndex - 1), Move.NO_FLAG)); // otherwise just normal pawn capture
 			}
 		}
 
@@ -488,7 +487,7 @@ public class Board
 					continue; // skip if index overflowed to next rank or file incorrectly
 				if (squares.get(targetIndex).hasPiece() && squares.get(targetIndex).getPiece().isWhite() == isWhite)
 					continue; // skip if target square is occupied by friendly piece
-				if (squares.get(targetIndex).hasPiece() || !capturesOnly) moves.add(new Move(index, targetIndex, 0)); // add new knight move
+				if (squares.get(targetIndex).hasPiece() || !capturesOnly) moves.add(new Move(index, targetIndex, Move.NO_FLAG)); // add new knight move
 			}
 		}
 
@@ -516,12 +515,12 @@ public class Board
 							if (!squares.get(targetIndex).hasPiece())
 							{
 								if (!capturesOnly)
-									moves.add(new Move(index, targetIndex, 0)); // if no piece, possible move to the empty square
+									moves.add(new Move(index, targetIndex, Move.NO_FLAG)); // if no piece, possible move to the empty square
 							}
 							else
 							{
 								if (squares.get(targetIndex).getPiece().isWhite() != isWhite)
-									moves.add(new Move(index, targetIndex, 0)); // if piece, and is enemy, this is last move
+									moves.add(new Move(index, targetIndex, Move.NO_FLAG)); // if piece, and is enemy, this is last move
 								stop = true;
 							}
 						}
@@ -549,10 +548,10 @@ public class Board
 							if (squares.get(targetIndex).hasPiece())
 							{
 								if (squares.get(targetIndex).getPiece().isWhite() != isWhite)
-									moves.add(new Move(index, targetIndex, 0));
+									moves.add(new Move(index, targetIndex, Move.NO_FLAG));
 							}
 							else if (!capturesOnly)
-								moves.add(new Move(index, targetIndex, 0));
+								moves.add(new Move(index, targetIndex, Move.NO_FLAG));
 						}
 					}
 				}
@@ -563,13 +562,13 @@ public class Board
 			// add kingside castle move if castling rights and not blocked
 			if (boardInfo.getCastlingRights()[(isWhite ? 0 : 2)] && !(squares.get(index + 1).hasPiece() || squares.get(index + 2).hasPiece()))
 			{
-				moves.add(new Move(index, (index + 2), 0, true));
+				moves.add(new Move(index, (index + 2), Move.CASTLING_FLAG));
 			}
 
 			// add queenside castle move if castling rights and not blocked
 			if (boardInfo.getCastlingRights()[(isWhite ? 1 : 3)] && !(squares.get(index - 1).hasPiece() || squares.get(index - 2).hasPiece() || squares.get(index - 3).hasPiece()))
 			{
-				moves.add(new Move(index, (index - 2), 0, false));
+				moves.add(new Move(index, (index - 2), Move.CASTLING_FLAG));
 			}
 		}
 
@@ -761,7 +760,7 @@ public class Board
 		
 		if (piece.getPieceType() == Piece.KNIGHT || piece.getPieceType() == Piece.PAWN)
 		{
-			if (canPieceAttackSquare(piece, (piece.isWhite() ? blackKing : whiteKing).getSquare()))
+			if (canPieceAttackSquare(piece.getSquare(), (piece.isWhite() ? blackKing : whiteKing).getSquare(), piece.pieceInfo))
 			{
 				boardInfo.setCheckPiece(piece); // set this piece as the checkPiece
 			}
@@ -871,17 +870,10 @@ public class Board
 	
 	public void checkAllPins()
 	{
+		pinnedPieces.clear();
 		// check all slider pieces
-		whiteSliders.forEach(slider -> updatePin(slider, blackKing.getSquare()));
-		blackSliders.forEach(slider -> updatePin(slider, whiteKing.getSquare()));
-	}
-	
-	public void updatePin(Piece slider, Square king)
-	{
-		pinnedPieces.removeIf(pinnedPiece -> (pinnedPiece.pinner == slider));
-		
-		Piece pinned = getPiecePinnedBySlider(slider, king);
-		createPin(pinned, slider);
+		whiteSliders.forEach(slider -> createPin(getPiecePinnedBySlider(slider, blackKing.getSquare()), slider));
+		blackSliders.forEach(slider -> createPin(getPiecePinnedBySlider(slider, whiteKing.getSquare()), slider));
 	}
 	
 	public void createPin(Piece pinned, Piece slider)
@@ -1018,9 +1010,13 @@ public class Board
 	{
 		if (pinned.getPieceType() == Piece.QUEEN) return false; // quick exit to avoid calling canPieceAttackSquare
 		if (pinned.getPieceType() == Piece.KNIGHT) return true; // quick exit to avoid calling canPieceAttackSquare
-		if (canPieceAttackSquare(pinned, pinner.getSquare())) return false; // if the pinned piece can capture the pinner, at least one legal move exists (no piece can be double pinned to the king)
-		if (pinned.getPieceType() == Piece.PAWN && (pinner.getPieceType() == Piece.QUEEN || pinner.getPieceType() == Piece.ROOK))
-			return (pinned.getSquare().getFile() != pinner.getSquare().getFile());
+		if (canPieceAttackSquare(pinned.getSquare(), pinner.getSquare(), pinned.pieceInfo)) return false; // if the pinned piece can capture the pinner, at least one legal move could exists (no piece can be double pinned to the king)
+		if (pinned.getPieceType() == Piece.PAWN)
+		{
+			if (pinned.getSquare().getRank() == pinner.getSquare().getRank()) return true;
+		}
+		
+		if (pinned.getPieceType() == Piece.PAWN) return false;
 		
 		return true;
 	}
@@ -1174,31 +1170,31 @@ public class Board
 					
 					Piece piece = null;
 					
-					boolean isWhite = ((int) c) > 65 && ((int) c) < 90; // check if isWhite by looking at the case of the letter c
+					int color = Piece.BLACK_PIECE;
+					if (((int) c) > 65 && ((int) c) < 90) color = Piece.WHITE_PIECE;
 										
 					if (c == 'k' || c == 'K')
-						piece = new Piece(Piece.KING, isWhite, square);
+						piece = new Piece(Piece.KING, color, square);
 					else if (c == 'q' || c == 'Q')
-						piece = new Piece(Piece.QUEEN, isWhite, square);
+						piece = new Piece(Piece.QUEEN, color, square);
 					else if (c == 'r' || c == 'R')
-						piece = new Piece(Piece.ROOK, isWhite, square);
+						piece = new Piece(Piece.ROOK, color, square);
 					else if (c == 'b' || c == 'B')
-						piece = new Piece(Piece.BISHOP, isWhite, square);
+						piece = new Piece(Piece.BISHOP, color, square);
 					else if (c == 'n' || c == 'N')
-						piece = new Piece(Piece.KNIGHT, isWhite, square);
+						piece = new Piece(Piece.KNIGHT, color, square);
 					else if (c == 'p' || c == 'P')
-						piece = new Piece(Piece.PAWN, isWhite, square);
+						piece = new Piece(Piece.PAWN, color, square);
 					
 					piece.setSquare(square);
 					square.addPiece(piece);
-					if (isWhite) whitePieces.add(piece);
+					if (color == Piece.WHITE_PIECE) whitePieces.add(piece);
 					else blackPieces.add(piece);
 					
-					if (piece.getPieceType() == Piece.KING)
-					{
-						if (piece.isWhite()) whiteKing = piece;
-						else blackKing = piece;
-					}
+					if (piece.pieceInfo == Piece.WHITE_KING)
+						whiteKing = piece;
+					else if (piece.pieceInfo == Piece.BLACK_KING)
+						blackKing = piece;
 					else if (piece.getPieceType() != Piece.KNIGHT && piece.getPieceType() != Piece.PAWN)
 					{
 						if (piece.isWhite()) whiteSliders.add(piece);
@@ -1263,7 +1259,7 @@ public class Board
 		{
 			if (piece.getPieceType() == Piece.KNIGHT || piece.getPieceType() == Piece.PAWN)
 			{
-				if (canPieceAttackSquare(piece, (boardInfo.isWhiteToMove() ? whiteKing : blackKing).getSquare()))
+				if (canPieceAttackSquare(piece.getSquare(), (boardInfo.isWhiteToMove() ? whiteKing : blackKing).getSquare(), piece.pieceInfo))
 				{
 					boardInfo.setCheckPiece(piece); // set the check piece
 					break;

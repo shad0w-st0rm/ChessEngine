@@ -102,7 +102,7 @@ public class ChessGui
 			@Override
 			public void actionPerformed(ActionEvent e)
 			{
-				engine.originalFEN = engine.boardGlobal.boardInfo.defaultFEN;
+				engine.originalFEN = engine.board.boardInfo.defaultFEN;
 				restore.doClick();
 			}
 		};
@@ -251,7 +251,7 @@ public class ChessGui
 
 	public void updatePieces()
 	{
-		for (Square square : engine.boardGlobal.squares)
+		for (Square square : engine.board.squares)
 		{
 			int squareIndex = square.getIndex();
 			int squareRow = squareIndex / 8;
@@ -302,7 +302,7 @@ public class ChessGui
 				return;
 			}
 
-			if ((engine.boardGlobal.boardInfo.isWhiteToMove() != engine.engineIsWhite) && !engine.engineSearching && (chessBoardSquares[row][col].getBackground() == darkRed || chessBoardSquares[row][col].getBackground() == lightRed))
+			if ((engine.board.boardInfo.isWhiteToMove() != engine.engineIsWhite) && !engine.engineSearching && (chessBoardSquares[row][col].getBackground() == darkRed || chessBoardSquares[row][col].getBackground() == lightRed))
 			{
 				pieceMove = null;
 				for (Move move2 : engine.movesOld)
@@ -314,17 +314,13 @@ public class ChessGui
 					}
 				}
 
-				System.out.print("\n" + engine.boardGlobal.boardInfo.getMoveNum() + ". ");
+				System.out.print("\n" + engine.board.boardInfo.getMoveNum() + ". ");
 				if (engine.engineIsWhite)
 					System.out.print("...");
 				System.out.println(pieceMove.toString() + "\n");
 
-				engine.boardGlobal.movePiece(pieceMove);
+				engine.board.movePiece(pieceMove);
 				moveMade = true;
-				
-				Engine.Node<Move> node = engine.gameTree.findChild(pieceMove);
-				if (node != null) engine.gameTree = engine.gameTree.findChild(pieceMove);
-				else engine.gameTree = engine.new Node<Move>(null);
 			}
 
 			for (Move move : engine.movesOld)
@@ -332,9 +328,9 @@ public class ChessGui
 				setColor(move.getTargetIndex(), 0);
 			}
 
-			if (!moveMade && !engine.engineSearching && engine.boardGlobal.squares.get(index).hasPiece() && engine.boardGlobal.squares.get(index).getPiece().isWhite() != engine.engineIsWhite)
+			if (!moveMade && !engine.engineSearching && engine.board.squares.get(index).hasPiece() && engine.board.squares.get(index).getPiece().isWhite() != engine.engineIsWhite)
 			{
-				ArrayList<Move> moves = engine.boardGlobal.generateLegalMoves(engine.boardGlobal.squares.get(index).getPiece(), false);
+				ArrayList<Move> moves = engine.board.generateLegalMoves(engine.board.squares.get(index).getPiece(), false);
 				for (Move move : moves)
 				{
 					setColor(move.getTargetIndex(), 2);
@@ -362,7 +358,7 @@ public class ChessGui
 			String command = e.getActionCommand();
 			if (command.equals("createFEN"))
 			{
-				String fen = engine.boardGlobal.createFEN(true);
+				String fen = engine.board.createFEN(true);
 				message.setText(fen);
 			}
 
@@ -389,11 +385,10 @@ public class ChessGui
 						setColor(engine.engineMoveOld.getTargetIndex(), 0);
 					}
 
-					engine.boardGlobal.loadFEN(engine.originalFEN);
+					engine.board.loadFEN(engine.originalFEN);
 					engine.engineSearching = false;
-					//engine.transpositionsList.clear();
-					engine.transpositions.clear();
-					engine.playerMoveMade = engine.engineIsWhite == engine.boardGlobal.boardInfo.isWhiteToMove();
+					//engine.transpositions.clear();
+					engine.playerMoveMade = engine.engineIsWhite == engine.board.boardInfo.isWhiteToMove();
 					updatePieces();
 				}
 			}

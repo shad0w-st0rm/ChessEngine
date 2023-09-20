@@ -2,46 +2,37 @@ package me.Shadow;
 
 public class Move
 {
+	static final Move NULL_MOVE = new Move(0);
+	
+	static final int NO_FLAG = 0b0000;
+	static final int EN_PASSANT_CAPTURE_FLAG = 0b0001;
+	static final int PAWN_DOUBLE_PUSH_FLAG = 0b0010;
+	static final int CASTLING_FLAG = 0b0011;
+	static final int PROMOTION_QUEEN_FLAG = 0b0100;
+	static final int PROMOTION_ROOK_FLAG = 0b0101;
+	static final int PROMOTION_BISHOP_FLAG = 0b0110;
+	static final int PROMOTION_KNIGHT_FLAG = 0b0111;
+	
 	private short data;
-	private short evalGuess;
 	
-	public Move (int start, int target, int eval)
+	public Move (int start, int target, int flags)
 	{
-		data |= (start | (target << 6));
-		evalGuess = (short) eval;
-	}
-	
-	public Move (int start, int target, int eval, boolean enPassantCapture, boolean enPassantNew)
-	{
-		this(start, target, eval);
-		data |= ((enPassantCapture ? 1 : 2) << 12);
-	}
-	
-	public Move (int start, int target, int eval, int promotedPiece)
-	{
-		this(start, target, eval);
-		data |= ((promotedPiece + 2) << 12);
-	}
-	
-	public Move (int start, int target, int eval, boolean castlingKingside)
-	{
-		this(start, target, eval);
-		data |= ((castlingKingside ? 7 : 8) << 12);
+		data |= (start | (target << 6) | (flags << 12));
 	}
 	
 	public Move (int data)
 	{
-		this.data = (short) (data & Short.MAX_VALUE);
+		this.data = (short) (data & 0xFFFF);
 	}
 	
 	public int getStartIndex()
 	{
-		return (data & 63); // isolate last 6 bits
+		return (data & 0b111111); // isolate last 6 bits
 	}
 	
 	public int getTargetIndex()
 	{
-		return ((data >>> 6) & 63); // 64 in binary bit shifted right 6 bits
+		return ((data >>> 6) & 0b111111); // 64 in binary bit shifted right 6 bits
 	}
 	
 	private int isolateFlags()
@@ -51,7 +42,7 @@ public class Move
 	
 	public int getEnPassantCaptureIndex()
 	{
-		if (isolateFlags() == 1)
+		if (isolateFlags() == EN_PASSANT_CAPTURE_FLAG)
 		{
 			return ((getStartIndex() / 8) * 8) + (getTargetIndex() % 8);
 		}
@@ -60,7 +51,7 @@ public class Move
 	
 	public int getEnPassantNewIndex()
 	{
-		if (isolateFlags() == 2)
+		if (isolateFlags() == PAWN_DOUBLE_PUSH_FLAG)
 		{
 			return (getStartIndex() + getTargetIndex()) / 2;
 		}
@@ -70,47 +61,35 @@ public class Move
 	public int getPromotedPiece()
 	{
 		int promotion = isolateFlags();
-		if (promotion >= 3 && promotion <= 6)
+		if (promotion >= PROMOTION_QUEEN_FLAG && promotion <= PROMOTION_KNIGHT_FLAG)
 		{
-			return (promotion - 2);
+			return ((promotion - PROMOTION_QUEEN_FLAG) + 1);
 		}
 		return 0;
 	}
 	
 	public boolean isCastleMove()
 	{
-		int flags = isolateFlags();		
-		return (flags == 7 || flags == 8);
+		return (isolateFlags() == CASTLING_FLAG);
 	}
 	
 	public int getRookStartIndex()
 	{
 		if (!isCastleMove()) return -1;
-		int flags = isolateFlags();
-		if (flags == 7) return (getStartIndex() + 3);
+		if (getStartIndex() < getTargetIndex()) return (getStartIndex() + 3);
 		else return (getStartIndex() - 4);
 	}
 	
 	public int getRookTargetIndex()
 	{
 		if (!isCastleMove()) return -1;
-		int flags = isolateFlags();
-		if (flags == 7) return (getTargetIndex() - 1);
+		if (getStartIndex() < getTargetIndex()) return (getTargetIndex() - 1);
 		else return (getTargetIndex() + 1);
 	}
 	
 	public int getData()
 	{
-		return (data & Short.MAX_VALUE);
-	}
-	
-	public int getEvalGuess()
-	{
-		return evalGuess;
-	}
-	public void setEvalGuess(int eval)
-	{
-		evalGuess = (short) eval;
+		return (data & 0xFFFF);
 	}
 	
 	public String toString()
