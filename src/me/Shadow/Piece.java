@@ -138,9 +138,9 @@ public class Piece
 	
 	public static int getZobristOffset(int pieceInfo)
 	{
-		int offset = pieceInfo & TYPE_MASK;
+		int offset = (pieceInfo & TYPE_MASK) * 2;
 		offset += (pieceInfo & COLOR_MASK) >>> 3;
-		return (offset - 1);
+		return (offset - 2);
 	}
 	
 	public static char getPieceSymbol(int pieceInfo)

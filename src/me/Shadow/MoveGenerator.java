@@ -445,7 +445,7 @@ public class MoveGenerator
 				int newIndex = friendlyKingIndex + (directionOffset * i);
 				potentialPinRayMask |= (1L << newIndex);
 				// TODO: this should be fixed to not rely on board.squares list
-				int pieceInfo = board.squares.get(newIndex).getPiece();
+				int pieceInfo = board.squares[newIndex];
 				if (pieceInfo != Piece.NONE)
 				{
 					if (Piece.isColor(pieceInfo, friendlyColor))

@@ -264,27 +264,27 @@ public class ChessGui
 
 	public void updatePieces()
 	{
-		for (Square square : engine.board.squares)
+		for (int i = 0; i < 64; i++)
 		{
-			int squareIndex = square.getIndex();
-			int squareRow = squareIndex / 8;
-			int squareCol = squareIndex % 8;
+			int squareRow = i / 8;
+			int squareCol = i % 8;
 			ImageIcon icon = new ImageIcon(new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB));
-			if (square.getPiece() != Piece.NONE)
+			if (engine.board.squares[i] != Piece.NONE)
 			{
-				int pieceType = Piece.getPieceType(square.getPiece());
+				int pieceType = Piece.getPieceType(engine.board.squares[i]);
+				int pieceColor = Piece.getColor(engine.board.squares[i]);
 				if (pieceType == Piece.PAWN)
-					icon = new ImageIcon(chessPieceImages[(Piece.getColor(square.getPiece()) >>> 3) ^ 1][PAWN]);
+					icon = new ImageIcon(chessPieceImages[(pieceColor >>> 3) ^ 1][PAWN]);
 				else if (pieceType == Piece.KNIGHT)
-					icon = new ImageIcon(chessPieceImages[(Piece.getColor(square.getPiece()) >>> 3) ^ 1][KNIGHT]);
+					icon = new ImageIcon(chessPieceImages[(pieceColor >>> 3) ^ 1][KNIGHT]);
 				else if (pieceType == Piece.ROOK)
-					icon = new ImageIcon(chessPieceImages[(Piece.getColor(square.getPiece()) >>> 3) ^ 1][ROOK]);
+					icon = new ImageIcon(chessPieceImages[(pieceColor >>> 3) ^ 1][ROOK]);
 				else if (pieceType == Piece.BISHOP)
-					icon = new ImageIcon(chessPieceImages[(Piece.getColor(square.getPiece()) >>> 3) ^ 1][BISHOP]);
+					icon = new ImageIcon(chessPieceImages[(pieceColor >>> 3) ^ 1][BISHOP]);
 				else if (pieceType == Piece.QUEEN)
-					icon = new ImageIcon(chessPieceImages[(Piece.getColor(square.getPiece()) >>> 3) ^ 1][QUEEN]);
+					icon = new ImageIcon(chessPieceImages[(pieceColor >>> 3) ^ 1][QUEEN]);
 				else if (pieceType == Piece.KING)
-					icon = new ImageIcon(chessPieceImages[(Piece.getColor(square.getPiece()) >>> 3) ^ 1][KING]);
+					icon = new ImageIcon(chessPieceImages[(pieceColor >>> 3) ^ 1][KING]);
 			}
 			chessBoardSquares[squareRow][squareCol].setIcon(icon);
 		}
@@ -344,7 +344,7 @@ public class ChessGui
 
 			if (!moveMade && !engine.engineSearching)
 			{
-				int piece = engine.board.squares.get(index).getPiece();
+				int piece = engine.board.squares[index];
 				if (piece != Piece.NONE && Piece.isColor(piece, Piece.WHITE_PIECE) != engine.engineIsWhite)
 				{
 					ArrayList<Move> moves = new ArrayList<Move>();

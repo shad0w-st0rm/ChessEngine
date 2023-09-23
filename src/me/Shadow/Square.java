@@ -2,41 +2,6 @@ package me.Shadow;
 
 public class Square
 {
-	private int index;
-	private int piece;
-
-	public Square(int rankIn, int fileIn)
-	{
-		index = getIndexFromRankFile(rankIn, fileIn);
-	}
-
-	public int setPiece(int pieceIn)
-	{
-		int removedPiece = piece;
-		piece = pieceIn;
-		return removedPiece;
-	}
-
-	public int getPiece()
-	{
-		return piece;
-	}
-
-	public int getIndex()
-	{
-		return index;
-	}
-
-	public int getRank()
-	{
-		return Square.getRank(index);
-	}
-
-	public int getFile()
-	{
-		return Square.getFile(index);
-	}
-
 	public static int getRank(int index)
 	{
 		return (index / 8) + 1;

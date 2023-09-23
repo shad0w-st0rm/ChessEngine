@@ -9,13 +9,13 @@ public class Bitboards
 	{
 		pieceBoards = new long[Piece.BLACK_KING + 1];
 		colorBoards = new long[2];
-		for (Square square : board.squares)
+		for (int i = 0; i < 64; i++)
 		{
-			if (square.getPiece() != Piece.NONE)
+			int piece = board.squares[i];
+			if (piece != Piece.NONE)
 			{
-				int pieceInfo = square.getPiece();
-				pieceBoards[pieceInfo] |= (1L << square.getIndex());
-				colorBoards[pieceInfo >>> 3] |= (1L << square.getIndex());
+				pieceBoards[piece] |= (1L << i);
+				colorBoards[piece >>> 3] |= (1L << i);
 			}
 		}
 	}

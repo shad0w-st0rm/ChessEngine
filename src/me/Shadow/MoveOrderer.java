@@ -16,20 +16,20 @@ public class MoveOrderer
 				continue;
 			}
 			
-			int piece = board.squares.get(move.getStartIndex()).getPiece();
+			int piece = board.squares[move.getStartIndex()];
 			int evalGuess = 0;
 			
 			evalGuess -= Piece.getPieceSquareValue(piece, move.getStartIndex(), endgame);
 			evalGuess += Piece.getPieceSquareValue(piece, move.getTargetIndex(), endgame);
 			
-			if (board.squares.get(move.getTargetIndex()).getPiece() != Piece.NONE)
+			if (board.squares[move.getTargetIndex()] != Piece.NONE)
 			{
 				if (Piece.getPieceType(piece) == Piece.KING)
 				{
-					evalGuess += (100.0 * Piece.getValue(board.squares.get(move.getTargetIndex()).getPiece())) / 100; // TODO: this is an arbitary value
+					evalGuess += (100.0 * Piece.getValue(board.squares[move.getTargetIndex()])) / 100; // TODO: this is an arbitary value
 				}
 				else
-					evalGuess += (100.0 * Piece.getValue(board.squares.get(move.getTargetIndex()).getPiece())) / Piece.getValue(piece);
+					evalGuess += (100.0 * Piece.getValue(board.squares[move.getTargetIndex()])) / Piece.getValue(piece);
 			}
 			if (move.getPromotedPiece() != 0)
 			{

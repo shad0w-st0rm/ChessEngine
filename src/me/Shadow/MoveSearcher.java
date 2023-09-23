@@ -42,6 +42,7 @@ public class MoveSearcher
 	
 	public Move startSearch()
 	{
+		searchCancelled = false;
 		Timer timer = new Timer();
 		timer.schedule(new TimerTask()
 		{
@@ -55,8 +56,9 @@ public class MoveSearcher
 		
 		bestMove = bestMoveCurrentIteration = Move.NULL_MOVE;
 		bestEval = bestEvalCurrentIteration = negativeInfinity;
+		oneMoveSearched = false;
 		startTime = System.currentTimeMillis();
-		int depth = 0;
+		int depth = maxDepthReached = 0;
 		int depthMax = 512;
 		while (!searchCancelled && depth < depthMax)
 		{

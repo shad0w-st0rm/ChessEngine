@@ -7,7 +7,7 @@ import java.util.Random;
 public class Board
 {
 	Bitboards bitBoards;
-	ArrayList<Square> squares = new ArrayList<Square>(64);
+	int[] squares = new int[64];
 	BoardInfo boardInfo;
 	long[] zobristHashes;
 
@@ -30,13 +30,18 @@ public class Board
 
 	public int movePiece(Move move)
 	{
-		Square start = squares.get(move.getStartIndex());
-		Square target = squares.get(move.getTargetIndex());
-		Square capture = target;
+		int start = move.getStartIndex();
+		int target = move.getTargetIndex();
+		
+		int captureIndex = target;
 		if (move.getEnPassantCaptureIndex() != -1)
-			capture = squares.get(move.getEnPassantCaptureIndex()); // if en passant, change capture square
-		int piece = start.getPiece();
-		int capturedPiece = capture.getPiece();
+			captureIndex = move.getEnPassantCaptureIndex(); // if en passant, change capture square
+		
+		// set or reset en passant index
+		boardInfo.setEnPassantIndex(move.getEnPassantNewIndex());
+		
+		int piece = squares[start];
+		int capturedPiece = squares[captureIndex];
 
 		long newZobristHash = updateZobristHash(move);
 		boardInfo.setZobristHash(newZobristHash);	// set the hash
@@ -54,7 +59,7 @@ public class Board
 		// update the material
 		boolean endgame = boardInfo.getWhiteMaterial() + boardInfo.getBlackMaterial() < 4000;
 		
-		int differential = Piece.getPieceSquareValue(piece, move.getTargetIndex(), endgame) - Piece.getPieceSquareValue(piece, move.getStartIndex(), endgame);
+		int differential = Piece.getPieceSquareValue(piece, move.getTargetIndex(), endgame) - Piece.getPieceSquareValue(piece, start, endgame);
 		
 		if (Piece.isColor(piece, Piece.WHITE_PIECE))
 			boardInfo.setWhiteSquareBonus(boardInfo.getWhiteSquareBonus() + differential);
@@ -69,39 +74,38 @@ public class Board
 			if (Piece.isColor(capturedPiece, Piece.WHITE_PIECE))
 			{
 				boardInfo.setWhiteMaterial(boardInfo.getWhiteMaterial() - Piece.getValue(capturedPiece));
-				boardInfo.setWhiteSquareBonus(boardInfo.getWhiteSquareBonus() - (Piece.getPieceSquareValue(capturedPiece, capture.getIndex(), endgame)));
+				boardInfo.setWhiteSquareBonus(boardInfo.getWhiteSquareBonus() - (Piece.getPieceSquareValue(capturedPiece, captureIndex, endgame)));
 			}
 			else
 			{
 				boardInfo.setBlackMaterial(boardInfo.getBlackMaterial() - Piece.getValue(capturedPiece));
-				boardInfo.setBlackSquareBonus(boardInfo.getBlackSquareBonus() - (Piece.getPieceSquareValue(capturedPiece, capture.getIndex(), endgame)));
+				boardInfo.setBlackSquareBonus(boardInfo.getBlackSquareBonus() - (Piece.getPieceSquareValue(capturedPiece, captureIndex, endgame)));
 			}
 			
 			if (Piece.getPieceType(capturedPiece) == Piece.ROOK) // update castling rights if rook was captured
 			{
 				boolean[] castlingRights = boardInfo.getCastlingRights();
-				if (target.getIndex() == 7) castlingRights[0] = false;
-				else if (target.getIndex() == 0) castlingRights[1] = false;
-				else if (target.getIndex() == 63) castlingRights[2] = false;
-				else if (target.getIndex() == 56) castlingRights[3] = false;
+				if (target == 7) castlingRights[0] = false;
+				else if (target == 0) castlingRights[1] = false;
+				else if (target == 63) castlingRights[2] = false;
+				else if (target == 56) castlingRights[3] = false;
 				boardInfo.setCastlingRights(castlingRights);
 			}
 			
 			// remove captured piece from the board
-			capture.setPiece(Piece.NONE);
-			
-			bitBoards.toggleSquare(capturedPiece, capture.getIndex());
+			squares[captureIndex] = Piece.NONE;
+			bitBoards.toggleSquare(capturedPiece, captureIndex);
 		}
 
 		if (move.isCastleMove()) // if move is castling
 		{
-			Square rookStart = squares.get(move.getRookStartIndex());
-			Square rookTarget = squares.get(move.getRookTargetIndex());
+			int rookStart = move.getRookStartIndex();
+			int rookTarget = move.getRookTargetIndex();
 			
 			// move the rook
-			int rook = rookStart.getPiece();
-			rookStart.setPiece(Piece.NONE);
-			rookTarget.setPiece(rook);
+			int rook = squares[rookStart];
+			squares[rookStart] = Piece.NONE;
+			squares[rookTarget] = rook;
 
 			// update castling rights
 			boolean[] castlingRights = boardInfo.getCastlingRights();
@@ -111,24 +115,24 @@ public class Board
 				castlingRights[2] = castlingRights[3] = false;
 			boardInfo.setCastlingRights(castlingRights);
 			
-			int rookDifferential = Piece.getPieceSquareValue(rook, move.getRookTargetIndex(), endgame) - Piece.getPieceSquareValue(rook, move.getRookStartIndex(), endgame);
+			int rookDifferential = Piece.getPieceSquareValue(rook, rookTarget, endgame) - Piece.getPieceSquareValue(rook, rookStart, endgame);
 			if (Piece.isColor(piece, Piece.WHITE_PIECE))
 				boardInfo.setWhiteSquareBonus(boardInfo.getWhiteSquareBonus() + rookDifferential);
 			else
 				boardInfo.setBlackSquareBonus(boardInfo.getBlackSquareBonus() + rookDifferential);
 			
-			bitBoards.toggleSquare(rook, rookStart.getIndex());
-			bitBoards.toggleSquare(rook, rookTarget.getIndex());
+			bitBoards.toggleSquare(rook, rookStart);
+			bitBoards.toggleSquare(rook, rookTarget);
 		}
 		else if (move.getPromotedPiece() != 0) // if move is promotion
 		{
 			// update material
 			int materialDifference = Piece.getValue(piece);
-			int promotedDifferential = Piece.getPieceSquareValue(piece, target.getIndex(), endgame);
+			int promotedDifferential = Piece.getPieceSquareValue(piece, target, endgame);
 			
-			bitBoards.toggleSquare(piece, start.getIndex());
+			bitBoards.toggleSquare(piece, start);
 			piece = (move.getPromotedPiece() | Piece.getColor(piece));
-			bitBoards.toggleSquare(piece, start.getIndex());
+			bitBoards.toggleSquare(piece, start);
 			
 			// update material
 			materialDifference = Piece.getValue(piece) - materialDifference;
@@ -137,7 +141,7 @@ public class Board
 			else
 				boardInfo.setBlackMaterial(boardInfo.getBlackMaterial() + materialDifference);
 			
-			promotedDifferential = Piece.getPieceSquareValue(piece, target.getIndex(), endgame) - promotedDifferential;
+			promotedDifferential = Piece.getPieceSquareValue(piece, target, endgame) - promotedDifferential;
 			if (Piece.isColor(piece, Piece.WHITE_PIECE))
 				boardInfo.setWhiteSquareBonus(boardInfo.getWhiteSquareBonus() + promotedDifferential);
 			else
@@ -148,10 +152,10 @@ public class Board
 			if (Piece.getPieceType(piece) == Piece.ROOK) // update castling rights if rook move
 			{
 				boolean[] castlingRights = boardInfo.getCastlingRights();
-				if (move.getStartIndex() == 7) castlingRights[0] = false;
-				else if (move.getStartIndex() == 0) castlingRights[1] = false;
-				else if (move.getStartIndex() == 63) castlingRights[2] = false;
-				else if (move.getStartIndex() == 56) castlingRights[3] = false;
+				if (start == 7) castlingRights[0] = false;
+				else if (start == 0) castlingRights[1] = false;
+				else if (start == 63) castlingRights[2] = false;
+				else if (start == 56) castlingRights[3] = false;
 				boardInfo.setCastlingRights(castlingRights);
 			}
 
@@ -166,15 +170,13 @@ public class Board
 			}
 		}
 		
-		// move the piece to the new square
-		start.setPiece(Piece.NONE);
-		target.setPiece(piece);
 		
-		bitBoards.toggleSquare(piece, start.getIndex());
-		bitBoards.toggleSquare(piece, target.getIndex());
-
-		// set or reset en passant index
-		boardInfo.setEnPassantIndex(move.getEnPassantNewIndex());
+		
+		// move the piece to the new square
+		squares[start] = Piece.NONE;
+		squares[target] = piece;
+		bitBoards.toggleSquare(piece, start);
+		bitBoards.toggleSquare(piece, target);
 		
 		return capturedPiece; // return the captured piece
 	}
@@ -185,47 +187,48 @@ public class Board
 		boardInfo.getPositionList().remove(boardInfo.getPositionList().size()-1); // remove the most recent position
 		boardInfo.getMoveList().remove(boardInfo.getMoveList().size()-1); // remove the most recent move
 
-		Square start = squares.get(move.getStartIndex());
-		Square target = squares.get(move.getTargetIndex());
+		int start = move.getStartIndex();
+		int target = move.getTargetIndex();
 		
 		// move the piece back to its original square
-		int piece = target.setPiece(Piece.NONE);
-		start.setPiece(piece);
-		Square captureSquare = target;
+		squares[start] = squares[target];
+		squares[target] = Piece.NONE;
+		int piece = squares[start];
+		int captureSquare = target;
 		
-		bitBoards.toggleSquare(piece, start.getIndex());
-		bitBoards.toggleSquare(piece, target.getIndex());
+		bitBoards.toggleSquare(piece, start);
+		bitBoards.toggleSquare(piece, target);
 
 		if (move.isCastleMove()) // if it was a castle move
 		{
 			// need to move the rook back too
-			Square rookStart = squares.get(move.getRookStartIndex());
-			Square rookTarget = squares.get(move.getRookTargetIndex());
-			int rook = rookTarget.setPiece(Piece.NONE);
-			rookStart.setPiece(rook);
+			int rookStart = move.getRookStartIndex();
+			int rookTarget = move.getRookTargetIndex();
 			
-			bitBoards.toggleSquare(rook, rookStart.getIndex());
-			bitBoards.toggleSquare(rook, rookTarget.getIndex());
+			squares[rookStart] = squares[rookTarget];
+			squares[rookTarget] = Piece.NONE;
+			
+			bitBoards.toggleSquare(squares[rookStart], rookStart);
+			bitBoards.toggleSquare(squares[rookStart], rookTarget);
 		}
 		else if (move.getPromotedPiece() != 0) // if it was a promotion
 		{
-			bitBoards.toggleSquare(piece, start.getIndex());
+			bitBoards.toggleSquare(piece, start);
 			piece = (Piece.PAWN | Piece.getColor(piece));
-			start.setPiece(piece);
-			bitBoards.toggleSquare(piece, start.getIndex());
+			squares[start] = piece;
+			bitBoards.toggleSquare(piece, start);
 		}
 
 		if (captured != Piece.NONE) // if there was a captured piece
 		{
 			if (move.getEnPassantCaptureIndex() != -1) // if en passant move
 			{
-				captureSquare = squares.get(move.getEnPassantCaptureIndex()); // set captureSquare to the right place
+				captureSquare = move.getEnPassantCaptureIndex(); // set captureSquare to the right place
 			}
 			
 			// put captured piece back on the board
-			captureSquare.setPiece(captured);
-			
-			bitBoards.toggleSquare(captured, captureSquare.getIndex());
+			squares[captureSquare] = captured;
+			bitBoards.toggleSquare(captured, captureSquare);
 		}
 	}
 
@@ -233,12 +236,12 @@ public class Board
 	{
 		long zobristHash = 0;
 		
-		for (Square square : squares)
+		for (int i = 0; i < 64; i++)
 		{
-			int piece = square.getPiece();
+			int piece = squares[i];
 			if (piece != Piece.NONE)
 			{
-				zobristHash ^= zobristHashes[(square.getIndex() * 12 + Piece.getZobristOffset(piece))];
+				zobristHash ^= zobristHashes[(i * 12 + Piece.getZobristOffset(piece))];
 			}
 		}
 
@@ -262,12 +265,12 @@ public class Board
 	{
 		long zobristHash = boardInfo.getZobristHash();
 		
-		int piece = squares.get(move.getStartIndex()).getPiece();
-		int captured = squares.get(move.getTargetIndex()).getPiece();
+		int piece = squares[move.getStartIndex()];
+		int captured = squares[move.getTargetIndex()];
 		int captureIndex = move.getTargetIndex();
 		if (move.getEnPassantCaptureIndex() != -1)
 		{
-			captured = squares.get(move.getEnPassantCaptureIndex()).getPiece();
+			captured = squares[move.getEnPassantCaptureIndex()];
 			captureIndex = move.getEnPassantCaptureIndex();
 		}
 		
@@ -331,7 +334,7 @@ public class Board
 		
 		if (move.getRookStartIndex() != -1)
 		{
-			int rook = squares.get(move.getRookStartIndex()).getPiece();
+			int rook = squares[move.getRookStartIndex()];
 			zobristHash ^= zobristHashes[(move.getRookStartIndex() * 12 + Piece.getZobristOffset(rook))]; // remove rook from start square
 			zobristHash ^= zobristHashes[(move.getRookTargetIndex() * 12 + Piece.getZobristOffset(rook))]; // add rook to target square
 		}
@@ -357,7 +360,7 @@ public class Board
 		fenOther.trim();
 		int file = 1;
 		int rank = 1;
-		ArrayList<Square> newSquares = new ArrayList<Square>(64);
+		squares = new int[64];
 		String[] rows = fenPieces.split("/"); // split the string into each rank
 		
 		for (int i = 7; i >= 0; i--) // loop will run 8 times for each rank
@@ -371,14 +374,13 @@ public class Board
 					int num = c - 48; // get the number
 					while (num > 0) // loop for num times
 					{
-						newSquares.add(new Square(rank, file)); // add num empty squares
+						squares[Square.getIndexFromRankFile(rank, file)] = Piece.NONE;
 						file++; // increment the file
 						num--;
 					}
 				}
 				else // not a number so a piece
 				{
-					Square square = new Square(rank, file); // initialize the square
 					int piece = Piece.NONE;
 					
 					int color = Piece.BLACK_PIECE;
@@ -397,16 +399,13 @@ public class Board
 					else if (c == 'p' || c == 'P')
 						piece = Piece.PAWN | color;
 										
-					square.setPiece(piece);
-					
-					newSquares.add(square); // add the square into the board
+					squares[Square.getIndexFromRankFile(rank, file)] = piece;
 					file++; // increment file to move onto next square
 				}
 			}
 			rank++; // decrement rank
 			file = 1; // reset file
 		}
-		squares = newSquares; // replace squares with filled in ArrayList
 
 		String[] fenInfo = fenOther.split(" "); // split string by spaces to split up information
 		for (int i = 0; i < fenInfo.length; i++)
@@ -455,9 +454,8 @@ public class Board
 		boardInfo.setWhiteMaterial(0);
 		boardInfo.setBlackMaterial(0);
 		
-		for (Square square : squares)
+		for (int piece : squares)
 		{
-			int piece = square.getPiece();
 			if (piece != Piece.NONE)
 			{
 				if (Piece.isColor(piece, Piece.WHITE_PIECE))
@@ -475,18 +473,18 @@ public class Board
 		boardInfo.setWhiteSquareBonus(0);
 		boardInfo.setBlackSquareBonus(0);
 		
-		for (Square square : squares)
+		for (int index = 0; index < 64; index++)
 		{
-			int piece = square.getPiece();
+			int piece = squares[index];
 			if (piece != Piece.NONE)
 			{
 				if (Piece.isColor(piece, Piece.WHITE_PIECE))
 				{
-					boardInfo.setWhiteMaterial(boardInfo.getWhiteMaterial() + Piece.getPieceSquareValue(piece, square.getIndex(), endgame));
+					boardInfo.setWhiteMaterial(boardInfo.getWhiteMaterial() + Piece.getPieceSquareValue(piece, index, endgame));
 				}
 				else
 				{
-					boardInfo.setBlackMaterial(boardInfo.getBlackMaterial() + Piece.getPieceSquareValue(piece, square.getIndex(), endgame));
+					boardInfo.setBlackMaterial(boardInfo.getBlackMaterial() + Piece.getPieceSquareValue(piece, index, endgame));
 				}
 			}
 		}
@@ -512,14 +510,14 @@ public class Board
 		ArrayList<String> rows = new ArrayList<String>();
 		for (int i = 0; i < 64; i++) // iterate over all squares
 		{
-			if (squares.get(i).getPiece() != Piece.NONE) // if an uncaptured piece on this square
+			if (squares[i] != Piece.NONE) // if an uncaptured piece on this square
 			{
 				if (count != 0) // if count number of empty squares preceded this piece
 				{
 					row += "" + count; // add the number count to the string
 					count = 0; // reset count
 				}
-				row += "" + Piece.getPieceSymbol(squares.get(i).getPiece()); // add the piece symbol of this piece
+				row += "" + Piece.getPieceSymbol(squares[i]); // add the piece symbol of this piece
 			}
 			else
 				count++; // otherwise increase count for another empty square
@@ -581,10 +579,10 @@ public class Board
 			System.out.print("\n+---+---+---+---+---+---+---+---+\n| ");
 			for (int file = 1; file <= 8; file++)
 			{
-				Square square = squares.get(Square.getIndexFromRankFile(rank, file));
-				if (square.getPiece() != Piece.NONE) // if piece exists
+				int square = Square.getIndexFromRankFile(rank, file);
+				if (squares[square] != Piece.NONE) // if piece exists
 				{
-					System.out.print(Piece.getPieceSymbol(square.getPiece()) + " | "); // print the piece symbol
+					System.out.print(Piece.getPieceSymbol(squares[square]) + " | "); // print the piece symbol
 				}
 				else
 					System.out.print("  | "); // or just print an empty space

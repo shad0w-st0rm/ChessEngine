@@ -23,7 +23,7 @@ public class Engine
 	public Engine()
 	{
 		PrecomputedData.generateData();
-		// Perft.runPerftSuite();
+		Perft.runPerftSuite();
 		
 		gui = new ChessGui();
 		gui.createGui(this);

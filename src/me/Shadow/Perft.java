@@ -76,18 +76,17 @@ public class Perft
 		String fen = perftData[2];
 		
 		Board board = new Board(fen);
+		MoveGenerator moveGen = new MoveGenerator(board);
 		long startTime = System.currentTimeMillis();
-		int result = countMoves(depth, depth, board, divide);
+		int result = countMoves(depth, depth, board, moveGen, divide);
 		System.out.println(expectedCount + "\t" + result + "\t" + (System.currentTimeMillis() - startTime) + " ms\n");		
 		return result == expectedCount;
 	}
 	
-	public static int countMoves(int depth, int originalDepth, Board board, boolean divide)
+	public static int countMoves(int depth, int originalDepth, Board board, MoveGenerator moveGen, boolean divide)
 	{
-		if (depth == 0) return 1;
-		
+		//if (depth == 0) return 1;
 		int num = 0;
-		MoveGenerator moveGen = new MoveGenerator(board);
 		Move[] moves = moveGen.generateMoves(false);
 		
 		if (depth == 1) return moves.length;
@@ -96,7 +95,7 @@ public class Perft
 		{
 			BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
 			int captured = board.movePiece(move);
-			int add = countMoves(depth - 1, originalDepth, board, divide);
+			int add = countMoves(depth - 1, originalDepth, board, moveGen, divide);
 			
 			//if (depth == originalDepth && divide) System.out.println(move + ": " + add);
 			//if (depth == originalDepth-1 && divide) System.out.println("\t" + move + ": " + add);
