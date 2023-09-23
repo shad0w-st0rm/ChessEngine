@@ -48,7 +48,7 @@ public class Perft
 		System.out.println("Average time: " + totalTimeSum/runCount);
 	}
 	
-	// average time so far is 53 seconds
+	// average time so far is 11 seconds
 	public static long runPerftSuite()
 	{
 		boolean allTestsPassed = true;
@@ -84,24 +84,25 @@ public class Perft
 	
 	public static int countMoves(int depth, int originalDepth, Board board, boolean divide)
 	{
-		if (depth == 0)
-			return 1;
-		int num = 0;
-		ArrayList<Move> moves = board.generateAllLegalMoves(board.boardInfo.isWhiteToMove(), false);
+		if (depth == 0) return 1;
 		
-		if (depth == 1) return moves.size();
+		int num = 0;
+		MoveGenerator moveGen = new MoveGenerator(board);
+		Move[] moves = moveGen.generateMoves(false);
+		
+		if (depth == 1) return moves.length;
 		
 		for (Move move : moves)
 		{
 			BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
-			ArrayList<PinnedPiece> pins = (ArrayList<PinnedPiece>) board.pinnedPieces.clone();
-			Piece captured = board.movePiece(move);
+			int captured = board.movePiece(move);
 			int add = countMoves(depth - 1, originalDepth, board, divide);
 			
-			// if (depth == originalDepth && divide) System.out.println(move + ": " + add);
+			//if (depth == originalDepth && divide) System.out.println(move + ": " + add);
+			//if (depth == originalDepth-1 && divide) System.out.println("\t" + move + ": " + add);
 			
 			num += add;
-			board.moveBack(move, captured, boardInfoOld, pins);
+			board.moveBack(move, captured, boardInfoOld);
 		}
 		
 		return num;

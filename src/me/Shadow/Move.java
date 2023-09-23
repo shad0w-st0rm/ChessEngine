@@ -94,15 +94,25 @@ public class Move
 	
 	public String toString()
 	{
-		String notation = Board.getSquareName(getStartIndex());
-		notation += Board.getSquareName(getTargetIndex());
+		String notation = Square.getSquareName(getStartIndex());
+		notation += Square.getSquareName(getTargetIndex());
+		if (getPromotedPiece() != 0)
+		{
+			notation += Piece.getPieceSymbol(getPromotedPiece() | Piece.BLACK_PIECE);
+		}
+		return notation;
+	}
+	
+	public String toStringLong()
+	{
+		String notation = toString();
 		if (getEnPassantCaptureIndex() != -1) notation += " En Passant";
 		if (getPromotedPiece() != 0) notation += " Promotion to " + getPromotedPiece();
 		if (isCastleMove())
 		{
 			notation += " Castling: ";
-			notation += Board.getSquareName(getRookStartIndex());
-			notation += Board.getSquareName(getRookTargetIndex());
+			notation += Square.getSquareName(getRookStartIndex());
+			notation += Square.getSquareName(getRookTargetIndex());
 		}
 		return notation;
 	}

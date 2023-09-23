@@ -6,8 +6,6 @@ public class BoardInfo
 	private boolean whiteToMove;	// 1 bit
 	byte castlingRightsByte;	// 4 bits
 	private int enPassantIndex;		//4 bits (could be done in 3)
-	private Piece checkPiece;	// 6 bits
-	private boolean doubleCheck;	// 1 bit
 	
 	private int whiteMaterial;	// 12 bits
 	private int blackMaterial;	// 12 bits
@@ -25,7 +23,6 @@ public class BoardInfo
 	public BoardInfo()
 	{
 		whiteToMove = true;
-		checkPiece = null;
 		enPassantIndex = -1;
 		whiteMaterial = blackMaterial = 4000;
 		moveNum = 0;
@@ -36,8 +33,6 @@ public class BoardInfo
 	public BoardInfo(BoardInfo boardInfoCopy)
 	{
 		whiteToMove = boardInfoCopy.whiteToMove;
-		checkPiece = boardInfoCopy.checkPiece;
-		doubleCheck = boardInfoCopy.doubleCheck;
 		castlingRightsByte = boardInfoCopy.castlingRightsByte;
 		enPassantIndex = boardInfoCopy.enPassantIndex;
 		whiteMaterial = boardInfoCopy.whiteMaterial;
@@ -53,8 +48,6 @@ public class BoardInfo
 	}
 	
 	public boolean isWhiteToMove() { return whiteToMove; }
-	public Piece getCheckPiece() { return checkPiece; }
-	public boolean isDoubleCheck() { return doubleCheck; }
 	public boolean [] getCastlingRights()
 	{
 		boolean [] array = {false, false, false, false};
@@ -77,8 +70,6 @@ public class BoardInfo
 	public String getBoardFEN() { return boardFEN; }
 	
 	public void setWhiteToMove(boolean whiteToMoveIn) { whiteToMove = whiteToMoveIn; }
-	public void setCheckPiece(Piece checkPieceIn) { checkPiece = checkPieceIn; }
-	public void setDoubleCheck(boolean doubleCheck) { this.doubleCheck = doubleCheck; }
 	public void setCastlingRights(boolean [] castlingRightsIn)
 	{
 		castlingRightsByte = 0;

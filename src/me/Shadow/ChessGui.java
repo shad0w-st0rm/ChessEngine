@@ -12,6 +12,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
+import java.util.Collections;
 
 import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
@@ -269,20 +270,21 @@ public class ChessGui
 			int squareRow = squareIndex / 8;
 			int squareCol = squareIndex % 8;
 			ImageIcon icon = new ImageIcon(new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB));
-			if (square.hasPiece())
+			if (square.getPiece() != Piece.NONE)
 			{
-				if (square.getPiece().getPieceType() == Piece.PAWN)
-					icon = new ImageIcon(chessPieceImages[square.getPiece().isWhite() ? WHITE : BLACK][PAWN]);
-				else if (square.getPiece().getPieceType() == Piece.KNIGHT)
-					icon = new ImageIcon(chessPieceImages[square.getPiece().isWhite() ? WHITE : BLACK][KNIGHT]);
-				else if (square.getPiece().getPieceType() == Piece.ROOK)
-					icon = new ImageIcon(chessPieceImages[square.getPiece().isWhite() ? WHITE : BLACK][ROOK]);
-				else if (square.getPiece().getPieceType() == Piece.BISHOP)
-					icon = new ImageIcon(chessPieceImages[square.getPiece().isWhite() ? WHITE : BLACK][BISHOP]);
-				else if (square.getPiece().getPieceType() == Piece.QUEEN)
-					icon = new ImageIcon(chessPieceImages[square.getPiece().isWhite() ? WHITE : BLACK][QUEEN]);
-				else if (square.getPiece().getPieceType() == Piece.KING)
-					icon = new ImageIcon(chessPieceImages[square.getPiece().isWhite() ? WHITE : BLACK][KING]);
+				int pieceType = Piece.getPieceType(square.getPiece());
+				if (pieceType == Piece.PAWN)
+					icon = new ImageIcon(chessPieceImages[(Piece.getColor(square.getPiece()) >>> 3) ^ 1][PAWN]);
+				else if (pieceType == Piece.KNIGHT)
+					icon = new ImageIcon(chessPieceImages[(Piece.getColor(square.getPiece()) >>> 3) ^ 1][KNIGHT]);
+				else if (pieceType == Piece.ROOK)
+					icon = new ImageIcon(chessPieceImages[(Piece.getColor(square.getPiece()) >>> 3) ^ 1][ROOK]);
+				else if (pieceType == Piece.BISHOP)
+					icon = new ImageIcon(chessPieceImages[(Piece.getColor(square.getPiece()) >>> 3) ^ 1][BISHOP]);
+				else if (pieceType == Piece.QUEEN)
+					icon = new ImageIcon(chessPieceImages[(Piece.getColor(square.getPiece()) >>> 3) ^ 1][QUEEN]);
+				else if (pieceType == Piece.KING)
+					icon = new ImageIcon(chessPieceImages[(Piece.getColor(square.getPiece()) >>> 3) ^ 1][KING]);
 			}
 			chessBoardSquares[squareRow][squareCol].setIcon(icon);
 		}
@@ -340,14 +342,20 @@ public class ChessGui
 				setColor(move.getTargetIndex(), 0);
 			}
 
-			if (!moveMade && !engine.engineSearching && engine.board.squares.get(index).hasPiece() && engine.board.squares.get(index).getPiece().isWhite() != engine.engineIsWhite)
+			if (!moveMade && !engine.engineSearching)
 			{
-				ArrayList<Move> moves = engine.board.generateLegalMoves(engine.board.squares.get(index).getPiece(), false);
-				for (Move move : moves)
+				int piece = engine.board.squares.get(index).getPiece();
+				if (piece != Piece.NONE && Piece.isColor(piece, Piece.WHITE_PIECE) != engine.engineIsWhite)
 				{
-					setColor(move.getTargetIndex(), 2);
+					ArrayList<Move> moves = new ArrayList<Move>();
+					Collections.addAll(moves, engine.moveGenGlobal.generateMoves(false));
+					moves.removeIf(move -> move.getStartIndex() != index);
+					for (Move move : moves)
+					{
+						setColor(move.getTargetIndex(), 2);
+					}
+					engine.movesOld = moves;
 				}
-				engine.movesOld = moves;
 			}
 
 			setColor(index, 1);

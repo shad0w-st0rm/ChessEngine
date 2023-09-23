@@ -15,6 +15,7 @@ public class MoveSearcher
 	
 	boolean searchCancelled;
 	Board board;
+	MoveGenerator moveGen;
 	TranspositionTable transpositionTable;
 	int timeLimit;
 	
@@ -31,9 +32,10 @@ public class MoveSearcher
 	int numTranspositions;
 	
 	
-	public MoveSearcher(Board board, int timeLimitMS, TranspositionTable tt)
+	public MoveSearcher(Board board, MoveGenerator moveGen, int timeLimitMS, TranspositionTable tt)
 	{
 		this.board = board;
+		this.moveGen = moveGen;
 		timeLimit = timeLimitMS;
 		transpositionTable = tt;
 	}
@@ -125,26 +127,22 @@ public class MoveSearcher
 			else return transposEval;
 		}
 		
-		tempTime = System.currentTimeMillis();
-		boolean noLegalMoves = !board.hasLegalMoves(board.boardInfo.isWhiteToMove());
-		moveLegalityCheckTime += System.currentTimeMillis() - tempTime;
-		
-		if (noLegalMoves)
-		{
-			if (board.boardInfo.getCheckPiece() != null)
-				return negativeInfinity;
-			else
-				return 0;
-		}
-		
 		if (depth == 0)
 		{
 			return searchCaptures(alpha, beta);
 		}
 		
 		tempTime = System.currentTimeMillis();
-		Move[] moves = board.generateAllPseudoLegalMoves(board.boardInfo.isWhiteToMove(), false);
+		Move[] moves = moveGen.generateMoves(false);
 		moveGenTime += System.currentTimeMillis() - tempTime;
+		
+		if (moves.length == 0)
+		{
+			if (moveGen.inCheck)
+				return negativeInfinity;
+			else
+				return 0;
+		}
 		
 		tempTime = System.currentTimeMillis();
 		Move firstMove = (plyFromRoot == 0 ? bestMove : transpositionTable.lookupMove(board.boardInfo.getZobristHash()));
@@ -156,27 +154,17 @@ public class MoveSearcher
 		for (Move move : moves)
 		{
 			tempTime = System.currentTimeMillis();
-			boolean moveLegal = board.isMoveLegal(move);
-			moveLegalityCheckTime += System.currentTimeMillis() - tempTime;
-			
-			if (!moveLegal)
-			{
-				continue;
-			}
-			
-			tempTime = System.currentTimeMillis();
 			BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
-			ArrayList<PinnedPiece> pins = (ArrayList<PinnedPiece>) board.pinnedPieces.clone();
 			boardInfoTime += System.currentTimeMillis() - tempTime;
 			
 			tempTime = System.currentTimeMillis();
-			Piece captured = board.movePiece(move);
+			int captured = board.movePiece(move);
 			movePieceTime += System.currentTimeMillis() - tempTime;
 			
 			int evaluation = -(search(depth - 1, plyFromRoot + 1, -beta, -alpha));
 			
 			tempTime = System.currentTimeMillis();
-			board.moveBack(move, captured, boardInfoOld, pins);
+			board.moveBack(move, captured, boardInfoOld);
 			moveBackTime += System.currentTimeMillis() - tempTime;
 			
 			if (searchCancelled)
@@ -237,7 +225,7 @@ public class MoveSearcher
 		alpha = Math.max(alpha, evaluation);
 		
 		long tempTime = System.currentTimeMillis();
-		Move[] captures = board.generateAllPseudoLegalMoves(board.boardInfo.isWhiteToMove(), true);
+		Move[] captures = moveGen.generateMoves(true);
 		moveGenTime += System.currentTimeMillis() - tempTime;
 		
 		tempTime = System.currentTimeMillis();
@@ -245,29 +233,19 @@ public class MoveSearcher
 		moveEvalTime += System.currentTimeMillis() - tempTime;
 				
 		for (Move move : captures)
-		{			
-			tempTime = System.currentTimeMillis();
-			boolean moveLegal = board.isMoveLegal(move);
-			moveLegalityCheckTime += System.currentTimeMillis() - tempTime;
-			
-			if (!moveLegal)
-			{
-				continue;
-			}
-			
+		{
 			tempTime = System.currentTimeMillis();
 			BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
-			ArrayList<PinnedPiece> pins = (ArrayList<PinnedPiece>) board.pinnedPieces.clone();
 			boardInfoTime += System.currentTimeMillis() - tempTime;
 			
 			tempTime = System.currentTimeMillis();
-			Piece captured = board.movePiece(move);
+			int captured = board.movePiece(move);
 			movePieceTime += System.currentTimeMillis() - tempTime;
 			
 			evaluation = -(searchCaptures(-beta, -alpha));
 			
 			tempTime = System.currentTimeMillis();
-			board.moveBack(move, captured, boardInfoOld, pins);
+			board.moveBack(move, captured, boardInfoOld);
 			moveBackTime += System.currentTimeMillis() - tempTime;
 
 			if (evaluation >= beta)
@@ -298,8 +276,10 @@ public class MoveSearcher
 		evaluation = board.boardInfo.getWhiteMaterial() + board.boardInfo.getWhiteSquareBonus();
 		evaluation -= (board.boardInfo.getBlackMaterial() + board.boardInfo.getBlackSquareBonus());
 		
-		evaluation += forceKingToCorner(board.whiteKing, board.blackKing, 1 - (board.boardInfo.getBlackMaterial() / 2000));
-		evaluation -= forceKingToCorner(board.blackKing, board.whiteKing, 1 - (board.boardInfo.getWhiteMaterial() / 2000));
+		int whiteKingIndex = Bitboards.getLSB(board.bitBoards.pieceBoards[Piece.WHITE_KING]);
+		int blackKingIndex = Bitboards.getLSB(board.bitBoards.pieceBoards[Piece.BLACK_KING]);
+		evaluation += forceKingToCorner(whiteKingIndex, blackKingIndex, 1 - (board.boardInfo.getBlackMaterial() / 2000));
+		evaluation -= forceKingToCorner(blackKingIndex, whiteKingIndex, 1 - (board.boardInfo.getWhiteMaterial() / 2000));
 		
 		evaluation *= board.boardInfo.isWhiteToMove() ? 1 : -1;
 		
@@ -307,11 +287,8 @@ public class MoveSearcher
 		return (int)evaluation;
 	}
 
-	public int forceKingToCorner(Piece friendlyKing, Piece enemyKing, float endgameWeight)
+	public int forceKingToCorner(int friendlyKingIndex, int enemyKingIndex, float endgameWeight)
 	{
-		int friendlyKingIndex = friendlyKing.getSquare().getIndex();
-		int enemyKingIndex = enemyKing.getSquare().getIndex();
-		
 		if (endgameWeight < 0)
 			return 0;
 

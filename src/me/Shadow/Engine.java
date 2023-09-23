@@ -8,11 +8,13 @@ public class Engine
 {
 	ChessGui gui;
 	Board board;
+	MoveGenerator moveGenGlobal;
 	TranspositionTable transpositionTable;
 
 	boolean engineSearching;
 	boolean playerMoveMade;
 	boolean engineIsWhite;
+	int searchTime;
 	String originalFEN;
 
 	Move engineMoveOld;
@@ -20,6 +22,7 @@ public class Engine
 
 	public Engine()
 	{
+		PrecomputedData.generateData();
 		// Perft.runPerftSuite();
 		
 		gui = new ChessGui();
@@ -32,11 +35,13 @@ public class Engine
 		// originalFEN = "8/7k/4p3/2p1P2p/2P1P2P/8/8/7K w - - 0 1"; // king and pawns vs king and pawns
 
 		board.loadFEN(originalFEN);
+		moveGenGlobal = new MoveGenerator(board);
 		
-		engineIsWhite = true;
+		engineIsWhite = false;
 		if (engineIsWhite == board.boardInfo.isWhiteToMove())
 			playerMoveMade = true;
 		transpositionTable = new TranspositionTable();
+		searchTime = 1000;
 	}
 
 	public static void main(String[] args)
@@ -86,8 +91,8 @@ public class Engine
 		engineSearching = true;
 		
 		Board boardCopy = new Board(board.boardInfo.getBoardFEN());
-		int timeLimit = 5000;
-		MoveSearcher search = new MoveSearcher(boardCopy, timeLimit, transpositionTable);
+		MoveGenerator moveGen = new MoveGenerator(boardCopy);
+		MoveSearcher search = new MoveSearcher(boardCopy, moveGen, searchTime, transpositionTable);
 		Move move = search.startSearch();
 		
 		engineSearching = false;
@@ -129,9 +134,9 @@ public class Engine
 			return true;
 		}
 		
-		if (!board.hasLegalMoves(board.boardInfo.isWhiteToMove()))
+		if (moveGenGlobal.generateMoves(false).length == 0)
 		{
-			if (board.boardInfo.getCheckPiece() != null)
+			if (moveGenGlobal.inCheck)
 				gui.message.setText("Game Over! " + (board.boardInfo.isWhiteToMove() ? "Black" : "White") + " wins by checkmate!");
 			else
 				gui.message.setText("Game Over! " + "Draw by Stalemate!");
