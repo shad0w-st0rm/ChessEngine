@@ -37,8 +37,6 @@ public class Board
 		if (move.getEnPassantCaptureIndex() != -1)
 			captureIndex = move.getEnPassantCaptureIndex(); // if en passant, change capture square
 		
-		// set or reset en passant index
-		boardInfo.setEnPassantIndex(move.getEnPassantNewIndex());
 		
 		int piece = squares[start];
 		int capturedPiece = squares[captureIndex];
@@ -55,6 +53,9 @@ public class Board
 			boardInfo.setHalfMoves(0); // reset half moves for 50 move rule
 		if (Piece.isColor(piece, Piece.BLACK_PIECE))
 			boardInfo.setMoveNum(boardInfo.getMoveNum() + 1);
+		
+		// set or reset en passant index
+		boardInfo.setEnPassantIndex(move.getEnPassantNewIndex());
 		
 		// update the material
 		boolean endgame = boardInfo.getWhiteMaterial() + boardInfo.getBlackMaterial() < 4000;
@@ -283,11 +284,10 @@ public class Board
 		
 		if (move.getPromotedPiece() != 0)
 		{
-			int zobristOffset = move.getPromotedPiece()*2;
-			if (Piece.isColor(piece, Piece.BLACK_PIECE)) zobristOffset++;
+			int newPiece = move.getPromotedPiece() | Piece.getColor(piece);
 			
 			zobristHash ^= zobristHashes[(move.getTargetIndex() * 12 + Piece.getZobristOffset(piece))]; // remove old piece from target square
-			zobristHash ^= zobristHashes[(move.getTargetIndex() * 12 + zobristOffset)]; // add promoted piece to target square
+			zobristHash ^= zobristHashes[(move.getTargetIndex() * 12 + Piece.getZobristOffset(newPiece))]; // add promoted piece to target square
 		}
 		
 		boolean [] castlingRights = boardInfo.getCastlingRights();

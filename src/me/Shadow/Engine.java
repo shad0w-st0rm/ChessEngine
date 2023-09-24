@@ -23,7 +23,8 @@ public class Engine
 	public Engine()
 	{
 		PrecomputedData.generateData();
-		Perft.runPerftSuite();
+		PrecomputedMagicNumbers.precomputeMagics();
+		// Perft.runPerftSuite(5);
 		
 		gui = new ChessGui();
 		gui.createGui(this);
@@ -32,12 +33,12 @@ public class Engine
 		// originalFEN = "8/3KP3/8/8/8/8/6k1/7q b - - 0 1"; //white king + pawn vs black king + queen
 		// originalFEN = "3r4/3r4/3k4/8/8/3K4/8/8 w - - 0 1"; //white king vs black king + 2 rooks
 		// originalFEN = "3r4/8/3k4/8/8/3K4/8/8 w - - 0 1"; //white king vs black king + rook
-		// originalFEN = "8/7k/4p3/2p1P2p/2P1P2P/8/8/7K w - - 0 1"; // king and pawns vs king and pawns
+		originalFEN = "8/7k/4p3/2p1P2p/2P1P2P/8/8/7K w - - 0 1"; // king and pawns vs king and pawns
 
 		board.loadFEN(originalFEN);
 		moveGenGlobal = new MoveGenerator(board);
 		
-		engineIsWhite = false;
+		engineIsWhite = true;
 		if (engineIsWhite == board.boardInfo.isWhiteToMove())
 			playerMoveMade = true;
 		transpositionTable = new TranspositionTable();

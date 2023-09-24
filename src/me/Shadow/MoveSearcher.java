@@ -23,7 +23,7 @@ public class MoveSearcher
 	int negativeInfinity = -positiveInfinity;
 	
 	long startTime;
-	long moveGenTime, moveEvalTime, moveLegalityCheckTime;
+	long moveGenTime, moveEvalTime;
 	long movePieceTime, moveBackTime;
 	long transpositionTime, positionEvaluationTime, checkRepetitionTime;
 	long boardInfoTime;
@@ -266,8 +266,9 @@ public class MoveSearcher
 		long temp = System.currentTimeMillis();
 		long zobristHash = board.boardInfo.getZobristHash();
 		ArrayList<Long> positions = board.boardInfo.getPositionList();
+		boolean duplicate = (positions.indexOf(zobristHash) != (positions.size()-1));
 		checkRepetitionTime += System.currentTimeMillis() - temp;
-		return (positions.indexOf(zobristHash) != (positions.size()-1));
+		return duplicate;
 	}
 	
 	public int staticEvaluation()
@@ -313,10 +314,10 @@ public class MoveSearcher
 	{
 		System.out.println("Evaluation time: " + (System.currentTimeMillis() - startTime) + "\t\t\tEvaluation for Engine: " + bestEval + "\t\tEvaluation Depth: " + maxDepthReached);
 		System.out.println("Number of positions: " + numPositions + "\t\tNumber of Transpositions: " + numTranspositions + "\t\tStored Transpositions: " + transpositionTable.numStored);
-		System.out.println("Move Generation Time: " + moveGenTime + "\t\tMove Eval Time: " + moveEvalTime + "\t\t\tMove Legality Time: " + moveLegalityCheckTime);
+		System.out.println("Move Generation Time: " + moveGenTime + "\t\tMove Eval Time: " + moveEvalTime);
 		System.out.println("Move Piece Time: " + movePieceTime + "\t\t\tMove Back Time: " + moveBackTime + "\t\t\tEvaluation Time: " + positionEvaluationTime);
 		System.out.println("Transposition Lookup Time: " + transpositionTime + "\t\t\tBoard Info Time: " + boardInfoTime + "\t\tCheck Repetition Time: " + checkRepetitionTime + "\n");
-		long sum = moveGenTime + moveEvalTime + moveLegalityCheckTime + movePieceTime + moveBackTime + positionEvaluationTime + transpositionTime + boardInfoTime + checkRepetitionTime;
+		long sum = moveGenTime + moveEvalTime + movePieceTime + moveBackTime + positionEvaluationTime + transpositionTime + boardInfoTime + checkRepetitionTime;
 		System.out.println("Tracked Time: " + sum);
 	}
 }

@@ -1,7 +1,5 @@
 package me.Shadow;
 
-import java.util.ArrayList;
-
 public class Perft
 {
 	final static String[] perfts = {
@@ -48,7 +46,7 @@ public class Perft
 		System.out.println("Average time: " + totalTimeSum/runCount);
 	}
 	
-	// average time so far is 11 seconds
+	// average time so far is 9 seconds
 	public static long runPerftSuite()
 	{
 		boolean allTestsPassed = true;
@@ -85,7 +83,7 @@ public class Perft
 	
 	public static int countMoves(int depth, int originalDepth, Board board, MoveGenerator moveGen, boolean divide)
 	{
-		//if (depth == 0) return 1;
+		// if (depth == 0) return 1;
 		int num = 0;
 		Move[] moves = moveGen.generateMoves(false);
 		
@@ -97,8 +95,8 @@ public class Perft
 			int captured = board.movePiece(move);
 			int add = countMoves(depth - 1, originalDepth, board, moveGen, divide);
 			
-			//if (depth == originalDepth && divide) System.out.println(move + ": " + add);
-			//if (depth == originalDepth-1 && divide) System.out.println("\t" + move + ": " + add);
+			// if (depth == originalDepth && divide) System.out.println(move + ": " + add);
+			// if (depth == originalDepth-1 && divide) System.out.println("\t" + move + ": " + add);
 			
 			num += add;
 			board.moveBack(move, captured, boardInfoOld);
