@@ -1,0 +1,17 @@
+.metadata
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.settings/
+.loadpath
+.recommenders
+
+.project
+
+# Ignore the two opening book folders
+LichessEliteGames/
+TournamentGames/
