@@ -22,7 +22,7 @@ public class PrecomputedMagicNumbers
 	{
 		populateMagicArray();
 		
-		// searchMagicNumbers(5000);
+		// searchMagicNumbers(10000);
 	}
 	
 	public static void searchMagicNumbers(int timeMS)

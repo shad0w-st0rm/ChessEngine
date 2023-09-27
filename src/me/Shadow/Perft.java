@@ -2,6 +2,7 @@ package me.Shadow;
 
 public class Perft
 {
+	// 596055332 positions
 	final static String[] perfts = {
 			"5,4865609,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
 			"5,5617302,2b1b3/1r1P4/3K3p/1p6/2p5/6k1/1P3p2/4B3 w - - 0 42",
@@ -35,6 +36,11 @@ public class Perft
 			"5,6323457,8/1p4p1/8/q1PK1P1r/3p1k2/8/4P3/4Q3 b - - 0 1"
 	};
 	
+	static long moveGenTime;
+	static long boardInfoTime;
+	static long movePieceTime;
+	static long moveBackTime;
+	
 	public static void runPerftSuite(int runCount)
 	{
 		long totalTimeSum = 0;
@@ -63,6 +69,12 @@ public class Perft
 		
 		System.out.println("\n\nTest " + (allTestsPassed ? "passed" : "failed"));
 		System.out.println("Total Time Taken: " + (System.currentTimeMillis() - time) + " ms");
+		System.out.println("Total Tracked Time: " + (moveGenTime + movePieceTime + moveBackTime + boardInfoTime));
+		System.out.println("Move Generation Time: " + moveGenTime);
+		System.out.println("BoardInfo Copy Time: " + boardInfoTime);
+		System.out.println("Move Piece Time: " + movePieceTime);
+		System.out.println("Move Back Time: " + moveBackTime);
+		
 		return (System.currentTimeMillis() - time);
 	}
 	
@@ -77,7 +89,7 @@ public class Perft
 		MoveGenerator moveGen = new MoveGenerator(board);
 		long startTime = System.currentTimeMillis();
 		int result = countMoves(depth, depth, board, moveGen, divide);
-		System.out.println(expectedCount + "\t" + result + "\t" + (System.currentTimeMillis() - startTime) + " ms\n");		
+		System.out.println(expectedCount + "\t" + result + "\t" + (System.currentTimeMillis() - startTime) + " ms\n");	
 		return result == expectedCount;
 	}
 	
@@ -85,21 +97,32 @@ public class Perft
 	{
 		// if (depth == 0) return 1;
 		int num = 0;
+		long time = System.currentTimeMillis();
 		Move[] moves = moveGen.generateMoves(false);
+		moveGenTime += System.currentTimeMillis() - time;
 		
 		if (depth == 1) return moves.length;
 		
 		for (Move move : moves)
 		{
+			time = System.currentTimeMillis();
 			BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
+			boardInfoTime += System.currentTimeMillis() - time;
+			
+			time = System.currentTimeMillis();
 			int captured = board.movePiece(move);
+			movePieceTime += System.currentTimeMillis() - time;
+			
 			int add = countMoves(depth - 1, originalDepth, board, moveGen, divide);
 			
 			// if (depth == originalDepth && divide) System.out.println(move + ": " + add);
 			// if (depth == originalDepth-1 && divide) System.out.println("\t" + move + ": " + add);
 			
 			num += add;
+			
+			time = System.currentTimeMillis();
 			board.moveBack(move, captured, boardInfoOld);
+			moveBackTime += System.currentTimeMillis() - time;
 		}
 		
 		return num;

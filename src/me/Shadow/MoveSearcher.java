@@ -32,12 +32,12 @@ public class MoveSearcher
 	int numTranspositions;
 	
 	
-	public MoveSearcher(Board board, MoveGenerator moveGen, int timeLimitMS, TranspositionTable tt)
+	public MoveSearcher(Board board, int timeLimitMS)
 	{
 		this.board = board;
-		this.moveGen = moveGen;
+		moveGen = new MoveGenerator(board);
 		timeLimit = timeLimitMS;
-		transpositionTable = tt;
+		transpositionTable = new TranspositionTable();
 	}
 	
 	public Move startSearch()
@@ -109,24 +109,12 @@ public class MoveSearcher
 			
 			if (plyFromRoot == 0)
 			{
-				Move move = transpositionTable.lookupMove(board.boardInfo.getZobristHash());
-				
-				long updatedHash = board.updateZobristHash(move);
-				board.boardInfo.getPositionList().add(updatedHash);
-				
-				boolean isDuplicate = isDuplicatePosition();
-				
-				board.boardInfo.getPositionList().remove(board.boardInfo.getPositionList().size()-1);
-				
-				if (!isDuplicate)
-				{
-					bestMoveCurrentIteration = move;
-					bestEvalCurrentIteration = transposEval;
-					oneMoveSearched = true;
-					return transposEval;
-				}
+				bestMoveCurrentIteration = transpositionTable.lookupMove(board.boardInfo.getZobristHash());;
+				bestEvalCurrentIteration = transposEval;
+				oneMoveSearched = true;
 			}
-			else return transposEval;
+			
+			return transposEval;
 		}
 		
 		if (depth == 0)

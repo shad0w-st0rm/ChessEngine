@@ -87,15 +87,15 @@ public class Move
 		else return (getTargetIndex() + 1);
 	}
 	
-	public int getData()
+	public short getData()
 	{
-		return (data & 0xFFFF);
+		return data;
 	}
 	
 	public String toString()
 	{
-		String notation = Square.getSquareName(getStartIndex());
-		notation += Square.getSquareName(getTargetIndex());
+		String notation = Utils.getSquareName(getStartIndex());
+		notation += Utils.getSquareName(getTargetIndex());
 		if (getPromotedPiece() != 0)
 		{
 			notation += Piece.getPieceSymbol(getPromotedPiece() | Piece.BLACK_PIECE);
@@ -111,8 +111,8 @@ public class Move
 		if (isCastleMove())
 		{
 			notation += " Castling: ";
-			notation += Square.getSquareName(getRookStartIndex());
-			notation += Square.getSquareName(getRookTargetIndex());
+			notation += Utils.getSquareName(getRookStartIndex());
+			notation += Utils.getSquareName(getRookTargetIndex());
 		}
 		return notation;
 	}
@@ -125,5 +125,11 @@ public class Move
 		Move move = (Move)o;
 		if (this.data == move.data) return true;
 		return false;
+	}
+	
+	@Override
+	public int hashCode()
+	{
+		return Short.hashCode(data);
 	}
 }

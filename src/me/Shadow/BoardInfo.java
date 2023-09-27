@@ -16,10 +16,7 @@ public class BoardInfo
 	private ArrayList<Long> positionList = new ArrayList<Long>();
 	private ArrayList<Move> moveList = new ArrayList<Move>();
 	private long zobristHash;
-	
-	final static String defaultFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-  	private String boardFEN;
-	
+		
 	public BoardInfo()
 	{
 		whiteToMove = true;
@@ -27,7 +24,6 @@ public class BoardInfo
 		whiteMaterial = blackMaterial = 4000;
 		moveNum = 0;
 		halfMoves = 0;
-		boardFEN = defaultFEN;
 	}
 	
 	public BoardInfo(BoardInfo boardInfoCopy)
@@ -43,7 +39,6 @@ public class BoardInfo
 		halfMoves = boardInfoCopy.halfMoves;
 		positionList = boardInfoCopy.positionList;
 		moveList = boardInfoCopy.moveList;
-		// boardFEN = boardInfoCopy.boardFEN;		// this probably doesnt need to be copied over
 		zobristHash = boardInfoCopy.zobristHash;
 	}
 	
@@ -67,7 +62,6 @@ public class BoardInfo
 	public ArrayList<Long> getPositionList() { return positionList; }
 	public ArrayList<Move> getMoveList() { return moveList; }
 	public long getZobristHash() { return zobristHash; }
-	public String getBoardFEN() { return boardFEN; }
 	
 	public void setWhiteToMove(boolean whiteToMoveIn) { whiteToMove = whiteToMoveIn; }
 	public void setCastlingRights(boolean [] castlingRightsIn)
@@ -90,5 +84,4 @@ public class BoardInfo
 	public void setHalfMoves(int halfMovesIn) { halfMoves = halfMovesIn; }
 	public void setPositionList(ArrayList<Long> positionListIn) { positionList = positionListIn; }
 	public void setZobristHash(long zobristIn) { zobristHash = zobristIn; }
-	public void setBoardFEN(String boardFENIn) { boardFEN = boardFENIn; }
 }

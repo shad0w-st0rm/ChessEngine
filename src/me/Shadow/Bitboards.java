@@ -25,11 +25,6 @@ public class Bitboards
 		return colorBoards[pieceColor >>> 3];
 	}
 	
-	public long getAllEnemyPieces(int pieceColor)
-	{
-		return getAllFriendlyPieces(pieceColor ^ Piece.BLACK_PIECE);
-	}
-	
 	public long getOrthogonalSliders(int pieceColor)
 	{
 		return pieceBoards[Piece.ROOK | pieceColor] | pieceBoards[Piece.QUEEN | pieceColor];

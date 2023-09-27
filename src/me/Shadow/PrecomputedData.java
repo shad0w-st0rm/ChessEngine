@@ -63,8 +63,8 @@ public class PrecomputedData
 				// king can move in all sliderMoves[] directions but only one square
 				int targetIndex = index + directionOffsets[i];
 				if (targetIndex < 0 || targetIndex > 63) continue;
-				if (Math.abs(Square.getRank(targetIndex) - Square.getRank(index)) > 1) continue;
-				if (Math.abs(Square.getFile(targetIndex) - Square.getFile(index)) > 1) continue;
+				if (Math.abs(Utils.getSquareRank(targetIndex) - Utils.getSquareRank(index)) > 1) continue;
+				if (Math.abs(Utils.getSquareFile(targetIndex) - Utils.getSquareFile(index)) > 1) continue;
 				
 				KING_MOVES[index] |= (1l << targetIndex);
 			}
@@ -77,16 +77,16 @@ public class PrecomputedData
 		{
 			for (int file = 1; file <= 8; file++)
 			{
-				int squareIndex = Square.getIndexFromRankFile(rank, file);
+				int squareIndex = Utils.getSquareIndexFromRankFile(rank, file);
 				for (int dir = 0; dir < 8; dir++)
 				{
 					for (int i = 1; i <= 8; i++)
 					{
 						int newRank = rank + (rankOffsets[dir] * i);
 						int newFile = file + (fileOffsets[dir] * i);
-						if (Square.isValidSquare(newRank, newFile))
+						if (Utils.isValidSquare(newRank, newFile))
 						{
-							int index = Square.getIndexFromRankFile(newRank, newFile);
+							int index = Utils.getSquareIndexFromRankFile(newRank, newFile);
 							rayDirectionMask[squareIndex][dir] |= (1l << index);
 						}
 					}
@@ -99,16 +99,16 @@ public class PrecomputedData
 		{
 			for (int second = 0; second < 64; second++)
 			{
-				int rankOffset = (int) Math.signum(Square.getRank(second) - Square.getRank(first));
-				int fileOffset = (int) Math.signum(Square.getFile(second) - Square.getFile(first));
+				int rankOffset = (int) Math.signum(Utils.getSquareRank(second) - Utils.getSquareRank(first));
+				int fileOffset = (int) Math.signum(Utils.getSquareFile(second) - Utils.getSquareFile(first));
 				
 				for (int i = -8; i <= 8; i++)
 				{
-					int newRank = (rankOffset * i) + Square.getRank(first);
-					int newFile = (fileOffset * i) + Square.getFile(first);
-					if (Square.isValidSquare(newRank, newFile))
+					int newRank = (rankOffset * i) + Utils.getSquareRank(first);
+					int newFile = (fileOffset * i) + Utils.getSquareFile(first);
+					if (Utils.isValidSquare(newRank, newFile))
 					{
-						int index = Square.getIndexFromRankFile(newRank, newFile);
+						int index = Utils.getSquareIndexFromRankFile(newRank, newFile);
 						rayAlignMask[first][second] |= (1l << index);
 					}
 				}
@@ -122,31 +122,31 @@ public class PrecomputedData
 	{
 		for (int i = 0; i < 64; i++)
 		{
-			System.out.println("At Square " + Square.getSquareName(i));
+			System.out.println("At Square " + Utils.getSquareName(i));
 			long ray = rayDirectionMask[i][dir];
 						
 			while (ray != 0)
 			{
 				int lsbPosition = Bitboards.getLSB(ray);
 				ray = Bitboards.toggleBit(ray, lsbPosition);
-				System.out.println("Ray Square " + Square.getSquareName(lsbPosition));
+				System.out.println("Ray Square " + Utils.getSquareName(lsbPosition));
 			}
 		}
 	}
 	
 	public static void printRayAlignMask(int first)
 	{
-		System.out.println("Starting at square " + Square.getSquareName(first));
+		System.out.println("Starting at square " + Utils.getSquareName(first));
 		for (int i = 0; i < 64; i++)
 		{
-			System.out.println("Aligning with Square " + Square.getSquareName(i));
+			System.out.println("Aligning with Square " + Utils.getSquareName(i));
 			long ray = rayAlignMask[first][i];
 			
 			while (ray != 0)
 			{
 				int lsbPosition = Bitboards.getLSB(ray);
 				ray = Bitboards.toggleBit(ray, lsbPosition);
-				System.out.println("Ray Square " + Square.getSquareName(lsbPosition));
+				System.out.println("Ray Square " + Utils.getSquareName(lsbPosition));
 			}
 		}
 	}

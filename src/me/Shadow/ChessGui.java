@@ -47,6 +47,8 @@ public class ChessGui
 	Color darkRed = new Color(235, 49, 60);
 	Color lightYellow = new Color(246, 235, 122);
 	Color darkYellow = new Color(217, 194, 83);
+	
+	boolean guiReady = false;
 
 	Engine engine;
 
@@ -103,7 +105,7 @@ public class ChessGui
 			@Override
 			public void actionPerformed(ActionEvent e)
 			{
-				engine.originalFEN = engine.board.boardInfo.defaultFEN;
+				engine.originalFEN = Board.defaultFEN;
 				restore.doClick();
 			}
 		};
@@ -176,9 +178,9 @@ public class ChessGui
 				ImageIcon icon = new ImageIcon(new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB));
 				b.setIcon(icon);
 				if ((j % 2 == 1 && i % 2 == 1) || (j % 2 == 0 && i % 2 == 0))
-					b.setBackground(lightBoard);
-				else
 					b.setBackground(darkBoard);
+				else
+					b.setBackground(lightBoard);
 				chessBoardSquares[i][j] = b;
 			}
 		}
@@ -206,6 +208,8 @@ public class ChessGui
 				}
 			}
 		}
+		
+		guiReady = true;
 	}
 
 	public final JComponent getGui()
@@ -256,9 +260,9 @@ public class ChessGui
 		int rowOld = index / 8;
 		int colOld = index % 8;
 		if ((rowOld + colOld) % 2 == 0)
-			chessBoardSquares[rowOld][colOld].setBackground(light);
-		else
 			chessBoardSquares[rowOld][colOld].setBackground(dark);
+		else
+			chessBoardSquares[rowOld][colOld].setBackground(light);
 
 	}
 
@@ -327,13 +331,8 @@ public class ChessGui
 						break;
 					}
 				}
-
-				System.out.print("\n" + engine.board.boardInfo.getMoveNum() + ". ");
-				if (engine.engineIsWhite)
-					System.out.print("...");
-				System.out.println(pieceMove.toString() + "\n");
-
-				engine.board.movePiece(pieceMove);
+				
+				engine.makeMove(pieceMove);
 				moveMade = true;
 			}
 
@@ -348,7 +347,7 @@ public class ChessGui
 				if (piece != Piece.NONE && Piece.isColor(piece, Piece.WHITE_PIECE) != engine.engineIsWhite)
 				{
 					ArrayList<Move> moves = new ArrayList<Move>();
-					Collections.addAll(moves, engine.moveGenGlobal.generateMoves(false));
+					Collections.addAll(moves, (new MoveGenerator(engine.board)).generateMoves(false));
 					moves.removeIf(move -> move.getStartIndex() != index);
 					for (Move move : moves)
 					{

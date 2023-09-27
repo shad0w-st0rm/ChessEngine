@@ -1,7 +1,6 @@
 package me.Shadow;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 
 public class MoveGenerator
 {
@@ -55,7 +54,7 @@ public class MoveGenerator
 		return moves.toArray(new Move[0]);
 	}
 	
-	public void analyzePosition()
+	private void analyzePosition()
 	{
 		friendlyColor = board.boardInfo.isWhiteToMove() ? Piece.WHITE_PIECE : Piece.BLACK_PIECE;
 		enemyColor = friendlyColor ^ Piece.BLACK_PIECE;
@@ -76,7 +75,7 @@ public class MoveGenerator
 		calculateAllAttacks();
 	}
 	
-	public void generateKingMoves(ArrayList<Move> moves)
+	private void generateKingMoves(ArrayList<Move> moves)
 	{
 		long legalMoves = PrecomputedData.KING_MOVES[friendlyKingIndex] & (~friendlyPiecesBitboard) & (~enemyAttackMap);
 		legalMoves &= filteredMovesMask;
@@ -114,7 +113,7 @@ public class MoveGenerator
 	}
 	
 	
-	public void generateSliderMoves(ArrayList<Move> moves)
+	private void generateSliderMoves(ArrayList<Move> moves)
 	{
 		long orthoSlidersBitboard = bitBoards.getOrthogonalSliders(friendlyColor);
 		long diagSlidersBitboard = bitBoards.getDiagonalSliders(friendlyColor);
@@ -165,7 +164,7 @@ public class MoveGenerator
 		}
 	}
 	
-	public void generateKnightMoves(ArrayList<Move> moves)
+	private void generateKnightMoves(ArrayList<Move> moves)
 	{
 		// ignore pinned knights because they are always absolutely pinned
 		long knightsBitboard = bitBoards.pieceBoards[Piece.KNIGHT | friendlyColor] & (~pinRaysMask);
@@ -186,7 +185,7 @@ public class MoveGenerator
 		}
 	}
 	
-	public void generatePawnMoves(ArrayList<Move> moves)
+	private void generatePawnMoves(ArrayList<Move> moves)
 	{
 		int direction = friendlyColor == Piece.WHITE_PIECE ? 1 : -1;
 		long promotionRank = 0x00000000000000FFL;	// masks the first rank		
@@ -332,7 +331,7 @@ public class MoveGenerator
 		}
 	}
 	
-	public void addPromotionMoves(ArrayList<Move> moves, int startSquare, int targetSquare)
+	private void addPromotionMoves(ArrayList<Move> moves, int startSquare, int targetSquare)
 	{
 		moves.add(new Move(startSquare, targetSquare, Move.PROMOTION_QUEEN_FLAG));
 		if (!capturesOnly)
@@ -343,7 +342,7 @@ public class MoveGenerator
 		}
 	}
 	
-	public boolean isEnPassantLegal(int startSquare, int captureSquare)
+	private boolean isEnPassantLegal(int startSquare, int captureSquare)
 	{
 		if (friendlyKingIndex / 8 != startSquare / 8) return true; // king is not on same rank
 		
@@ -376,12 +375,12 @@ public class MoveGenerator
 		return true;
 	}
 	
-	public boolean isPiecePinned(int square)
+	private boolean isPiecePinned(int square)
 	{
 		return (pinRaysMask & (1L << square)) != 0;
 	}
 	
-	public void calculateAllAttacks()
+	private void calculateAllAttacks()
 	{
 		calculateSliderAttacks();
 		
@@ -521,7 +520,7 @@ public class MoveGenerator
 		}
 	}
 	
-	public void calculateSliderAttacks()
+	private void calculateSliderAttacks()
 	{
 		long orthoSliders = bitBoards.getOrthogonalSliders(enemyColor);
 		long diagSliders = bitBoards.getDiagonalSliders(enemyColor);

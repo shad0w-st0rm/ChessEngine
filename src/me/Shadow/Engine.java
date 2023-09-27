@@ -1,5 +1,6 @@
 package me.Shadow;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -8,8 +9,7 @@ public class Engine
 {
 	ChessGui gui;
 	Board board;
-	MoveGenerator moveGenGlobal;
-	TranspositionTable transpositionTable;
+	Player enginePlayer;
 
 	boolean engineSearching;
 	boolean playerMoveMade;
@@ -24,25 +24,36 @@ public class Engine
 	{
 		PrecomputedData.generateData();
 		PrecomputedMagicNumbers.precomputeMagics();
-		// Perft.runPerftSuite(5);
-		
+		try
+		{
+			String openingBookPath = "src/me/Shadow/LichessOpeningBookBinary.dat";
+			int moveCount = OpeningBook.createBookFromBinary(openingBookPath);
+			System.out.println("Opening Book Stats\nPositions: " + OpeningBook.openingBook.size() + " Recorded Moves: " + moveCount);
+			System.out.println("Estimated size: " + (OpeningBook.openingBook.size() * 9 + moveCount*6) / 1024.0 + " kb");
+		}
+		catch (IOException e)
+		{
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		// Perft.runPerftSuite();
+				
 		gui = new ChessGui();
 		gui.createGui(this);
-		board = new Board();
-		originalFEN = board.boardInfo.getBoardFEN();
+		
+		originalFEN = Board.defaultFEN;
 		// originalFEN = "8/3KP3/8/8/8/8/6k1/7q b - - 0 1"; //white king + pawn vs black king + queen
 		// originalFEN = "3r4/3r4/3k4/8/8/3K4/8/8 w - - 0 1"; //white king vs black king + 2 rooks
 		// originalFEN = "3r4/8/3k4/8/8/3K4/8/8 w - - 0 1"; //white king vs black king + rook
-		originalFEN = "8/7k/4p3/2p1P2p/2P1P2P/8/8/7K w - - 0 1"; // king and pawns vs king and pawns
+		// originalFEN = "8/7k/4p3/2p1P2p/2P1P2P/8/8/7K w - - 0 1"; // king and pawns vs king and pawns
 
-		board.loadFEN(originalFEN);
-		moveGenGlobal = new MoveGenerator(board);
+		board = new Board(originalFEN);
 		
-		engineIsWhite = true;
-		if (engineIsWhite == board.boardInfo.isWhiteToMove())
-			playerMoveMade = true;
-		transpositionTable = new TranspositionTable();
-		searchTime = 1000;
+		engineIsWhite = false;
+		playerMoveMade = (engineIsWhite == board.boardInfo.isWhiteToMove());
+		searchTime = 500;
+		
+		enginePlayer = new Player(new Board(board), searchTime);
 	}
 
 	public static void main(String[] args)
@@ -53,6 +64,19 @@ public class Engine
 	
 	public void runIt()
 	{
+		while (!gui.guiReady)
+		{
+			try
+			{
+				Thread.sleep(100);
+			}
+			catch (InterruptedException e)
+			{
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
 		Timer timer = new Timer();
 		timer.schedule(new TimerTask()
 		{
@@ -71,7 +95,6 @@ public class Engine
 						gui.setColor(engineMoveOld.getStartIndex(), 0);
 					}
 
-					board.boardInfo.setBoardFEN(board.createFEN(false));
 					Move move = engineMove();
 
 					gui.setColor(move.getStartIndex(), 1);
@@ -90,22 +113,22 @@ public class Engine
 	public Move engineMove()
 	{
 		engineSearching = true;
-		
-		Board boardCopy = new Board(board.boardInfo.getBoardFEN());
-		MoveGenerator moveGen = new MoveGenerator(boardCopy);
-		MoveSearcher search = new MoveSearcher(boardCopy, moveGen, searchTime, transpositionTable);
-		Move move = search.startSearch();
-		
+		Move move = enginePlayer.searchMove();
 		engineSearching = false;
-		
-		System.out.print(board.boardInfo.getMoveNum() + ". ");
-		if(!engineIsWhite) System.out.print("...");
-		System.out.println(move.toString());
-		search.printSearchStats();
-		
-		board.movePiece(move);
+
+		makeMove(move);
 		
 		return move;
+	}
+	
+	public void makeMove(Move move)
+	{
+		System.out.print(board.boardInfo.getMoveNum() + ". ");
+		if(!board.boardInfo.isWhiteToMove()) System.out.print("...");
+		System.out.println(move.toString());
+				
+		board.movePiece(move);
+		enginePlayer.makeMove(move);
 	}
 	
 	public boolean isThreeFoldRepetition(Board board)
@@ -135,9 +158,10 @@ public class Engine
 			return true;
 		}
 		
-		if (moveGenGlobal.generateMoves(false).length == 0)
+		MoveGenerator moveGen = new MoveGenerator(board);
+		if (moveGen.generateMoves(false).length == 0)
 		{
-			if (moveGenGlobal.inCheck)
+			if (moveGen.inCheck)
 				gui.message.setText("Game Over! " + (board.boardInfo.isWhiteToMove() ? "Black" : "White") + " wins by checkmate!");
 			else
 				gui.message.setText("Game Over! " + "Draw by Stalemate!");
