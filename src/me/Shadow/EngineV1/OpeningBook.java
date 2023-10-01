@@ -1,4 +1,4 @@
-package me.Shadow;
+package me.Shadow.EngineV1;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -25,7 +25,7 @@ public class OpeningBook
 	public static int createBookFromBinary(String inputPath) throws IOException
 	{
 		HashMap<Long, OpeningMove[]> bookMap = new HashMap<>();
-		byte[] bytes = Files.readAllBytes(Paths.get(inputPath));
+		byte [] bytes = Thread.currentThread().getContextClassLoader().getResourceAsStream(inputPath).readAllBytes();
 		int index = 0;
 		int moveCount = 0;
 		while ((index + 9) < bytes.length) // if no counter + hash can fit in the rest of the file, ignore it
@@ -51,7 +51,7 @@ public class OpeningBook
 					timesPlayed |= fragment << (24 - j*8);
 				}
 				index += 4;
-				moves[i] = new OpeningMove(new Move(moveData), timesPlayed);
+				moves[i] = new OpeningMove(moveData, timesPlayed);
 			}
 			
 			bookMap.put(hash, moves);
@@ -102,7 +102,7 @@ public class OpeningBook
 			int byteIndex = 9; // current index of array of bytes
 			for (OpeningMove move : moves)
 			{
-				short moveData = move.getMove().getData();
+				short moveData = move.getMove();
 				bytes[byteIndex] = (byte) ((moveData >>> 8) & 0xFF);
 				bytes[byteIndex + 1] = (byte) (moveData & 0xFF);
 				byteIndex += 2;
@@ -117,40 +117,6 @@ public class OpeningBook
 			Files.write(path, bytes, StandardOpenOption.APPEND);
 		}
 	}
-	/*
-	public static void createBookFromEncodedText(String inputPath) throws IOException
-	{
-		File bookFile = new File(inputPath);
-		Scanner scanner = new Scanner(bookFile);
-		String bookString = "";
-		while (scanner.hasNextLine())
-		{
-			bookString += scanner.nextLine() + "\n";
-		}
-		scanner.close();
-		
-		openingBook = new HashMap<Long, OpeningMove[]>();
-		String [] positionArray = bookString.split("zobrist");
-		for (String position : positionArray)
-		{
-			if (position.length() == 0) continue; // skip the first position
-			position = position.trim();
-			String [] movesArray = position.split("\n");
-			OpeningMove [] openingMoves = new OpeningMove[movesArray.length - 1];
-			long zobristHash = Long.parseLong(movesArray[0]);
-			for (int i = 1; i < movesArray.length; i++)
-			{
-				String [] moveAndCount = movesArray[i].split(" ");
-				Move move = new Move(Short.parseShort(moveAndCount[0]));
-				int timesPlayed = Integer.parseInt(moveAndCount[1]);
-				openingMoves[i-1] = new OpeningMove(move, timesPlayed);
-			}
-			openingBook.put(zobristHash, openingMoves);
-		}
-		
-		System.out.println(openingBook.size());
-	}
-	*/
 		
 	public static void sortAndWritePlainTextBook(HashMap<Long, OpeningMove[]> book, String outputPath) throws IOException
 	{
@@ -185,7 +151,7 @@ public class OpeningBook
 			plainTextWriter.append("zobrist " + Long.toString(hash) + "\n");
 			for (OpeningMove move : moves)
 			{
-				plainTextWriter.append(move.getMove().toString() + " " + move.getTimesPlayed() + "\n");
+				plainTextWriter.append(MoveHelper.toString(move.getMove()) + " " + move.getTimesPlayed() + "\n");
 			}
 		}
 		plainTextWriter.close();
@@ -193,7 +159,7 @@ public class OpeningBook
 	
 	public static HashMap<Long, OpeningMove[]> convertAlgebraicMoves(String inputPath) throws IOException
 	{
-		HashMap<Long, HashMap<Move, Integer>> openingBookSetup = new HashMap<>();
+		HashMap<Long, HashMap<Short, Integer>> openingBookSetup = new HashMap<>();
 		
 		File gamesFile = new File(inputPath);
 		BufferedReader reader = new BufferedReader(new FileReader(gamesFile));
@@ -208,9 +174,9 @@ public class OpeningBook
 			for (String algebraicMove : algebraicMoves)
 			{
 				algebraicMove = algebraicMove.trim();
-				Move move = Utils.getMoveFromAlgebraicNotation(board, algebraicMove);
+				short move = Utils.getMoveFromAlgebraicNotation(board, algebraicMove);
 				
-				HashMap<Move, Integer> movesInPosition = openingBookSetup.getOrDefault(board.boardInfo.getZobristHash(), new HashMap<Move, Integer>());
+				HashMap<Short, Integer> movesInPosition = openingBookSetup.getOrDefault(board.boardInfo.getZobristHash(), new HashMap<Short, Integer>());
 				int newPlayCount = movesInPosition.getOrDefault(move, 0) + 1;
 				movesInPosition.put(move, newPlayCount);
 				openingBookSetup.put(board.boardInfo.getZobristHash(), movesInPosition);
@@ -230,11 +196,11 @@ public class OpeningBook
 		int totalPositions = 0;
 		for (long zobristHash : openingBookSetup.keySet())
 		{
-			HashMap<Move, Integer> movesInPosition = openingBookSetup.get(zobristHash);
+			HashMap<Short, Integer> movesInPosition = openingBookSetup.get(zobristHash);
 			OpeningMove [] moves = new OpeningMove[movesInPosition.size()];
 			int cumulativeMoves = 0;
 			int index = 0;
-			for (Move move : movesInPosition.keySet())
+			for (short move : movesInPosition.keySet())
 			{
 				moves[index] = new OpeningMove(move, movesInPosition.get(move));
 				cumulativeMoves += moves[index].getTimesPlayed();
@@ -332,18 +298,18 @@ public class OpeningBook
 		writer.close();
 	}
 	
-	static class OpeningMove
+	public static class OpeningMove
 	{
-		private Move move;
+		private short move;
 		private int timesPlayed;
 		
-		public OpeningMove(Move move, int timesPlayed)
+		public OpeningMove(short move, int timesPlayed)
 		{
 			this.move = move;
 			this.timesPlayed = timesPlayed;
 		}
 		
-		public Move getMove()
+		public short getMove()
 		{
 			return move;
 		}

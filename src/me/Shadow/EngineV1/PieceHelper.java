@@ -1,6 +1,6 @@
-package me.Shadow;
+package me.Shadow.EngineV1;
 
-public class Piece
+public class PieceHelper
 {	
 	public static final int NONE = 0;
 	public static final int QUEEN = 1;
@@ -115,13 +115,13 @@ public class Piece
 	public static boolean isOrthogonalSlider(int pieceInfo)
 	{
 		int type = getPieceType(pieceInfo);
-		return type == Piece.QUEEN || type == Piece.ROOK;
+		return type == PieceHelper.QUEEN || type == PieceHelper.ROOK;
 	}
 	
 	public static boolean isDiagonalSlider(int pieceInfo)
 	{
 		int type = getPieceType(pieceInfo);
-		return type == Piece.QUEEN || type == Piece.BISHOP;
+		return type == PieceHelper.QUEEN || type == PieceHelper.BISHOP;
 	}
 	
 	public static int getValue(int pieceInfo)
@@ -161,7 +161,7 @@ public class Piece
 	{
 		if ((pieceInfo & COLOR_MASK) == WHITE_PIECE) index = (7 - (index / 8))*8 + ((index % 8));
 		
-		if (endgame && getPieceType(pieceInfo) == Piece.KING) return KING_ENDGAME_VALUES[index];
+		if (endgame && getPieceType(pieceInfo) == PieceHelper.KING) return KING_ENDGAME_VALUES[index];
 		else return PIECE_SQUARE_VALUES[getPieceType(pieceInfo) - 1][index];
 	}
 }

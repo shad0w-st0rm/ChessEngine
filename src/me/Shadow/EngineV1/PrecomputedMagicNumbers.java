@@ -1,4 +1,4 @@
-package me.Shadow;
+package me.Shadow.EngineV1;
 
 import java.util.Random;
 
@@ -103,6 +103,27 @@ public class PrecomputedMagicNumbers
 			double averageSize = tableSizeSum / 64;
 			System.out.println(averageSize + "\n");
 		}
+	}
+	
+	public static void printMagicsTableSize()
+	{
+		double tableSizeSum = 0;
+		for (int shift : ROOK_SHIFTS)
+		{
+			tableSizeSum += ((1 << (64 - shift)) * 8) / 1024;
+		}
+		System.out.print("Average Rook table size: ");
+		double averageSize = tableSizeSum / 64;
+		System.out.println(averageSize + " kb");
+		
+		tableSizeSum = 0;
+		for (int shift : BISHOP_SHIFTS)
+		{
+			tableSizeSum += ((1 << (64 - shift)) * 8) / 1024;
+		}
+		System.out.print("Average Bishop table size: ");
+		averageSize = tableSizeSum / 64;
+		System.out.println(averageSize + " kb\n");
 	}
 	
 	public static boolean findNewMagicNumber(int square, boolean orthogonal, int timeLimitMS)

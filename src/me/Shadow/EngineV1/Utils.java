@@ -1,4 +1,6 @@
-package me.Shadow;
+package me.Shadow.EngineV1;
+
+import java.util.Arrays;
 
 public class Utils
 {
@@ -33,69 +35,78 @@ public class Utils
 		return ((char) ((index % 8) + 97) + "" + ((index / 8) + 1));
 	}
 	
-	public static Move getMoveFromUCINotation(Board board, String uciMove)
+	public static short getMoveFromUCINotation(Board board, String uciMove)
 	{
 		MoveGenerator moveGen = new MoveGenerator(board);
-		Move [] moves = moveGen.generateMoves(false);
+		short [] moves = new short[MoveGenerator.MAXIMUM_LEGAL_MOVES];
+		int moveCount = moveGen.generateMoves(moves, false);
+		moves = Arrays.copyOf(moves, moveCount);
+		
 		uciMove = uciMove.replace("=", ""); // promotions sometimes have = (e.g. d7d8=q vs d7d8q)
-		for (Move move : moves)
+		for (short move : moves)
 		{
-			if (move.toString().equals(uciMove)) return move;
+			if (MoveHelper.toString(move).equals(uciMove)) return move;
 		}
-		return Move.NULL_MOVE;
+		return MoveHelper.NULL_MOVE;
 	}
 	
-	public static Move getMoveFromAlgebraicNotation(Board board, String algebraicMove)
+	public static short getMoveFromAlgebraicNotation(Board board, String algebraicMove)
 	{
 		MoveGenerator moveGen = new MoveGenerator(board);
-		Move [] moves = moveGen.generateMoves(false);
+		short [] moves = new short[MoveGenerator.MAXIMUM_LEGAL_MOVES];
+		int moveCount = moveGen.generateMoves(moves, false);
+		moves = Arrays.copyOf(moves, moveCount);
+		
 		algebraicMove = algebraicMove.replace("-", "").replace("x", "").replace("+", "").replace("#", "");
-		for (Move move : moves)
+		for (short move : moves)
 		{
 			if (algebraicMove.equals("OO"))
 			{
-				if (move.isCastleMove() && move.getRookStartIndex() > move.getStartIndex()) return move;
+				if (MoveHelper.isCastleMove(move) && MoveHelper.getRookStartIndex(move) > MoveHelper.getStartIndex(move)) return move;
 			}
 			else if (algebraicMove.equals("OOO"))
 			{
-				if ((move.isCastleMove() && move.getRookStartIndex() < move.getStartIndex())) return move;
+				if (MoveHelper.isCastleMove(move) && MoveHelper.getRookStartIndex(move) < MoveHelper.getStartIndex(move)) return move;
 			}
 			else
 			{
-				int piece = Piece.getPieceType(board.squares[move.getStartIndex()]); // treat all pieces as white pieces
+				int start = MoveHelper.getStartIndex(move);
+				int target = MoveHelper.getTargetIndex(move);
+				int piece = PieceHelper.getPieceType(board.squares[start]); // treat all pieces as white pieces
 				
 				char firstCharacter = algebraicMove.charAt(0);
 				if (firstCharacter >= 97 && firstCharacter <= 104) // pawn move because first character is a file name
 				{
-					if (piece != Piece.PAWN) continue;
+					if (piece != PieceHelper.PAWN) continue;
 					
-					if (!Utils.getSquareName(move.getStartIndex()).contains(firstCharacter + "")) continue;
+					if (!Utils.getSquareName(start).contains(firstCharacter + "")) continue;
 					
 					if (algebraicMove.contains("="))
 					{
 						String squareName = algebraicMove.substring(algebraicMove.length() - 4, algebraicMove.length() - 2);
-						if (!Utils.getSquareName(move.getTargetIndex()).equals(squareName)) continue;
+						if (!Utils.getSquareName(target).equals(squareName)) continue;
 						
-						if (move.isCastleMove() && move.getRookStartIndex() < move.getStartIndex()) return move;
+						char promotedSymbol = PieceHelper.getPieceSymbol(MoveHelper.getPromotedPiece(move)); // will return uppercase symbol
+						if (promotedSymbol == algebraicMove.charAt(algebraicMove.length() - 1)) return move;
 					}
 					else
 					{
 						String squareName = algebraicMove.substring(algebraicMove.length() - 2);
-						if (Utils.getSquareName(move.getTargetIndex()).equals(squareName)) return move;
+						if (Utils.getSquareName(target).equals(squareName)) return move;
 					}
 				}
 				else
 				{
-					if (firstCharacter != Piece.getPieceSymbol(piece)) continue;
+					if (firstCharacter != PieceHelper.getPieceSymbol(piece)) continue;
 					
 					String squareName = algebraicMove.substring(algebraicMove.length() - 2);
-					if (!Utils.getSquareName(move.getTargetIndex()).equals(squareName)) continue;
+					if (!Utils.getSquareName(target).equals(squareName)) continue;
 					
 					// no specification character
 					if (algebraicMove.length() != 4) return move;
 					
 					String specificationCharacter = algebraicMove.substring(1, 2);
-					if (Utils.getSquareName(move.getStartIndex()).contains(specificationCharacter))
+					if (Utils.getSquareName(start).contains(specificationCharacter))
 					{
 						return move;
 					}
@@ -103,6 +114,6 @@ public class Utils
 			}
 		}
 		
-		return Move.NULL_MOVE;
+		return MoveHelper.NULL_MOVE;
 	}
 }

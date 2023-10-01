@@ -1,4 +1,4 @@
-package me.Shadow;
+package me.Shadow.EngineV1;
 
 public class TranspositionTable
 {
@@ -36,7 +36,7 @@ public class TranspositionTable
 		int numEntries = (totalTableBytes / BYTES_PER_ENTRY);
 		table = new long[numEntries];
 		size = numEntries;
-		for (int i = 1 ; i < 100; i++)
+		for (int i = 1 ; i < 100; i++) // table should never be larger than 2^100 entries
 		{
 			if (Math.pow(2, i) > size)
 			{
@@ -66,24 +66,24 @@ public class TranspositionTable
 		return LOOKUP_FAILED;
 	}
 	
-	public Move lookupMove(long zobristKey)
+	public short lookupMove(long zobristKey)
 	{
 		long entry = getEntry(zobristKey);
 		if ((entry & PARTIAL_KEY_MASK) == ((zobristKey >>> 48) & PARTIAL_KEY_MASK))
 		{
-			return new Move((int) ((entry >>> 16) & PARTIAL_KEY_MASK));	// shift 48 times and then isolate last 16 bits
+			return (short) ((entry >>> 16) & PARTIAL_KEY_MASK);	// shift 48 times and then isolate last 16 bits
 		}
-		return Move.NULL_MOVE;
+		return MoveHelper.NULL_MOVE;
 	}
 	
-	public void storeEvaluation(long zobristKey, int evaluation, int depth, int bound, Move move)
+	public void storeEvaluation(long zobristKey, int evaluation, int depth, int bound, short move)
 	{
 		if (getEntry(zobristKey) != 0) numStored++;
 		
 		long entry = ((long)evaluation) << 43;
 		entry |= ((long)bound) << 41;
 		entry |= ((long)depth) << 32;
-		entry |= (((long)move.getData()) & PARTIAL_KEY_MASK) << 16;
+		entry |= (((long)move) & PARTIAL_KEY_MASK) << 16;
 		entry |= (zobristKey >>> 48);
 		table[getIndex(zobristKey)] = entry;
 	}

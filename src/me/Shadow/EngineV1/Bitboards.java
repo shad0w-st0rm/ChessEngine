@@ -1,4 +1,4 @@
-package me.Shadow;
+package me.Shadow.EngineV1;
 
 public class Bitboards
 {
@@ -7,12 +7,12 @@ public class Bitboards
 	
 	public Bitboards(Board board)
 	{
-		pieceBoards = new long[Piece.BLACK_KING + 1];
+		pieceBoards = new long[PieceHelper.BLACK_KING + 1];
 		colorBoards = new long[2];
 		for (int i = 0; i < 64; i++)
 		{
 			int piece = board.squares[i];
-			if (piece != Piece.NONE)
+			if (piece != PieceHelper.NONE)
 			{
 				pieceBoards[piece] |= (1L << i);
 				colorBoards[piece >>> 3] |= (1L << i);
@@ -27,12 +27,12 @@ public class Bitboards
 	
 	public long getOrthogonalSliders(int pieceColor)
 	{
-		return pieceBoards[Piece.ROOK | pieceColor] | pieceBoards[Piece.QUEEN | pieceColor];
+		return pieceBoards[PieceHelper.ROOK | pieceColor] | pieceBoards[PieceHelper.QUEEN | pieceColor];
 	}
 	
 	public long getDiagonalSliders(int pieceColor)
 	{
-		return pieceBoards[Piece.BISHOP | pieceColor] | pieceBoards[Piece.QUEEN | pieceColor];
+		return pieceBoards[PieceHelper.BISHOP | pieceColor] | pieceBoards[PieceHelper.QUEEN | pieceColor];
 	}
 	
 	public void toggleSquare(int pieceInfo, int square)

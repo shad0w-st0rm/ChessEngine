@@ -1,4 +1,4 @@
-package me.Shadow;
+package me.Shadow.EngineV1;
 import java.util.ArrayList;
 
 public class BoardInfo
@@ -14,7 +14,7 @@ public class BoardInfo
 	private int moveNum;	// 14 bits maximum
 	private int halfMoves;	// 7 bits
 	private ArrayList<Long> positionList = new ArrayList<Long>();
-	private ArrayList<Move> moveList = new ArrayList<Move>();
+	private ArrayList<Short> moveList = new ArrayList<Short>();
 	private long zobristHash;
 		
 	public BoardInfo()
@@ -60,7 +60,7 @@ public class BoardInfo
 	public int getMoveNum() { return moveNum; }
 	public int getHalfMoves() { return halfMoves; }
 	public ArrayList<Long> getPositionList() { return positionList; }
-	public ArrayList<Move> getMoveList() { return moveList; }
+	public ArrayList<Short> getMoveList() { return moveList; }
 	public long getZobristHash() { return zobristHash; }
 	
 	public void setWhiteToMove(boolean whiteToMoveIn) { whiteToMove = whiteToMoveIn; }

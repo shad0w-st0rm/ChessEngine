@@ -1,4 +1,4 @@
-package me.Shadow;
+package me.Shadow.EngineGUI;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -12,7 +12,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Arrays;
 
 import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
@@ -29,6 +29,8 @@ import javax.swing.SwingUtilities;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
+
+import me.Shadow.EngineV1.*;
 
 public class ChessGui
 {
@@ -221,7 +223,7 @@ public class ChessGui
 	{
 		try
 		{
-			BufferedImage bi = ImageIO.read(Engine.class.getResource("chesspieces.png"));
+			BufferedImage bi = ImageIO.read(Thread.currentThread().getContextClassLoader().getResource("resources/chesspieces.png"));
 			for (int i = 0; i < 2; i++)
 			{
 				for (int j = 0; j < 4; j++)
@@ -273,21 +275,21 @@ public class ChessGui
 			int squareRow = i / 8;
 			int squareCol = i % 8;
 			ImageIcon icon = new ImageIcon(new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB));
-			if (engine.board.squares[i] != Piece.NONE)
+			if (engine.board.squares[i] != PieceHelper.NONE)
 			{
-				int pieceType = Piece.getPieceType(engine.board.squares[i]);
-				int pieceColor = Piece.getColor(engine.board.squares[i]);
-				if (pieceType == Piece.PAWN)
+				int pieceType = PieceHelper.getPieceType(engine.board.squares[i]);
+				int pieceColor = PieceHelper.getColor(engine.board.squares[i]);
+				if (pieceType == PieceHelper.PAWN)
 					icon = new ImageIcon(chessPieceImages[(pieceColor >>> 3) ^ 1][PAWN]);
-				else if (pieceType == Piece.KNIGHT)
+				else if (pieceType == PieceHelper.KNIGHT)
 					icon = new ImageIcon(chessPieceImages[(pieceColor >>> 3) ^ 1][KNIGHT]);
-				else if (pieceType == Piece.ROOK)
+				else if (pieceType == PieceHelper.ROOK)
 					icon = new ImageIcon(chessPieceImages[(pieceColor >>> 3) ^ 1][ROOK]);
-				else if (pieceType == Piece.BISHOP)
+				else if (pieceType == PieceHelper.BISHOP)
 					icon = new ImageIcon(chessPieceImages[(pieceColor >>> 3) ^ 1][BISHOP]);
-				else if (pieceType == Piece.QUEEN)
+				else if (pieceType == PieceHelper.QUEEN)
 					icon = new ImageIcon(chessPieceImages[(pieceColor >>> 3) ^ 1][QUEEN]);
-				else if (pieceType == Piece.KING)
+				else if (pieceType == PieceHelper.KING)
 					icon = new ImageIcon(chessPieceImages[(pieceColor >>> 3) ^ 1][KING]);
 			}
 			chessBoardSquares[squareRow][squareCol].setIcon(icon);
@@ -303,7 +305,7 @@ public class ChessGui
 			int col = index % 8;
 
 			boolean moveMade = false;
-			Move pieceMove = null;
+			short pieceMove = MoveHelper.NULL_MOVE;
 
 			if (indexOld != -1)
 			{
@@ -313,19 +315,19 @@ public class ChessGui
 			if (indexOld == index)
 			{
 				indexOld = -1;
-				for (Move move : engine.movesOld)
+				for (short move : engine.movesOld)
 				{
-					setColor(move.getTargetIndex(), 0);
+					setColor(MoveHelper.getTargetIndex(move), 0);
 				}
 				return;
 			}
 
 			if ((engine.board.boardInfo.isWhiteToMove() != engine.engineIsWhite) && !engine.engineSearching && (chessBoardSquares[row][col].getBackground() == darkRed || chessBoardSquares[row][col].getBackground() == lightRed))
 			{
-				pieceMove = null;
-				for (Move move2 : engine.movesOld)
+				pieceMove = MoveHelper.NULL_MOVE;
+				for (short move2 : engine.movesOld)
 				{
-					if (move2.getTargetIndex() == index)
+					if (MoveHelper.getTargetIndex(move2) == index)
 					{
 						pieceMove = move2;
 						break;
@@ -336,22 +338,30 @@ public class ChessGui
 				moveMade = true;
 			}
 
-			for (Move move : engine.movesOld)
+			for (short move : engine.movesOld)
 			{
-				setColor(move.getTargetIndex(), 0);
+				setColor(MoveHelper.getTargetIndex(move), 0);
 			}
 
 			if (!moveMade && !engine.engineSearching)
 			{
 				int piece = engine.board.squares[index];
-				if (piece != Piece.NONE && Piece.isColor(piece, Piece.WHITE_PIECE) != engine.engineIsWhite)
+				if (piece != PieceHelper.NONE && PieceHelper.isColor(piece, PieceHelper.WHITE_PIECE) != engine.engineIsWhite)
 				{
-					ArrayList<Move> moves = new ArrayList<Move>();
-					Collections.addAll(moves, (new MoveGenerator(engine.board)).generateMoves(false));
-					moves.removeIf(move -> move.getStartIndex() != index);
-					for (Move move : moves)
+					short [] movesArray = new short[MoveGenerator.MAXIMUM_LEGAL_MOVES];
+					int moveCount = (new MoveGenerator(engine.board)).generateMoves(movesArray, false);
+					movesArray = Arrays.copyOf(movesArray, moveCount);
+					
+					ArrayList<Short> moves = new ArrayList<Short>();
+					for (int i = 0; i < moveCount; i++)
 					{
-						setColor(move.getTargetIndex(), 2);
+						short move = movesArray[i];
+						if (MoveHelper.getStartIndex(move) == index) moves.add(move);
+					}
+					
+					for (short move : moves)
+					{
+						setColor(MoveHelper.getTargetIndex(move), 2);
 					}
 					engine.movesOld = moves;
 				}
@@ -388,9 +398,9 @@ public class ChessGui
 				else
 				{
 					message.setText("Make a move!");
-					for (Move move : engine.movesOld)
+					for (short move : engine.movesOld)
 					{
-						setColor(move.getTargetIndex(), 0);
+						setColor(MoveHelper.getTargetIndex(move), 0);
 					}
 
 					if (indexOld != -1)
@@ -398,10 +408,10 @@ public class ChessGui
 						setColor(indexOld, 0);
 					}
 
-					if (engine.engineMoveOld != null)
+					if (engine.engineMoveOld != MoveHelper.NULL_MOVE)
 					{
-						setColor(engine.engineMoveOld.getTargetIndex(), 0);
-						setColor(engine.engineMoveOld.getTargetIndex(), 0);
+						setColor(MoveHelper.getTargetIndex(engine.engineMoveOld), 0);
+						setColor(MoveHelper.getTargetIndex(engine.engineMoveOld), 0);
 					}
 
 					engine.board.loadFEN(engine.originalFEN);

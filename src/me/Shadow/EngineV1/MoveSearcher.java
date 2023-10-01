@@ -1,4 +1,4 @@
-package me.Shadow;
+package me.Shadow.EngineV1;
 
 import java.util.ArrayList;
 import java.util.Timer;
@@ -6,18 +6,22 @@ import java.util.TimerTask;
 
 public class MoveSearcher
 {
-	Move bestMove;
-	Move bestMoveCurrentIteration;
+	short bestMove;
+	short bestMoveCurrentIteration;
 	int bestEval;
 	int bestEvalCurrentIteration;
 	boolean oneMoveSearched;
 	int maxDepthReached;
 	
 	boolean searchCancelled;
+	int timeLimit;
+	
 	Board board;
 	MoveGenerator moveGen;
+	MoveOrderer moveOrderer;
 	TranspositionTable transpositionTable;
-	int timeLimit;
+	short[][] generatedMoves;
+	
 	
 	int positiveInfinity = 1_000_000;
 	int negativeInfinity = -positiveInfinity;
@@ -36,11 +40,13 @@ public class MoveSearcher
 	{
 		this.board = board;
 		moveGen = new MoveGenerator(board);
+		moveOrderer = new MoveOrderer();
+		generatedMoves = new short[64][MoveGenerator.MAXIMUM_LEGAL_MOVES];
 		timeLimit = timeLimitMS;
 		transpositionTable = new TranspositionTable();
 	}
 	
-	public Move startSearch()
+	public short startSearch()
 	{
 		searchCancelled = false;
 		Timer timer = new Timer();
@@ -54,12 +60,14 @@ public class MoveSearcher
 		}, timeLimit);
 		
 		
-		bestMove = bestMoveCurrentIteration = Move.NULL_MOVE;
+		bestMove = bestMoveCurrentIteration = MoveHelper.NULL_MOVE;
 		bestEval = bestEvalCurrentIteration = negativeInfinity;
 		oneMoveSearched = false;
-		startTime = System.currentTimeMillis();
 		int depth = maxDepthReached = 0;
 		int depthMax = 512;
+		moveOrderer.clearHistoryHeuristic();
+		
+		startTime = System.currentTimeMillis();
 		while (!searchCancelled && depth < depthMax)
 		{
 			depth++;
@@ -72,17 +80,17 @@ public class MoveSearcher
 				
 				if (bestEvalCurrentIteration >= (positiveInfinity - depth))
 				{
-					System.out.println("Forced mate for engine found");
+					//System.out.println("Forced mate for engine found");
 					break;
 				}
 				else if (bestEvalCurrentIteration <= (negativeInfinity + depth))
 				{
-					System.out.println("Forced mate against engine found");
+					//System.out.println("Forced mate against engine found");
 					break;
 				}
 			}
 						
-			bestMoveCurrentIteration = Move.NULL_MOVE;
+			bestMoveCurrentIteration = MoveHelper.NULL_MOVE;
 			bestEvalCurrentIteration = negativeInfinity;
 			oneMoveSearched = false;
 		}
@@ -123,10 +131,12 @@ public class MoveSearcher
 		}
 		
 		tempTime = System.currentTimeMillis();
-		Move[] moves = moveGen.generateMoves(false);
+		// Move [] moves = new Move[MoveGenerator.MAXIMUM_LEGAL_MOVES];
+		short [] moves = generatedMoves[plyFromRoot];
+		int moveCount = moveGen.generateMoves(moves, false);
 		moveGenTime += System.currentTimeMillis() - tempTime;
 		
-		if (moves.length == 0)
+		if (moveCount == 0)
 		{
 			if (moveGen.inCheck)
 				return negativeInfinity;
@@ -135,14 +145,16 @@ public class MoveSearcher
 		}
 		
 		tempTime = System.currentTimeMillis();
-		Move firstMove = (plyFromRoot == 0 ? bestMove : transpositionTable.lookupMove(board.boardInfo.getZobristHash()));
-		MoveOrderer.guessMoveEvals(board, moves, firstMove);
+		short firstMove = (plyFromRoot == 0 ? bestMove : transpositionTable.lookupMove(board.boardInfo.getZobristHash()));
+		moveOrderer.guessMoveEvals(board, moves, moveCount, firstMove, moveGen.enemyAttackMap, moveGen.enemyPawnAttackMap, false, plyFromRoot);
 		moveEvalTime += System.currentTimeMillis() - tempTime;
 		
 		int bound = TranspositionTable.UPPER_BOUND;
-		Move bestMoveInPosition = Move.NULL_MOVE;
-		for (Move move : moves)
+		short bestMoveInPosition = MoveHelper.NULL_MOVE;
+		for (int i = 0; i < moveCount; i++)
 		{
+			short move = moves[i];
+			
 			tempTime = System.currentTimeMillis();
 			BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
 			boardInfoTime += System.currentTimeMillis() - tempTime;
@@ -190,6 +202,17 @@ public class MoveSearcher
 				transpositionTable.storeEvaluation(board.boardInfo.getZobristHash(), beta, depth, bound, move);
 				transpositionTime += System.currentTimeMillis() - tempTime;
 				
+				if (captured == PieceHelper.NONE) // ignore captures for killer moves
+				{
+					if (plyFromRoot < MoveOrderer.maxKillerDepth)
+					{
+						moveOrderer.killers[plyFromRoot].addKiller(move);
+					}
+					
+					int colorIndex = board.boardInfo.isWhiteToMove() ? 0 : 1;
+					moveOrderer.historyHeuristic[colorIndex][MoveHelper.getStartIndex(move)][MoveHelper.getTargetIndex(move)] += (1 << depth); // depth squared
+				}
+				
 				return beta;
 			}
 		}
@@ -215,15 +238,18 @@ public class MoveSearcher
 		alpha = Math.max(alpha, evaluation);
 		
 		long tempTime = System.currentTimeMillis();
-		Move[] captures = moveGen.generateMoves(true);
+		short [] moves = new short[128];	// theoretical maximum captures + queen promotions is 72 (though likely far less)
+		int moveCount = moveGen.generateMoves(moves, true);
 		moveGenTime += System.currentTimeMillis() - tempTime;
 		
 		tempTime = System.currentTimeMillis();
-		MoveOrderer.guessMoveEvals(board, captures, Move.NULL_MOVE);
+		moveOrderer.guessMoveEvals(board, moves, moveCount, MoveHelper.NULL_MOVE, moveGen.enemyAttackMap, moveGen.enemyPawnAttackMap, true, 0);
 		moveEvalTime += System.currentTimeMillis() - tempTime;
 				
-		for (Move move : captures)
+		for (int i = 0; i < moveCount; i++)
 		{
+			short move = moves[i];
+			
 			tempTime = System.currentTimeMillis();
 			BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
 			boardInfoTime += System.currentTimeMillis() - tempTime;
@@ -267,8 +293,8 @@ public class MoveSearcher
 		evaluation = board.boardInfo.getWhiteMaterial() + board.boardInfo.getWhiteSquareBonus();
 		evaluation -= (board.boardInfo.getBlackMaterial() + board.boardInfo.getBlackSquareBonus());
 		
-		int whiteKingIndex = Bitboards.getLSB(board.bitBoards.pieceBoards[Piece.WHITE_KING]);
-		int blackKingIndex = Bitboards.getLSB(board.bitBoards.pieceBoards[Piece.BLACK_KING]);
+		int whiteKingIndex = Bitboards.getLSB(board.bitBoards.pieceBoards[PieceHelper.WHITE_KING]);
+		int blackKingIndex = Bitboards.getLSB(board.bitBoards.pieceBoards[PieceHelper.BLACK_KING]);
 		evaluation += forceKingToCorner(whiteKingIndex, blackKingIndex, 1 - (board.boardInfo.getBlackMaterial() / 2000));
 		evaluation -= forceKingToCorner(blackKingIndex, whiteKingIndex, 1 - (board.boardInfo.getWhiteMaterial() / 2000));
 		

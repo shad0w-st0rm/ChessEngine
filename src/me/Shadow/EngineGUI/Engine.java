@@ -1,9 +1,17 @@
-package me.Shadow;
+package me.Shadow.EngineGUI;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
+
+import me.Shadow.EngineV1.Board;
+import me.Shadow.EngineV1.MoveGenerator;
+import me.Shadow.EngineV1.MoveHelper;
+import me.Shadow.EngineV1.OpeningBook;
+import me.Shadow.EngineV1.Player;
+import me.Shadow.EngineV1.PrecomputedData;
+import me.Shadow.EngineV1.PrecomputedMagicNumbers;
 
 public class Engine
 {
@@ -17,19 +25,38 @@ public class Engine
 	int searchTime;
 	String originalFEN;
 
-	Move engineMoveOld;
-	ArrayList<Move> movesOld = new ArrayList<Move>();
+	short engineMoveOld;
+	ArrayList<Short> movesOld = new ArrayList<Short>();
 
 	public Engine()
 	{
+		originalFEN = Board.defaultFEN;
+		// originalFEN = "8/3KP3/8/8/8/8/6k1/7q b - - 0 1"; //white king + pawn vs black king + queen
+		// originalFEN = "3r4/3r4/3k4/8/8/3K4/8/8 w - - 0 1"; //white king vs black king + 2 rooks
+		// originalFEN = "3r4/8/3k4/8/8/3K4/8/8 w - - 0 1"; //white king vs black king + rook
+		// originalFEN = "8/7k/4p3/2p1P2p/2P1P2P/8/8/7K w - - 0 1"; // king and pawns vs king and pawns
+		
+		engineIsWhite = false;
+		searchTime = 250;
+	}
+
+	public static void main(String[] args)
+	{
+		Engine engine = new Engine();
+		engine.gameLoop();
+	}
+	
+	public void setupEngine()
+	{
 		PrecomputedData.generateData();
 		PrecomputedMagicNumbers.precomputeMagics();
+		PrecomputedMagicNumbers.printMagicsTableSize();
+		
 		try
 		{
-			String openingBookPath = "src/me/Shadow/LichessOpeningBookBinary.dat";
-			int moveCount = OpeningBook.createBookFromBinary(openingBookPath);
+			int moveCount = OpeningBook.createBookFromBinary("resources/LichessOpeningBookBinary.dat");
 			System.out.println("Opening Book Stats\nPositions: " + OpeningBook.openingBook.size() + " Recorded Moves: " + moveCount);
-			System.out.println("Estimated size: " + (OpeningBook.openingBook.size() * 9 + moveCount*6) / 1024.0 + " kb");
+			System.out.println("Estimated size: " + (OpeningBook.openingBook.size() * 9 + moveCount*6) / 1024.0 + " kb\n");
 		}
 		catch (IOException e)
 		{
@@ -37,33 +64,19 @@ public class Engine
 			e.printStackTrace();
 		}
 		// Perft.runPerftSuite();
-				
+		
 		gui = new ChessGui();
 		gui.createGui(this);
 		
-		originalFEN = Board.defaultFEN;
-		// originalFEN = "8/3KP3/8/8/8/8/6k1/7q b - - 0 1"; //white king + pawn vs black king + queen
-		// originalFEN = "3r4/3r4/3k4/8/8/3K4/8/8 w - - 0 1"; //white king vs black king + 2 rooks
-		// originalFEN = "3r4/8/3k4/8/8/3K4/8/8 w - - 0 1"; //white king vs black king + rook
-		// originalFEN = "8/7k/4p3/2p1P2p/2P1P2P/8/8/7K w - - 0 1"; // king and pawns vs king and pawns
-
 		board = new Board(originalFEN);
-		
-		engineIsWhite = false;
 		playerMoveMade = (engineIsWhite == board.boardInfo.isWhiteToMove());
-		searchTime = 500;
-		
 		enginePlayer = new Player(new Board(board), searchTime);
 	}
-
-	public static void main(String[] args)
-	{
-		Engine engine = new Engine();
-		engine.runIt();
-	}
 	
-	public void runIt()
+	public void gameLoop()
 	{
+		setupEngine();
+		
 		while (!gui.guiReady)
 		{
 			try
@@ -89,18 +102,21 @@ public class Engine
 						timer.cancel();
 					gui.message.setText("Engine is thinking");
 
-					if (engineMoveOld != null)
+					if (engineMoveOld != MoveHelper.NULL_MOVE)
 					{
-						gui.setColor(engineMoveOld.getTargetIndex(), 0);
-						gui.setColor(engineMoveOld.getStartIndex(), 0);
+						gui.setColor(MoveHelper.getStartIndex(engineMoveOld), 0);
+						gui.setColor(MoveHelper.getTargetIndex(engineMoveOld), 0);
 					}
 
-					Move move = engineMove();
+					short move = engineMove();
 
-					gui.setColor(move.getStartIndex(), 1);
-					gui.setColor(move.getTargetIndex(), 1);
-					engineMoveOld = move;
-
+					if (move != MoveHelper.NULL_MOVE)
+					{
+						gui.setColor(MoveHelper.getStartIndex(move), 1);
+						gui.setColor(MoveHelper.getTargetIndex(move), 1);
+						engineMoveOld = move;
+					}
+					
 					gui.updatePieces();
 					gui.message.setText("Engine done searching!");
 					if (isGameOver(board))
@@ -110,22 +126,25 @@ public class Engine
 		}, 0, 250);
 	}
 	
-	public Move engineMove()
+	public short engineMove()
 	{
 		engineSearching = true;
-		Move move = enginePlayer.searchMove();
+		short move = enginePlayer.searchMove();
 		engineSearching = false;
 
-		makeMove(move);
+		if (move != MoveHelper.NULL_MOVE)
+		{
+			makeMove(move);
+		}		
 		
 		return move;
 	}
 	
-	public void makeMove(Move move)
+	public void makeMove(short move)
 	{
 		System.out.print(board.boardInfo.getMoveNum() + ". ");
 		if(!board.boardInfo.isWhiteToMove()) System.out.print("...");
-		System.out.println(move.toString());
+		System.out.println(MoveHelper.toString(move));
 				
 		board.movePiece(move);
 		enginePlayer.makeMove(move);
@@ -159,7 +178,7 @@ public class Engine
 		}
 		
 		MoveGenerator moveGen = new MoveGenerator(board);
-		if (moveGen.generateMoves(false).length == 0)
+		if (moveGen.generateMoves(new short[MoveGenerator.MAXIMUM_LEGAL_MOVES], false) == 0)
 		{
 			if (moveGen.inCheck)
 				gui.message.setText("Game Over! " + (board.boardInfo.isWhiteToMove() ? "Black" : "White") + " wins by checkmate!");
