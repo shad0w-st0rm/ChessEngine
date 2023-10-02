@@ -5,13 +5,7 @@ import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import me.Shadow.EngineV1.Board;
-import me.Shadow.EngineV1.MoveGenerator;
-import me.Shadow.EngineV1.MoveHelper;
-import me.Shadow.EngineV1.OpeningBook;
-import me.Shadow.EngineV1.Player;
-import me.Shadow.EngineV1.PrecomputedData;
-import me.Shadow.EngineV1.PrecomputedMagicNumbers;
+import me.Shadow.EngineV1.*;
 
 public class Engine
 {
@@ -37,7 +31,7 @@ public class Engine
 		// originalFEN = "8/7k/4p3/2p1P2p/2P1P2P/8/8/7K w - - 0 1"; // king and pawns vs king and pawns
 		
 		engineIsWhite = false;
-		searchTime = 250;
+		searchTime = 100;
 	}
 
 	public static void main(String[] args)
@@ -63,7 +57,7 @@ public class Engine
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		// Perft.runPerftSuite();
+		// Perft.runPerftSuite(6);
 		
 		gui = new ChessGui();
 		gui.createGui(this);

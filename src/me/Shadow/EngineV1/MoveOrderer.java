@@ -1,8 +1,11 @@
 package me.Shadow.EngineV1;
 
+import java.util.Arrays;
+
 public class MoveOrderer
 {
 	public static final int million = 1000000;
+	public static final int maxMoveBias = 10*million;
 	public static final int firstMoveBias = 5*million;
 	public static final int goodCaptureBias = 4*million;
 	public static final int promotingBias = 3*million;
@@ -10,9 +13,9 @@ public class MoveOrderer
 	public static final int badCaptureBias = 1*million;
 	public static final int noBias = 0;
 	
-	public static int maxKillerDepth = 32;
+	public static final int maxKillerDepth = 32;
 	KillerMove [] killers;
-	int [][][] historyHeuristic;
+	int [] historyHeuristic;
 	
 	public MoveOrderer()
 	{
@@ -21,7 +24,7 @@ public class MoveOrderer
 		{
 			killers[i] = new KillerMove();
 		}
-		historyHeuristic = new int[2][64][64];
+		historyHeuristic = new int[2*64*64];
 	}
 	
 	public void guessMoveEvals(Board board, short[] moves, int moveCount, short firstMove, long enemyAttackMap, long enemyPawnAttackMap, boolean inQuietSearch, int ply)
@@ -34,7 +37,7 @@ public class MoveOrderer
 			
 			if (move == firstMove)
 			{
-				moveEvals[i] = firstMoveBias;
+				moveEvals[i] = maxMoveBias - firstMoveBias;
 				continue;
 			}
 			int start = MoveHelper.getStartIndex(move);
@@ -81,31 +84,81 @@ public class MoveOrderer
 				if (isKillerMove) evalGuess += killerMoveBias;
 				else evalGuess += noBias;
 				
-				//evalGuess += historyHeuristic[Piece.getColor(piece) >>> 3][move.getStartIndex()][move.getTargetIndex()];
+				// multiply the color index by 64*64 = 2^12 except only shift 9 times because color index is already shifted left 3 times
+				// then add start square multiplied by 64 = 2^6
+				// then add target square
+				int index = (PieceHelper.getColor(piece) << 9) | (start << 6) | target;
+				evalGuess += historyHeuristic[index];
 			}
 			
 			
-			moveEvals[i] = evalGuess;
+			moveEvals[i] = maxMoveBias - evalGuess;
 		}
-		quicksort(moves, moveEvals, 0, moveCount - 1);
+		//quickSort(moves, moveEvals, 0, moveCount - 1);
+		//insertionSort(moves, moveEvals);
+		binaryInsertionSort(moves, moveEvals);
 	}
 	
 	public void clearHistoryHeuristic()
 	{
-		historyHeuristic = new int[2][64][64];
+		// historyHeuristic = new int[2*64*64];
+		// maybe this avoids some expensive garbage collecting during a search
+		for (int i = 0; i < historyHeuristic.length; i++)
+		{
+			historyHeuristic[i] = 0;
+		}
 	}
 	
-	public void quicksort(short[] moves, int[] scores, int low, int high)
+	public static void binaryInsertionSort(short [] moves, int [] scores)
+	{
+		for (int i = 1; i < scores.length; i++)
+		{
+			int key = scores[i];
+			short moveKey = moves[i];
+			
+			// find insert location using binary search
+			int j = Math.abs(Arrays.binarySearch(scores, 0, i, key) + 1);
+			
+			// shift array one location over to the right
+			System.arraycopy(scores, j, scores, j + 1, i - j);
+			System.arraycopy(moves, j, moves, j + 1, i - j);
+			
+			// place element in emptied spot
+			scores[j] = key;
+			moves[j] = moveKey;
+		}
+	}
+	
+	public static void insertionSort(short [] moves, int [] scores)
+	{
+		int n = scores.length;
+		for (int j = 1; j < n; j++)
+		{
+			short moveKey = moves[j];
+			int key = scores[j];
+			int i = j - 1;
+			while (i > -1 && scores[i] < key)
+			{
+				moves[i + 1] = moves[i];
+				scores[i + 1] = scores[i];
+				i--;
+			}
+			scores[i + 1] = key;
+			moves[i + 1] = moveKey;
+		}  
+	}
+	
+	public static void quickSort(short[] moves, int[] scores, int low, int high)
 	{
 		if (low < high)
 		{
 			int pivotIndex = partition(moves, scores, low, high);
-			quicksort(moves, scores, low, pivotIndex - 1);
-			quicksort(moves, scores, pivotIndex + 1, high);
+			quickSort(moves, scores, low, pivotIndex - 1);
+			quickSort(moves, scores, pivotIndex + 1, high);
 		}
 	}
 
-	public int partition(short[] moves, int[] scores, int low, int high)
+	public static int partition(short[] moves, int[] scores, int low, int high)
 	{
 		int pivotScore = scores[high];
 		int i = low - 1;

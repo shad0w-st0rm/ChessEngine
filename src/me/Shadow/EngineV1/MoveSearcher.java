@@ -21,10 +21,11 @@ public class MoveSearcher
 	MoveOrderer moveOrderer;
 	TranspositionTable transpositionTable;
 	short[][] generatedMoves;
+	static final int MAX_DEPTH = 64;
 	
 	
-	int positiveInfinity = 1_000_000;
-	int negativeInfinity = -positiveInfinity;
+	static final int positiveInfinity = 1_000_000;
+	static final int negativeInfinity = -positiveInfinity;
 	
 	long startTime;
 	long moveGenTime, moveEvalTime;
@@ -41,7 +42,7 @@ public class MoveSearcher
 		this.board = board;
 		moveGen = new MoveGenerator(board);
 		moveOrderer = new MoveOrderer();
-		generatedMoves = new short[64][MoveGenerator.MAXIMUM_LEGAL_MOVES];
+		generatedMoves = new short[MAX_DEPTH][MoveGenerator.MAXIMUM_LEGAL_MOVES];
 		timeLimit = timeLimitMS;
 		transpositionTable = new TranspositionTable();
 	}
@@ -59,16 +60,15 @@ public class MoveSearcher
 			}
 		}, timeLimit);
 		
-		
+		clearSearchStats();
 		bestMove = bestMoveCurrentIteration = MoveHelper.NULL_MOVE;
 		bestEval = bestEvalCurrentIteration = negativeInfinity;
 		oneMoveSearched = false;
 		int depth = maxDepthReached = 0;
-		int depthMax = 512;
 		moveOrderer.clearHistoryHeuristic();
 		
 		startTime = System.currentTimeMillis();
-		while (!searchCancelled && depth < depthMax)
+		while (!searchCancelled && depth < MAX_DEPTH)
 		{
 			depth++;
 			search(depth, 0, negativeInfinity, positiveInfinity);
@@ -210,7 +210,11 @@ public class MoveSearcher
 					}
 					
 					int colorIndex = board.boardInfo.isWhiteToMove() ? 0 : 1;
-					moveOrderer.historyHeuristic[colorIndex][MoveHelper.getStartIndex(move)][MoveHelper.getTargetIndex(move)] += (1 << depth); // depth squared
+					// multiply the color index by 64*64 = 2^12
+					// then add start square multiplied by 64 = 2^6
+					// then add target square
+					int index = (colorIndex << 12) | (MoveHelper.getStartIndex(move) << 6) | MoveHelper.getTargetIndex(move);
+					moveOrderer.historyHeuristic[index] += depth*depth;
 				}
 				
 				return beta;
@@ -322,6 +326,12 @@ public class MoveSearcher
 		evaluation += (distBetweenKings);
 
 		return (int) (evaluation * endgameWeight);
+	}
+	
+	public void clearSearchStats()
+	{
+		numPositions = numTranspositions = 0;
+		moveGenTime = moveEvalTime = movePieceTime = moveBackTime = positionEvaluationTime = transpositionTime = boardInfoTime = checkRepetitionTime = 0;
 	}
 	
 	public void printSearchStats()

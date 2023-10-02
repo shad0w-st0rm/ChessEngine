@@ -52,7 +52,7 @@ public class Perft
 		System.out.println("Average time: " + totalTimeSum/runCount);
 	}
 	
-	// average time so far is 6 seconds
+	// average time so far is 5 seconds
 	public static long runPerftSuite()
 	{
 		boolean allTestsPassed = true;
@@ -95,10 +95,10 @@ public class Perft
 	
 	public static int countMoves(int depth, int plyFromRoot, Board board, MoveGenerator moveGen, boolean divide)
 	{
-		// if (depth == 0) return 1;
+		//if (depth == 0) return 1;
 		int num = 0;
 		//long time = System.currentTimeMillis();
-		short[] moves = new short[MoveGenerator.MAXIMUM_LEGAL_MOVES];
+		short [] moves = new short[MoveGenerator.MAXIMUM_LEGAL_MOVES];
 		int moveCount = moveGen.generateMoves(moves, false);
 		//moveGenTime += System.currentTimeMillis() - time;
 		

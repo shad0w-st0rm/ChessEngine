@@ -9,8 +9,6 @@ public class MoveGenerator
 	
 	int friendlyColor;
 	int enemyColor;
-	int friendlyColorIndex;
-	int enemyColorIndex;
 	int friendlyKingIndex;
 	
 	public boolean inCheck;
@@ -19,7 +17,6 @@ public class MoveGenerator
 	long friendlyPiecesBitboard;
 	long enemyPiecesBitboard;
 	long allPiecesBitboard;
-	long emptySquaresBitboard;
 	long enemyAttackMap;
 	long enemyPawnAttackMap;
 	
@@ -61,17 +58,14 @@ public class MoveGenerator
 	{
 		friendlyColor = board.boardInfo.isWhiteToMove() ? PieceHelper.WHITE_PIECE : PieceHelper.BLACK_PIECE;
 		enemyColor = friendlyColor ^ PieceHelper.BLACK_PIECE;
-		friendlyColorIndex = friendlyColor >>> 3;
-		enemyColorIndex = enemyColor >>> 3;
 		
 		friendlyKingIndex = Bitboards.getLSB(bitBoards.pieceBoards[PieceHelper.KING | friendlyColor]);
 		
 		inCheck = doubleCheck = false;
 		
-		friendlyPiecesBitboard = bitBoards.colorBoards[friendlyColorIndex];
-		enemyPiecesBitboard = bitBoards.colorBoards[enemyColorIndex];
+		friendlyPiecesBitboard = bitBoards.colorBoards[friendlyColor >>> 3];
+		enemyPiecesBitboard = bitBoards.colorBoards[enemyColor >>> 3];
 		allPiecesBitboard = friendlyPiecesBitboard | enemyPiecesBitboard;
-		emptySquaresBitboard = ~allPiecesBitboard;
 		
 		checkRaysMask = pinRaysMask = 0;
 		
@@ -90,10 +84,13 @@ public class MoveGenerator
 			currentIndex++;
 		}
 		
+		// castling moves
 		if (!(capturesOnly || inCheck))
 		{
-			// castling moves
-			if (board.boardInfo.getCastlingRights()[friendlyColorIndex * 2])
+			boolean isWhite = board.boardInfo.isWhiteToMove();
+			byte castlingRights = board.boardInfo.getCastlingRights();
+			
+			if ((castlingRights & (isWhite ? BoardInfo.WHITE_KING_CASTLING : BoardInfo.BLACK_KING_CASTLING)) != 0)
 			{
 				long castleLegalMask = enemyAttackMap | allPiecesBitboard;
 				castleLegalMask &= friendlyColor == PieceHelper.WHITE_PIECE ? PrecomputedData.WHITE_KINGSIDE_CASTLING_CLEAR_MASK : PrecomputedData.BLACK_KINGSIDE_CASTLING_CLEAR_MASK;
@@ -104,7 +101,7 @@ public class MoveGenerator
 				}
 			}
 			
-			if (board.boardInfo.getCastlingRights()[(friendlyColorIndex * 2) + 1])
+			if ((castlingRights & (isWhite ? BoardInfo.WHITE_QUEEN_CASTLING : BoardInfo.BLACK_QUEEN_CASTLING)) != 0)
 			{
 				long castleLegalMask = 0;
 				castleLegalMask |= allPiecesBitboard & (friendlyColor == PieceHelper.WHITE_PIECE ? PrecomputedData.WHITE_QUEENSIDE_CASTLING_CLEAR_MASK : PrecomputedData.BLACK_QUEENSIDE_CASTLING_CLEAR_MASK);
@@ -139,7 +136,7 @@ public class MoveGenerator
 			long rookMoves = PrecomputedMagicNumbers.getRookMoves(sliderSquare, allPiecesBitboard) & allPossibleMoves;
 			if (isPiecePinned(sliderSquare))
 			{
-				rookMoves &= PrecomputedData.rayAlignMask[sliderSquare][friendlyKingIndex];
+				rookMoves &= PrecomputedData.rayAlignMask[(sliderSquare << 6) + friendlyKingIndex];
 			}
 			
 			while (rookMoves != 0)
@@ -159,7 +156,7 @@ public class MoveGenerator
 			long bishopMoves = PrecomputedMagicNumbers.getBishopMoves(sliderSquare, allPiecesBitboard) & allPossibleMoves;
 			if (isPiecePinned(sliderSquare))
 			{
-				bishopMoves &= PrecomputedData.rayAlignMask[sliderSquare][friendlyKingIndex];
+				bishopMoves &= PrecomputedData.rayAlignMask[(sliderSquare << 6) + friendlyKingIndex];
 			}
 			
 			while (bishopMoves != 0)
@@ -203,10 +200,10 @@ public class MoveGenerator
 		if (friendlyColor == PieceHelper.BLACK_PIECE) doublePushTargetRank <<= 8;	// target rank is 5th for black pieces
 		
 		long pawnsBitboard = bitBoards.pieceBoards[PieceHelper.PAWN | friendlyColor];
-		long singlePushSquares = Bitboards.shift(pawnsBitboard, (direction * 8)) & emptySquaresBitboard;
+		long singlePushSquares = Bitboards.shift(pawnsBitboard, (direction * 8)) & (~allPiecesBitboard);
 		
 		// single push square needs to be a move as well to ensure that pawn does not hop over a piece
-		long doublePushSquares = Bitboards.shift(singlePushSquares, (direction * 8)) & doublePushTargetRank & emptySquaresBitboard & checkRaysMask;
+		long doublePushSquares = Bitboards.shift(singlePushSquares, (direction * 8)) & doublePushTargetRank & (~allPiecesBitboard) & checkRaysMask;
 		
 		long singlePushAndPromoting = singlePushSquares & promotionRank & checkRaysMask;
 		singlePushSquares &= ~promotionRank & checkRaysMask;
@@ -234,7 +231,7 @@ public class MoveGenerator
 				singlePushSquares = Bitboards.toggleBit(singlePushSquares, targetSquare);
 				int startSquare = targetSquare - (direction * 8);
 				
-				if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[startSquare][friendlyKingIndex] == PrecomputedData.rayAlignMask[targetSquare][friendlyKingIndex])
+				if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[(startSquare << 6) + friendlyKingIndex] == PrecomputedData.rayAlignMask[(targetSquare << 6) + friendlyKingIndex])
 				{
 					moves[currentIndex] = MoveHelper.createMove(startSquare, targetSquare, MoveHelper.NO_FLAG);
 					currentIndex++;
@@ -247,7 +244,7 @@ public class MoveGenerator
 				doublePushSquares = Bitboards.toggleBit(doublePushSquares, targetSquare);
 				int startSquare = targetSquare - (direction * 16);
 				
-				if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[startSquare][friendlyKingIndex] == PrecomputedData.rayAlignMask[targetSquare][friendlyKingIndex])
+				if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[(startSquare << 6) + friendlyKingIndex] == PrecomputedData.rayAlignMask[(targetSquare << 6) + friendlyKingIndex])
 				{
 					moves[currentIndex] = MoveHelper.createMove(startSquare, targetSquare, MoveHelper.PAWN_DOUBLE_PUSH_FLAG);
 					currentIndex++;
@@ -261,7 +258,7 @@ public class MoveGenerator
 			captureLeftSquares = Bitboards.toggleBit(captureLeftSquares, targetSquare);
 			int startSquare = targetSquare - (direction * 7);
 			
-			if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[startSquare][friendlyKingIndex] == PrecomputedData.rayAlignMask[targetSquare][friendlyKingIndex])
+			if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[(startSquare << 6) + friendlyKingIndex] == PrecomputedData.rayAlignMask[(targetSquare << 6) + friendlyKingIndex])
 			{
 				moves[currentIndex] = MoveHelper.createMove(startSquare, targetSquare, MoveHelper.NO_FLAG);
 				currentIndex++;
@@ -274,7 +271,7 @@ public class MoveGenerator
 			captureRightSquares = Bitboards.toggleBit(captureRightSquares, targetSquare);
 			int startSquare = targetSquare - (direction * 9);
 			
-			if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[startSquare][friendlyKingIndex] == PrecomputedData.rayAlignMask[targetSquare][friendlyKingIndex])
+			if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[(startSquare << 6) + friendlyKingIndex] == PrecomputedData.rayAlignMask[(targetSquare << 6) + friendlyKingIndex])
 			{
 				moves[currentIndex] = MoveHelper.createMove(startSquare, targetSquare, MoveHelper.NO_FLAG);
 				currentIndex++;
@@ -299,7 +296,7 @@ public class MoveGenerator
 			captureLeftPromoting = Bitboards.toggleBit(captureLeftPromoting, targetSquare);
 			int startSquare = targetSquare - (direction * 7);
 			
-			if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[startSquare][friendlyKingIndex] == PrecomputedData.rayAlignMask[targetSquare][friendlyKingIndex])
+			if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[(startSquare << 6) + friendlyKingIndex] == PrecomputedData.rayAlignMask[(targetSquare << 6) + friendlyKingIndex])
 			{
 				addPromotionMoves(startSquare, targetSquare);
 			}
@@ -311,7 +308,7 @@ public class MoveGenerator
 			captureRightPromoting = Bitboards.toggleBit(captureRightPromoting, targetSquare);
 			int startSquare = targetSquare - (direction * 9);
 			
-			if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[startSquare][friendlyKingIndex] == PrecomputedData.rayAlignMask[targetSquare][friendlyKingIndex])
+			if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[(startSquare << 6) + friendlyKingIndex] == PrecomputedData.rayAlignMask[(targetSquare << 6) + friendlyKingIndex])
 			{
 				addPromotionMoves(startSquare, targetSquare);
 			}
@@ -332,7 +329,7 @@ public class MoveGenerator
 				{
 					int startSquare = Bitboards.getLSB(enPassantPawns);
 					enPassantPawns = Bitboards.toggleBit(enPassantPawns, startSquare);
-					if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[startSquare][friendlyKingIndex] == PrecomputedData.rayAlignMask[targetSquare][friendlyKingIndex])
+					if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[(startSquare << 6) + friendlyKingIndex] == PrecomputedData.rayAlignMask[(targetSquare << 6) + friendlyKingIndex])
 					{
 						if (isEnPassantLegal(startSquare, captureSquare))
 						{
@@ -406,7 +403,7 @@ public class MoveGenerator
 			boolean diagonal = direction >= 4;
 			long sliders = diagonal ? bitBoards.getDiagonalSliders(enemyColor) : bitBoards.getOrthogonalSliders(enemyColor);
 						
-			if ((PrecomputedData.rayDirectionMask[friendlyKingIndex][direction] & sliders) == 0)
+			if ((PrecomputedData.rayDirectionMask[friendlyKingIndex*8 + direction] & sliders) == 0)
 			{
 				// no enemy sliders of relevant type along this ray on this specific direction from the friendly king
 				continue;
@@ -415,7 +412,7 @@ public class MoveGenerator
 			// at least one relevant slider exists
 			boolean friendlyPieceFound = false;
 			long potentialPinRayMask = 0;
-			int numSquares = PrecomputedData.numSquaresToEdge[friendlyKingIndex][direction];
+			int numSquares = PrecomputedData.numSquaresToEdge[friendlyKingIndex*8 + direction];
 			int directionOffset = PrecomputedData.directionOffsets[direction];
 			
 			for (int i = 1; i <= numSquares; i++)

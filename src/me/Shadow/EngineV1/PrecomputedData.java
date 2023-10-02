@@ -2,15 +2,15 @@ package me.Shadow.EngineV1;
 
 public class PrecomputedData
 {
-	public static long [] KNIGHT_MOVES = new long[64];
-	public static long [] KING_MOVES = new long[64];
+	public static final long [] KNIGHT_MOVES = new long[64];
+	public static final long [] KING_MOVES = new long[64];
 	
-	public static int[] directionOffsets = {8, -8, -1, 1, 7, -7, 9, -9};
+	public static final int[] directionOffsets = {8, -8, -1, 1, 7, -7, 9, -9};
 	
-	public static int [][] numSquaresToEdge;
+	public static final int [] numSquaresToEdge = new int[64*8];
 	
-	public static long [][] rayAlignMask;
-	public static long [][] rayDirectionMask;
+	public static final long [] rayAlignMask = new long[64*64];
+	public static final long [] rayDirectionMask = new long[64*8];
 	
 	public static final long WHITE_KINGSIDE_CASTLING_CLEAR_MASK = (0b11L << 5);
 	public static final long BLACK_KINGSIDE_CASTLING_CLEAR_MASK = (0b11L << 61);
@@ -21,7 +21,9 @@ public class PrecomputedData
 	
 	public static void generateData()
 	{
-		numSquaresToEdge = new int[64][8];
+		// num squares to edge
+		// knight moves
+		// king moves
 		for (int index = 0; index < 64; index++)
 		{
 			int rank = index / 8;
@@ -36,14 +38,14 @@ public class PrecomputedData
 			int northeast = Math.min(north, east);
 			int southwest = Math.min(south, west);
 			
-			numSquaresToEdge[index][0] = north;
-			numSquaresToEdge[index][1] = south;
-			numSquaresToEdge[index][2] = west;
-			numSquaresToEdge[index][3] = east;
-			numSquaresToEdge[index][4] = northwest;
-			numSquaresToEdge[index][5] = southeast;
-			numSquaresToEdge[index][6] = northeast;
-			numSquaresToEdge[index][7] = southwest;
+			numSquaresToEdge[index*8 + 0] = north;
+			numSquaresToEdge[index*8 + 1] = south;
+			numSquaresToEdge[index*8 + 2] = west;
+			numSquaresToEdge[index*8 + 3] = east;
+			numSquaresToEdge[index*8 + 4] = northwest;
+			numSquaresToEdge[index*8 + 5] = southeast;
+			numSquaresToEdge[index*8 + 6] = northeast;
+			numSquaresToEdge[index*8 + 7] = southwest;
 			
 			// knightMoves[] gives the index offsets for the 8 possible knight moves
 			int [] knightOffsets = {17, 15, -17, -15, 10, 6, -10, -6};
@@ -70,7 +72,7 @@ public class PrecomputedData
 			}
 		}
 		
-		rayDirectionMask = new long[64][8];
+		// ray direction mask
 		int [] rankOffsets = {1, -1, 0, 0, 1, -1, 1, -1};
 		int [] fileOffsets = {0, 0, -1, 1, -1, 1, 1, -1};
 		for (int rank = 1; rank <= 8; rank++)
@@ -87,14 +89,14 @@ public class PrecomputedData
 						if (Utils.isValidSquare(newRank, newFile))
 						{
 							int index = Utils.getSquareIndexFromRankFile(newRank, newFile);
-							rayDirectionMask[squareIndex][dir] |= (1l << index);
+							rayDirectionMask[squareIndex*8 + dir] |= (1l << index);
 						}
 					}
 				}
 			}
 		}
 		
-		rayAlignMask = new long[64][64];
+		// ray align mask
 		for (int first = 0; first < 64; first++)
 		{
 			for (int second = 0; second < 64; second++)
@@ -109,7 +111,7 @@ public class PrecomputedData
 					if (Utils.isValidSquare(newRank, newFile))
 					{
 						int index = Utils.getSquareIndexFromRankFile(newRank, newFile);
-						rayAlignMask[first][second] |= (1l << index);
+						rayAlignMask[first*64 + second] |= (1l << index);
 					}
 				}
 			}
@@ -123,7 +125,7 @@ public class PrecomputedData
 		for (int i = 0; i < 64; i++)
 		{
 			System.out.println("At Square " + Utils.getSquareName(i));
-			long ray = rayDirectionMask[i][dir];
+			long ray = rayDirectionMask[i*8 + dir];
 						
 			while (ray != 0)
 			{
@@ -140,7 +142,7 @@ public class PrecomputedData
 		for (int i = 0; i < 64; i++)
 		{
 			System.out.println("Aligning with Square " + Utils.getSquareName(i));
-			long ray = rayAlignMask[first][i];
+			long ray = rayAlignMask[first*64 + i];
 			
 			while (ray != 0)
 			{

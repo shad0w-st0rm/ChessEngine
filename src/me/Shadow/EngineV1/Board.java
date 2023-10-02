@@ -49,18 +49,20 @@ public class Board
 		int piece = squares[start];
 		int capturedPiece = squares[captureIndex];
 
-		long newZobristHash = updateZobristHash(move);
-		boardInfo.setZobristHash(newZobristHash);	// set the hash
-		boardInfo.getPositionList().add(newZobristHash);
-		boardInfo.getMoveList().add(move);
+		long zobristHash = boardInfo.getZobristHash();
 
 		// update boardInfo information
 		boardInfo.setWhiteToMove(!boardInfo.isWhiteToMove());
-		boardInfo.setHalfMoves(boardInfo.getHalfMoves() + 1);
+		zobristHash ^= zobristHashes[768]; // flip side to move
+		
+		boardInfo.incrementHalfMoves();
 		if (PieceHelper.getPieceType(piece) == PieceHelper.PAWN)
 			boardInfo.setHalfMoves(0); // reset half moves for 50 move rule
 		if (PieceHelper.isColor(piece, PieceHelper.BLACK_PIECE))
-			boardInfo.setMoveNum(boardInfo.getMoveNum() + 1);
+			boardInfo.incrementMoveNum();
+		
+		if (boardInfo.getEnPassantIndex() != -1) zobristHash ^= zobristHashes[773 + (boardInfo.getEnPassantIndex() % 8)]; // remove old enpassant index
+		if (MoveHelper.getEnPassantNewIndex(move) != -1) zobristHash ^= zobristHashes[773 + (MoveHelper.getEnPassantNewIndex(move) % 8)]; // add new enpassant index
 		
 		// set or reset en passant index
 		boardInfo.setEnPassantIndex(MoveHelper.getEnPassantNewIndex(move));
@@ -94,6 +96,8 @@ public class Board
 			// remove captured piece from the board
 			squares[captureIndex] = PieceHelper.NONE;
 			bitBoards.toggleSquare(capturedPiece, captureIndex);
+			
+			zobristHash ^= zobristHashes[(captureIndex * 12 + PieceHelper.getZobristOffset(capturedPiece))]; // remove captured piece
 		}
 
 		if (MoveHelper.isCastleMove(move)) // if move is castling
@@ -105,6 +109,9 @@ public class Board
 			int rook = squares[rookStart];
 			squares[rookStart] = PieceHelper.NONE;
 			squares[rookTarget] = rook;
+			
+			zobristHash ^= zobristHashes[(rookStart * 12 + PieceHelper.getZobristOffset(rook))]; // remove rook from start square
+			zobristHash ^= zobristHashes[(rookTarget * 12 + PieceHelper.getZobristOffset(rook))]; // add rook to target square
 
 			// castling rights get updated below
 			
@@ -124,8 +131,12 @@ public class Board
 			int promotedDifferential = PieceHelper.getPieceSquareValue(piece, target, endgame);
 			
 			bitBoards.toggleSquare(piece, start);
+			zobristHash ^= zobristHashes[(target * 12 + PieceHelper.getZobristOffset(piece))]; // remove old piece from target square
+			
 			piece = (MoveHelper.getPromotedPiece(move) | PieceHelper.getColor(piece));
+			
 			bitBoards.toggleSquare(piece, start);
+			zobristHash ^= zobristHashes[(target * 12 + PieceHelper.getZobristOffset(piece))]; // add promoted piece to target square
 			
 			// update material
 			materialDifference = PieceHelper.getValue(piece) - materialDifference;
@@ -141,13 +152,23 @@ public class Board
 				boardInfo.setBlackSquareBonus(boardInfo.getBlackSquareBonus() + promotedDifferential);
 		}
 		
-		boolean[] castlingRights = boardInfo.getCastlingRights();
-		if (start == 4 || start == 7 || target == 7) castlingRights[0] = false;
-		if (start == 4 || start == 0 || target == 0) castlingRights[1] = false;
-		if (start == 60 || start == 63 || target == 63) castlingRights[2] = false;
-		if (start == 60 || start == 56 || target == 56) castlingRights[3] = false;
-		boardInfo.setCastlingRights(castlingRights);
+		byte oldCastlingRights = boardInfo.getCastlingRights();
+		byte castlingRights = oldCastlingRights;
+		if (start == 4 || start == 7 || target == 7) castlingRights &= ~BoardInfo.WHITE_KING_CASTLING;
+		if (start == 4 || start == 0 || target == 0) castlingRights &= ~BoardInfo.WHITE_QUEEN_CASTLING;
+		if (start == 60 || start == 63 || target == 63) castlingRights &= ~BoardInfo.BLACK_KING_CASTLING;
+		if (start == 60 || start == 56 || target == 56) castlingRights &= ~BoardInfo.BLACK_QUEEN_CASTLING;
 		
+		int changedCastlingRights = oldCastlingRights ^ castlingRights;
+		if (changedCastlingRights != 0)
+		{
+			if ((changedCastlingRights & BoardInfo.WHITE_KING_CASTLING) != 0) zobristHash ^= zobristHashes[769];
+			if ((changedCastlingRights & BoardInfo.WHITE_QUEEN_CASTLING) != 0) zobristHash ^= zobristHashes[770];
+			if ((changedCastlingRights & BoardInfo.BLACK_KING_CASTLING) != 0) zobristHash ^= zobristHashes[771];
+			if ((changedCastlingRights & BoardInfo.BLACK_QUEEN_CASTLING) != 0) zobristHash ^= zobristHashes[772];
+		}
+		
+		boardInfo.setCastlingRights(castlingRights);
 		
 		// move the piece to the new square
 		squares[start] = PieceHelper.NONE;
@@ -155,6 +176,12 @@ public class Board
 		bitBoards.toggleSquare(piece, start);
 		bitBoards.toggleSquare(piece, target);
 		
+		zobristHash ^= zobristHashes[(start * 12 + PieceHelper.getZobristOffset(piece))]; // remove piece from start square
+		zobristHash ^= zobristHashes[(target * 12 + PieceHelper.getZobristOffset(piece))]; // add piece to target square
+		
+		boardInfo.setZobristHash(zobristHash);	// set the hash
+		boardInfo.getPositionList().add(zobristHash);
+				
 		return capturedPiece; // return the captured piece
 	}
 
@@ -162,7 +189,6 @@ public class Board
 	{
 		boardInfo = boardInfoOld; // replace current BoardInfo object with the old BoardInfo object
 		boardInfo.getPositionList().remove(boardInfo.getPositionList().size()-1); // remove the most recent position
-		boardInfo.getMoveList().remove(boardInfo.getMoveList().size()-1); // remove the most recent move
 
 		int start = MoveHelper.getStartIndex(move);
 		int target = MoveHelper.getTargetIndex(move);
@@ -224,102 +250,19 @@ public class Board
 
 		if (!boardInfo.isWhiteToMove())
 			zobristHash ^= zobristHashes[768];
-		if (boardInfo.getCastlingRights()[0])
+		
+		byte castlingRights = boardInfo.getCastlingRights();
+		if ((castlingRights & BoardInfo.WHITE_KING_CASTLING) != 0)
 			zobristHash ^= zobristHashes[769];
-		if (boardInfo.getCastlingRights()[1])
+		if ((castlingRights & BoardInfo.WHITE_QUEEN_CASTLING) != 0)
 			zobristHash ^= zobristHashes[770];
-		if (boardInfo.getCastlingRights()[2])
+		if ((castlingRights & BoardInfo.BLACK_KING_CASTLING) != 0)
 			zobristHash ^= zobristHashes[771];
-		if (boardInfo.getCastlingRights()[3])
+		if ((castlingRights & BoardInfo.BLACK_QUEEN_CASTLING) != 0)
 			zobristHash ^= zobristHashes[772];
+		
 		if (boardInfo.getEnPassantIndex() != -1)
 			zobristHash ^= zobristHashes[773 + (boardInfo.getEnPassantIndex() % 8)];
-		
-		return zobristHash;
-	}
-	
-	public long updateZobristHash(short move)
-	{
-		long zobristHash = boardInfo.getZobristHash();
-		
-		int start = MoveHelper.getStartIndex(move);
-		int target = MoveHelper.getTargetIndex(move);
-		
-		int piece = squares[start];
-		int captured = squares[target];
-		int captureIndex = target;
-		int enPassantIndex = MoveHelper.getEnPassantCaptureIndex(move);
-		if (enPassantIndex != -1)
-		{
-			captured = squares[enPassantIndex];
-			captureIndex = enPassantIndex;
-		}
-		
-		zobristHash ^= zobristHashes[(start * 12 + PieceHelper.getZobristOffset(piece))]; // remove piece from start square
-		zobristHash ^= zobristHashes[(target * 12 + PieceHelper.getZobristOffset(piece))]; // add piece to target square
-		if (captured != PieceHelper.NONE) zobristHash ^= zobristHashes[(captureIndex * 12 + PieceHelper.getZobristOffset(captured))]; // remove captured piece if any
-		
-		if (boardInfo.getEnPassantIndex() != -1) zobristHash ^= zobristHashes[773 + (boardInfo.getEnPassantIndex() % 8)]; // remove old enpassant index
-		if (MoveHelper.getEnPassantNewIndex(move) != -1) zobristHash ^= zobristHashes[773 + (MoveHelper.getEnPassantNewIndex(move) % 8)]; // add new enpassant index
-		
-		if (MoveHelper.getPromotedPiece(move) != 0)
-		{
-			int newPiece = MoveHelper.getPromotedPiece(move) | PieceHelper.getColor(piece);
-			
-			zobristHash ^= zobristHashes[(target * 12 + PieceHelper.getZobristOffset(piece))]; // remove old piece from target square
-			zobristHash ^= zobristHashes[(target * 12 + PieceHelper.getZobristOffset(newPiece))]; // add promoted piece to target square
-		}
-		
-		boolean [] castlingRights = boardInfo.getCastlingRights();
-		
-		if (captured != PieceHelper.NONE && PieceHelper.getPieceType(captured) == PieceHelper.ROOK)
-		{
-			// remove castling rights because rook captured
-			if (castlingRights[0] && target == 7)
-				zobristHash ^= zobristHashes[769];
-			else if (castlingRights[1] && target == 0)
-				zobristHash ^= zobristHashes[770];
-			else if (castlingRights[2] && target == 63)
-				zobristHash ^= zobristHashes[771];
-			else if (castlingRights[3] && target == 56)
-				zobristHash ^= zobristHashes[772];
-		}
-		
-		if (PieceHelper.getPieceType(piece) == PieceHelper.ROOK)
-		{
-			// remove castling rights because rook move
-			if (castlingRights[0] && start == 7)
-				zobristHash ^= zobristHashes[769];
-			else if (castlingRights[1] && start == 0)
-				zobristHash ^= zobristHashes[770];
-			else if (castlingRights[2] && start == 63)
-				zobristHash ^= zobristHashes[771];
-			else if (castlingRights[3] && start == 56)
-				zobristHash ^= zobristHashes[772];
-		}
-		else if (PieceHelper.getPieceType(piece) == PieceHelper.KING)
-		{
-			// remove castling rights (and removes castling rights if this is a castle move as well)
-			if (PieceHelper.isColor(piece, PieceHelper.WHITE_PIECE))
-			{
-				if (castlingRights[0]) zobristHash ^= zobristHashes[769];
-				if (castlingRights[1]) zobristHash ^= zobristHashes[770];
-			}
-			else
-			{
-				if (castlingRights[2]) zobristHash ^= zobristHashes[771];
-				if (castlingRights[3]) zobristHash ^= zobristHashes[772];
-			}
-		}
-		
-		if (MoveHelper.isCastleMove(move))
-		{
-			int rook = squares[MoveHelper.getRookStartIndex(move)];
-			zobristHash ^= zobristHashes[(MoveHelper.getRookStartIndex(move) * 12 + PieceHelper.getZobristOffset(rook))]; // remove rook from start square
-			zobristHash ^= zobristHashes[(MoveHelper.getRookTargetIndex(move) * 12 + PieceHelper.getZobristOffset(rook))]; // add rook to target square
-		}
-		
-		zobristHash ^= zobristHashes[768]; // flip side to move
 		
 		return zobristHash;
 	}
@@ -393,18 +336,17 @@ public class Board
 				boardInfo.setWhiteToMove(string.equals("w")); // sets color to move
 			else if (i == 2) // checks castling rights
 			{
-				boolean[] castlingRights =
-				{ false, false, false, false };
+				byte castlingRights = 0;
 				for (int j = 0; j < string.length(); j++)
 				{
 					if (string.charAt(j) == 'K')
-						castlingRights[0] = true;
+						castlingRights |= BoardInfo.WHITE_KING_CASTLING;
 					if (string.charAt(j) == 'Q')
-						castlingRights[1] = true;
+						castlingRights |= BoardInfo.WHITE_QUEEN_CASTLING;
 					if (string.charAt(j) == 'k')
-						castlingRights[2] = true;
+						castlingRights |= BoardInfo.BLACK_KING_CASTLING;
 					if (string.charAt(j) == 'q')
-						castlingRights[3] = true;
+						castlingRights |= BoardInfo.BLACK_QUEEN_CASTLING;
 					boardInfo.setCastlingRights(castlingRights); // set the castling rights
 				}
 			}
@@ -521,14 +463,14 @@ public class Board
 			newFEN += string;
 		
 		newFEN += " " + (boardInfo.isWhiteToMove() ? "w" : "b") + " "; // color to move
-		boolean[] castlingRights = boardInfo.getCastlingRights(); // set castling rights
-		if (castlingRights[0])
+		byte castlingRights = boardInfo.getCastlingRights(); // set castling rights
+		if ((castlingRights & BoardInfo.WHITE_KING_CASTLING) != 0)
 			newFEN += "K";
-		if (castlingRights[1])
+		if ((castlingRights & BoardInfo.WHITE_QUEEN_CASTLING) != 0)
 			newFEN += "Q";
-		if (castlingRights[2])
+		if ((castlingRights & BoardInfo.BLACK_KING_CASTLING) != 0)
 			newFEN += "k";
-		if (castlingRights[3])
+		if ((castlingRights & BoardInfo.BLACK_QUEEN_CASTLING) != 0)
 			newFEN += "q";
 		newFEN += " ";
 		if (boardInfo.getEnPassantIndex() == -1)
