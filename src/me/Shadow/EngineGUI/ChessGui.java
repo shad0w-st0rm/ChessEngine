@@ -30,7 +30,7 @@ import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 
-import me.Shadow.EngineV1.*;
+import me.Shadow.Engine.*;
 
 public class ChessGui
 {

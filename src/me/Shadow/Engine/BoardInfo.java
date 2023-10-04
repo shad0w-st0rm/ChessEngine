@@ -1,4 +1,4 @@
-package me.Shadow.EngineV1;
+package me.Shadow.Engine;
 import java.util.ArrayList;
 
 public class BoardInfo

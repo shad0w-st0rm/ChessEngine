@@ -1,4 +1,4 @@
-package me.Shadow.EngineV1;
+package me.Shadow.Engine;
 
 public class Bitboards
 {
@@ -6,6 +6,11 @@ public class Bitboards
 	long [] colorBoards;
 	
 	public Bitboards(Board board)
+	{
+		createBitboards(board);
+	}
+	
+	public void createBitboards(Board board)
 	{
 		pieceBoards = new long[PieceHelper.BLACK_KING + 1];
 		colorBoards = new long[2];

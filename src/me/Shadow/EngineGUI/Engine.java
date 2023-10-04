@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import me.Shadow.EngineV1.*;
+import me.Shadow.Engine.*;
 
 public class Engine
 {
@@ -57,14 +57,14 @@ public class Engine
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		// Perft.runPerftSuite(6);
+		//Perft.runPerftSuite();
 		
 		gui = new ChessGui();
 		gui.createGui(this);
 		
 		board = new Board(originalFEN);
 		playerMoveMade = (engineIsWhite == board.boardInfo.isWhiteToMove());
-		enginePlayer = new Player(new Board(board), searchTime);
+		enginePlayer = new Player(new Board(board));
 	}
 	
 	public void gameLoop()
@@ -123,7 +123,7 @@ public class Engine
 	public short engineMove()
 	{
 		engineSearching = true;
-		short move = enginePlayer.searchMove();
+		short move = enginePlayer.searchMove(searchTime);
 		engineSearching = false;
 
 		if (move != MoveHelper.NULL_MOVE)
@@ -141,7 +141,7 @@ public class Engine
 		System.out.println(MoveHelper.toString(move));
 				
 		board.movePiece(move);
-		enginePlayer.makeMove(move);
+		enginePlayer.makeMove(MoveHelper.toString(move));
 	}
 	
 	public boolean isThreeFoldRepetition(Board board)

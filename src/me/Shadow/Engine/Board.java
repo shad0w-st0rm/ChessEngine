@@ -1,4 +1,4 @@
-package me.Shadow.EngineV1;
+package me.Shadow.Engine;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -412,7 +412,8 @@ public class Board
 		boardInfo.setZobristHash(createZobristHash());
 		boardInfo.getPositionList().add(boardInfo.getZobristHash());
 		
-		bitBoards = new Bitboards(this);
+		if(bitBoards == null) bitBoards = new Bitboards(this);
+		else bitBoards.createBitboards(this);
 	}
 
 	/**

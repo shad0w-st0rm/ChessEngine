@@ -1,4 +1,4 @@
-package me.Shadow.EngineV1;
+package me.Shadow.Engine;
 
 public class TranspositionTable
 {
@@ -45,6 +45,15 @@ public class TranspositionTable
 				break;
 			}
 		}
+	}
+	
+	public void clearTable()
+	{
+		for (int i = 0; i < table.length; i++)
+		{
+			table[i] = 0;
+		}
+		numStored = 0;
 	}
 	
 	public int lookupEvaluation(long zobristKey, int depth, int alpha, int beta)
@@ -95,7 +104,6 @@ public class TranspositionTable
 	
 	private int getIndex(long zobristKey)
 	{
-		//assert((zobristKey & indexBitMask) == Long.remainderUnsigned(zobristKey, size));
 		return (int)(zobristKey & indexBitMask);
 	}
 }

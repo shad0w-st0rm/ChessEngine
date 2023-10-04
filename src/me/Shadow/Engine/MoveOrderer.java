@@ -1,4 +1,4 @@
-package me.Shadow.EngineV1;
+package me.Shadow.Engine;
 
 import java.util.Arrays;
 
@@ -65,6 +65,13 @@ public class MoveOrderer
 				evalGuess += promotingBias;
 			}
 			
+			if (board.squares[start] == PieceHelper.NONE)
+			{
+				board.printBoard();
+				System.out.println(start + " " + target);
+				System.out.println(board.bitBoards.colorBoards[board.boardInfo.isWhiteToMove() ? 0 : 1]);
+			}
+			
 			evalGuess -= PieceHelper.getPieceSquareValue(piece, start, endgame);
 			evalGuess += PieceHelper.getPieceSquareValue(piece, target, endgame);
 			
@@ -97,6 +104,15 @@ public class MoveOrderer
 		//quickSort(moves, moveEvals, 0, moveCount - 1);
 		//insertionSort(moves, moveEvals);
 		binaryInsertionSort(moves, moveEvals);
+	}
+	
+	public void clearKillers()
+	{
+		killers = new KillerMove[maxKillerDepth];
+		for (int i = 0; i < maxKillerDepth; i++)
+		{
+			killers[i] = new KillerMove();
+		}
 	}
 	
 	public void clearHistoryHeuristic()

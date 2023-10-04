@@ -1,20 +1,14 @@
-package me.Shadow.EngineV1;
+package me.Shadow.Engine;
 
 import java.util.ArrayList;
-import java.util.Timer;
-import java.util.TimerTask;
 
 public class MoveSearcher
 {
 	short bestMove;
 	short bestMoveCurrentIteration;
-	int bestEval;
-	int bestEvalCurrentIteration;
 	boolean oneMoveSearched;
-	int maxDepthReached;
 	
 	boolean searchCancelled;
-	int timeLimit;
 	
 	Board board;
 	MoveGenerator moveGen;
@@ -23,67 +17,43 @@ public class MoveSearcher
 	short[][] generatedMoves;
 	static final int MAX_DEPTH = 64;
 	
-	
 	static final int positiveInfinity = 1_000_000;
 	static final int negativeInfinity = -positiveInfinity;
 	
-	long startTime;
-	long moveGenTime, moveEvalTime;
-	long movePieceTime, moveBackTime;
-	long transpositionTime, positionEvaluationTime, checkRepetitionTime;
-	long boardInfoTime;
-	
-	int numPositions;
-	int numTranspositions;
-	
-	
-	public MoveSearcher(Board board, int timeLimitMS)
+	public MoveSearcher(Board board)
 	{
 		this.board = board;
 		moveGen = new MoveGenerator(board);
 		moveOrderer = new MoveOrderer();
 		generatedMoves = new short[MAX_DEPTH][MoveGenerator.MAXIMUM_LEGAL_MOVES];
-		timeLimit = timeLimitMS;
 		transpositionTable = new TranspositionTable();
 	}
 	
 	public short startSearch()
 	{
 		searchCancelled = false;
-		Timer timer = new Timer();
-		timer.schedule(new TimerTask()
-		{
-			@Override
-			public void run()
-			{
-				searchCancelled = true;
-			}
-		}, timeLimit);
 		
-		clearSearchStats();
+		// clearSearchStats();
 		bestMove = bestMoveCurrentIteration = MoveHelper.NULL_MOVE;
-		bestEval = bestEvalCurrentIteration = negativeInfinity;
 		oneMoveSearched = false;
-		int depth = maxDepthReached = 0;
 		moveOrderer.clearHistoryHeuristic();
+		int depth = 0;
 		
-		startTime = System.currentTimeMillis();
 		while (!searchCancelled && depth < MAX_DEPTH)
 		{
 			depth++;
-			search(depth, 0, negativeInfinity, positiveInfinity);
+			int evaluation = search(depth, 0, negativeInfinity, positiveInfinity);
 			
 			if (oneMoveSearched)
 			{
 				bestMove = bestMoveCurrentIteration;
-				bestEval = bestEvalCurrentIteration;
 				
-				if (bestEvalCurrentIteration >= (positiveInfinity - depth))
+				if (evaluation >= (positiveInfinity - depth))
 				{
 					//System.out.println("Forced mate for engine found");
 					break;
 				}
-				else if (bestEvalCurrentIteration <= (negativeInfinity + depth))
+				else if (evaluation <= (negativeInfinity + depth))
 				{
 					//System.out.println("Forced mate against engine found");
 					break;
@@ -91,12 +61,15 @@ public class MoveSearcher
 			}
 						
 			bestMoveCurrentIteration = MoveHelper.NULL_MOVE;
-			bestEvalCurrentIteration = negativeInfinity;
 			oneMoveSearched = false;
 		}
-		maxDepthReached = depth;
 				
 		return bestMove;
+	}
+	
+	public void stopSearch()
+	{
+		searchCancelled = true;
 	}
 	
 	public int search(int depth, int plyFromRoot, int alpha, int beta)
@@ -108,17 +81,12 @@ public class MoveSearcher
 			return 0;
 		}
 		
-		long tempTime = System.currentTimeMillis();
 		int transposEval = transpositionTable.lookupEvaluation(board.boardInfo.getZobristHash(), depth, alpha, beta);
-		transpositionTime += System.currentTimeMillis() - tempTime;
 		if (transposEval != TranspositionTable.LOOKUP_FAILED)
-		{
-			numTranspositions++;
-			
+		{			
 			if (plyFromRoot == 0)
 			{
-				bestMoveCurrentIteration = transpositionTable.lookupMove(board.boardInfo.getZobristHash());;
-				bestEvalCurrentIteration = transposEval;
+				bestMoveCurrentIteration = transpositionTable.lookupMove(board.boardInfo.getZobristHash());
 				oneMoveSearched = true;
 			}
 			
@@ -130,11 +98,9 @@ public class MoveSearcher
 			return searchCaptures(alpha, beta);
 		}
 		
-		tempTime = System.currentTimeMillis();
 		// Move [] moves = new Move[MoveGenerator.MAXIMUM_LEGAL_MOVES];
 		short [] moves = generatedMoves[plyFromRoot];
 		int moveCount = moveGen.generateMoves(moves, false);
-		moveGenTime += System.currentTimeMillis() - tempTime;
 		
 		if (moveCount == 0)
 		{
@@ -144,10 +110,8 @@ public class MoveSearcher
 				return 0;
 		}
 		
-		tempTime = System.currentTimeMillis();
 		short firstMove = (plyFromRoot == 0 ? bestMove : transpositionTable.lookupMove(board.boardInfo.getZobristHash()));
 		moveOrderer.guessMoveEvals(board, moves, moveCount, firstMove, moveGen.enemyAttackMap, moveGen.enemyPawnAttackMap, false, plyFromRoot);
-		moveEvalTime += System.currentTimeMillis() - tempTime;
 		
 		int bound = TranspositionTable.UPPER_BOUND;
 		short bestMoveInPosition = MoveHelper.NULL_MOVE;
@@ -155,19 +119,10 @@ public class MoveSearcher
 		{
 			short move = moves[i];
 			
-			tempTime = System.currentTimeMillis();
 			BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
-			boardInfoTime += System.currentTimeMillis() - tempTime;
-			
-			tempTime = System.currentTimeMillis();
 			int captured = board.movePiece(move);
-			movePieceTime += System.currentTimeMillis() - tempTime;
-			
 			int evaluation = -(search(depth - 1, plyFromRoot + 1, -beta, -alpha));
-			
-			tempTime = System.currentTimeMillis();
 			board.moveBack(move, captured, boardInfoOld);
-			moveBackTime += System.currentTimeMillis() - tempTime;
 			
 			if (searchCancelled)
 			{
@@ -188,7 +143,6 @@ public class MoveSearcher
 				if (plyFromRoot == 0)
 				{
 					bestMoveCurrentIteration = move;
-					bestEvalCurrentIteration = alpha;
 					oneMoveSearched = true;
 				}
 			}
@@ -197,10 +151,7 @@ public class MoveSearcher
 			{
 				// move was too good so opponent will avoid this branch
 				bound = TranspositionTable.LOWER_BOUND;
-				
-				tempTime = System.currentTimeMillis();
 				transpositionTable.storeEvaluation(board.boardInfo.getZobristHash(), beta, depth, bound, move);
-				transpositionTime += System.currentTimeMillis() - tempTime;
 				
 				if (captured == PieceHelper.NONE) // ignore captures for killer moves
 				{
@@ -221,9 +172,7 @@ public class MoveSearcher
 			}
 		}
 		
-		tempTime = System.currentTimeMillis();
 		transpositionTable.storeEvaluation(board.boardInfo.getZobristHash(), alpha, depth, bound, bestMoveInPosition);
-		transpositionTime += System.currentTimeMillis() - tempTime;
 		
 		return alpha;
 	}
@@ -241,32 +190,19 @@ public class MoveSearcher
 		}
 		alpha = Math.max(alpha, evaluation);
 		
-		long tempTime = System.currentTimeMillis();
 		short [] moves = new short[128];	// theoretical maximum captures + queen promotions is 72 (though likely far less)
 		int moveCount = moveGen.generateMoves(moves, true);
-		moveGenTime += System.currentTimeMillis() - tempTime;
 		
-		tempTime = System.currentTimeMillis();
 		moveOrderer.guessMoveEvals(board, moves, moveCount, MoveHelper.NULL_MOVE, moveGen.enemyAttackMap, moveGen.enemyPawnAttackMap, true, 0);
-		moveEvalTime += System.currentTimeMillis() - tempTime;
 				
 		for (int i = 0; i < moveCount; i++)
 		{
 			short move = moves[i];
 			
-			tempTime = System.currentTimeMillis();
 			BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
-			boardInfoTime += System.currentTimeMillis() - tempTime;
-			
-			tempTime = System.currentTimeMillis();
 			int captured = board.movePiece(move);
-			movePieceTime += System.currentTimeMillis() - tempTime;
-			
 			evaluation = -(searchCaptures(-beta, -alpha));
-			
-			tempTime = System.currentTimeMillis();
 			board.moveBack(move, captured, boardInfoOld);
-			moveBackTime += System.currentTimeMillis() - tempTime;
 
 			if (evaluation >= beta)
 			{
@@ -281,18 +217,28 @@ public class MoveSearcher
 	
 	public boolean isDuplicatePosition()
 	{
-		long temp = System.currentTimeMillis();
 		long zobristHash = board.boardInfo.getZobristHash();
 		ArrayList<Long> positions = board.boardInfo.getPositionList();
-		boolean duplicate = (positions.indexOf(zobristHash) != (positions.size()-1));
-		checkRepetitionTime += System.currentTimeMillis() - temp;
-		return duplicate;
+		positions.remove(positions.size() - 1); // remove the most recent hash
+		
+		int index = positions.size() - 1;
+		int minIndex = Math.max(index - board.boardInfo.getHalfMoves() + 1, 0);
+		while (index >= minIndex)
+		{
+			if (positions.get(index) == zobristHash)
+			{
+				positions.add(zobristHash);
+				return true;
+			}
+			index--;
+		}
+		positions.add(zobristHash);
+		return false;
 	}
+	
 	
 	public int staticEvaluation()
 	{
-		long tempTime = System.currentTimeMillis();
-		numPositions++;
 		double evaluation = 0;
 		evaluation = board.boardInfo.getWhiteMaterial() + board.boardInfo.getWhiteSquareBonus();
 		evaluation -= (board.boardInfo.getBlackMaterial() + board.boardInfo.getBlackSquareBonus());
@@ -304,7 +250,6 @@ public class MoveSearcher
 		
 		evaluation *= board.boardInfo.isWhiteToMove() ? 1 : -1;
 		
-		positionEvaluationTime += System.currentTimeMillis() - tempTime;
 		return (int)evaluation;
 	}
 
@@ -328,6 +273,13 @@ public class MoveSearcher
 		return (int) (evaluation * endgameWeight);
 	}
 	
+	public void newPosition()
+	{
+		moveOrderer.clearKillers();
+		transpositionTable.clearTable();
+	}
+	
+	/*
 	public void clearSearchStats()
 	{
 		numPositions = numTranspositions = 0;
@@ -336,7 +288,7 @@ public class MoveSearcher
 	
 	public void printSearchStats()
 	{
-		System.out.println("Evaluation time: " + (System.currentTimeMillis() - startTime) + "\t\t\tEvaluation for Engine: " + bestEval + "\t\tEvaluation Depth: " + maxDepthReached);
+		System.out.println("Evaluation time: " + (System.currentTimeMillis() - startTime) + "\t\t\tEvaluation for Engine: " + "\t\tEvaluation Depth: ");
 		System.out.println("Number of positions: " + numPositions + "\t\tNumber of Transpositions: " + numTranspositions + "\t\tStored Transpositions: " + transpositionTable.numStored);
 		System.out.println("Move Generation Time: " + moveGenTime + "\t\tMove Eval Time: " + moveEvalTime);
 		System.out.println("Move Piece Time: " + movePieceTime + "\t\t\tMove Back Time: " + moveBackTime + "\t\t\tEvaluation Time: " + positionEvaluationTime);
@@ -344,4 +296,5 @@ public class MoveSearcher
 		long sum = moveGenTime + moveEvalTime + movePieceTime + moveBackTime + positionEvaluationTime + transpositionTime + boardInfoTime + checkRepetitionTime;
 		System.out.println("Tracked Time: " + sum);
 	}
+	*/
 }
