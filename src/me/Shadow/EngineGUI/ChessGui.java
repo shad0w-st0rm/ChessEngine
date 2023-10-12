@@ -348,12 +348,11 @@ public class ChessGui
 				int piece = engine.board.squares[index];
 				if (piece != PieceHelper.NONE && PieceHelper.isColor(piece, PieceHelper.WHITE_PIECE) != engine.engineIsWhite)
 				{
-					short [] movesArray = new short[MoveGenerator.MAXIMUM_LEGAL_MOVES];
-					int moveCount = (new MoveGenerator(engine.board)).generateMoves(movesArray, false);
-					movesArray = Arrays.copyOf(movesArray, moveCount);
+					short [] movesArray = (new MoveGenerator(engine.board)).generateMoves(false);
+					movesArray = Arrays.copyOf(movesArray, movesArray.length);
 					
 					ArrayList<Short> moves = new ArrayList<Short>();
-					for (int i = 0; i < moveCount; i++)
+					for (int i = 0; i < movesArray.length; i++)
 					{
 						short move = movesArray[i];
 						if (MoveHelper.getStartIndex(move) == index) moves.add(move);

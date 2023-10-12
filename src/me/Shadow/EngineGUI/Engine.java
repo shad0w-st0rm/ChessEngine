@@ -57,7 +57,19 @@ public class Engine
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		//Perft.runPerftSuite();
+		
+		try
+		{
+			Thread.sleep(000);
+		}
+		catch (InterruptedException e)
+		{
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		Perft.runPerftSuite(10);
+		System.exit(0);
 		
 		gui = new ChessGui();
 		gui.createGui(this);
@@ -172,7 +184,7 @@ public class Engine
 		}
 		
 		MoveGenerator moveGen = new MoveGenerator(board);
-		if (moveGen.generateMoves(new short[MoveGenerator.MAXIMUM_LEGAL_MOVES], false) == 0)
+		if (moveGen.generateMoves(false).length == 0)
 		{
 			if (moveGen.inCheck)
 				gui.message.setText("Game Over! " + (board.boardInfo.isWhiteToMove() ? "Black" : "White") + " wins by checkmate!");

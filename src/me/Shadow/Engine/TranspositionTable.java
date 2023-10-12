@@ -78,9 +78,9 @@ public class TranspositionTable
 	public short lookupMove(long zobristKey)
 	{
 		long entry = getEntry(zobristKey);
-		if ((entry & PARTIAL_KEY_MASK) == ((zobristKey >>> 48) & PARTIAL_KEY_MASK))
+		if ((entry & PARTIAL_KEY_MASK) == ((zobristKey >>> 48) & PARTIAL_KEY_MASK)) // shift 48 times and then isolate last 16 bits
 		{
-			return (short) ((entry >>> 16) & PARTIAL_KEY_MASK);	// shift 48 times and then isolate last 16 bits
+			return (short) ((entry >>> 16) & PARTIAL_KEY_MASK);
 		}
 		return MoveHelper.NULL_MOVE;
 	}

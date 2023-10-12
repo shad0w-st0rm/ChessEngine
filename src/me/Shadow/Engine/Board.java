@@ -37,17 +37,17 @@ public class Board
 		boardInfo = new BoardInfo(board.boardInfo);		
 	}
 
-	public int movePiece(short move)
+	public int movePiece(final short move)
 	{
-		int start = MoveHelper.getStartIndex(move);
-		int target = MoveHelper.getTargetIndex(move);
+		final int start = MoveHelper.getStartIndex(move);
+		final int target = MoveHelper.getTargetIndex(move);
 		
 		int captureIndex = target;
 		if (MoveHelper.getEnPassantCaptureIndex(move) != -1)
 			captureIndex = MoveHelper.getEnPassantCaptureIndex(move); // if en passant, change capture square
 		
 		int piece = squares[start];
-		int capturedPiece = squares[captureIndex];
+		final int capturedPiece = squares[captureIndex];
 
 		long zobristHash = boardInfo.getZobristHash();
 
@@ -68,9 +68,9 @@ public class Board
 		boardInfo.setEnPassantIndex(MoveHelper.getEnPassantNewIndex(move));
 		
 		// update the material
-		boolean endgame = boardInfo.getWhiteMaterial() + boardInfo.getBlackMaterial() < 4000;
+		final boolean endgame = boardInfo.getWhiteMaterial() + boardInfo.getBlackMaterial() < 4000;
 		
-		int differential = PieceHelper.getPieceSquareValue(piece, target, endgame) - PieceHelper.getPieceSquareValue(piece, start, endgame);
+		final int differential = PieceHelper.getPieceSquareValue(piece, target, endgame) - PieceHelper.getPieceSquareValue(piece, start, endgame);
 		
 		if (PieceHelper.isColor(piece, PieceHelper.WHITE_PIECE))
 			boardInfo.setWhiteSquareBonus(boardInfo.getWhiteSquareBonus() + differential);
@@ -102,11 +102,11 @@ public class Board
 
 		if (MoveHelper.isCastleMove(move)) // if move is castling
 		{
-			int rookStart = MoveHelper.getRookStartIndex(move);
-			int rookTarget = MoveHelper.getRookTargetIndex(move);
+			final int rookStart = MoveHelper.getRookStartIndex(move);
+			final int rookTarget = MoveHelper.getRookTargetIndex(move);
 			
 			// move the rook
-			int rook = squares[rookStart];
+			final int rook = squares[rookStart];
 			squares[rookStart] = PieceHelper.NONE;
 			squares[rookTarget] = rook;
 			
@@ -115,7 +115,7 @@ public class Board
 
 			// castling rights get updated below
 			
-			int rookDifferential = PieceHelper.getPieceSquareValue(rook, rookTarget, endgame) - PieceHelper.getPieceSquareValue(rook, rookStart, endgame);
+			final int rookDifferential = PieceHelper.getPieceSquareValue(rook, rookTarget, endgame) - PieceHelper.getPieceSquareValue(rook, rookStart, endgame);
 			if (PieceHelper.isColor(piece, PieceHelper.WHITE_PIECE))
 				boardInfo.setWhiteSquareBonus(boardInfo.getWhiteSquareBonus() + rookDifferential);
 			else
@@ -152,14 +152,14 @@ public class Board
 				boardInfo.setBlackSquareBonus(boardInfo.getBlackSquareBonus() + promotedDifferential);
 		}
 		
-		byte oldCastlingRights = boardInfo.getCastlingRights();
+		final byte oldCastlingRights = boardInfo.getCastlingRights();
 		byte castlingRights = oldCastlingRights;
 		if (start == 4 || start == 7 || target == 7) castlingRights &= ~BoardInfo.WHITE_KING_CASTLING;
 		if (start == 4 || start == 0 || target == 0) castlingRights &= ~BoardInfo.WHITE_QUEEN_CASTLING;
 		if (start == 60 || start == 63 || target == 63) castlingRights &= ~BoardInfo.BLACK_KING_CASTLING;
 		if (start == 60 || start == 56 || target == 56) castlingRights &= ~BoardInfo.BLACK_QUEEN_CASTLING;
 		
-		int changedCastlingRights = oldCastlingRights ^ castlingRights;
+		final int changedCastlingRights = oldCastlingRights ^ castlingRights;
 		if (changedCastlingRights != 0)
 		{
 			if ((changedCastlingRights & BoardInfo.WHITE_KING_CASTLING) != 0) zobristHash ^= zobristHashes[769];
@@ -185,13 +185,13 @@ public class Board
 		return capturedPiece; // return the captured piece
 	}
 
-	public void moveBack(short move, int captured, BoardInfo boardInfoOld)
+	public void moveBack(final short move, final int captured, final BoardInfo boardInfoOld)
 	{
 		boardInfo = boardInfoOld; // replace current BoardInfo object with the old BoardInfo object
 		boardInfo.getPositionList().remove(boardInfo.getPositionList().size()-1); // remove the most recent position
 
-		int start = MoveHelper.getStartIndex(move);
-		int target = MoveHelper.getTargetIndex(move);
+		final int start = MoveHelper.getStartIndex(move);
+		final int target = MoveHelper.getTargetIndex(move);
 		
 		// move the piece back to its original square
 		squares[start] = squares[target];
@@ -205,8 +205,8 @@ public class Board
 		if (MoveHelper.isCastleMove(move)) // if it was a castle move
 		{
 			// need to move the rook back too
-			int rookStart = MoveHelper.getRookStartIndex(move);
-			int rookTarget = MoveHelper.getRookTargetIndex(move);
+			final int rookStart = MoveHelper.getRookStartIndex(move);
+			final int rookTarget = MoveHelper.getRookTargetIndex(move);
 			
 			squares[rookStart] = squares[rookTarget];
 			squares[rookTarget] = PieceHelper.NONE;

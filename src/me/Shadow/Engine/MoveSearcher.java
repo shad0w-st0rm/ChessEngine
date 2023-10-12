@@ -14,7 +14,6 @@ public class MoveSearcher
 	MoveGenerator moveGen;
 	MoveOrderer moveOrderer;
 	TranspositionTable transpositionTable;
-	short[][] generatedMoves;
 	static final int MAX_DEPTH = 64;
 	
 	static final int positiveInfinity = 1_000_000;
@@ -25,7 +24,6 @@ public class MoveSearcher
 		this.board = board;
 		moveGen = new MoveGenerator(board);
 		moveOrderer = new MoveOrderer();
-		generatedMoves = new short[MAX_DEPTH][MoveGenerator.MAXIMUM_LEGAL_MOVES];
 		transpositionTable = new TranspositionTable();
 	}
 	
@@ -42,7 +40,7 @@ public class MoveSearcher
 		while (!searchCancelled && depth < MAX_DEPTH)
 		{
 			depth++;
-			int evaluation = search(depth, 0, negativeInfinity, positiveInfinity);
+			final int evaluation = search(depth, 0, negativeInfinity, positiveInfinity);
 			
 			if (oneMoveSearched)
 			{
@@ -72,7 +70,7 @@ public class MoveSearcher
 		searchCancelled = true;
 	}
 	
-	public int search(int depth, int plyFromRoot, int alpha, int beta)
+	public int search(final int depth, final int plyFromRoot, int alpha, final int beta)
 	{
 		if (searchCancelled) return 0;
 		
@@ -81,7 +79,7 @@ public class MoveSearcher
 			return 0;
 		}
 		
-		int transposEval = transpositionTable.lookupEvaluation(board.boardInfo.getZobristHash(), depth, alpha, beta);
+		final int transposEval = transpositionTable.lookupEvaluation(board.boardInfo.getZobristHash(), depth, alpha, beta);
 		if (transposEval != TranspositionTable.LOOKUP_FAILED)
 		{			
 			if (plyFromRoot == 0)
@@ -98,11 +96,9 @@ public class MoveSearcher
 			return searchCaptures(alpha, beta);
 		}
 		
-		// Move [] moves = new Move[MoveGenerator.MAXIMUM_LEGAL_MOVES];
-		short [] moves = generatedMoves[plyFromRoot];
-		int moveCount = moveGen.generateMoves(moves, false);
+		final short [] moves = moveGen.generateMoves(false);
 		
-		if (moveCount == 0)
+		if (moves.length == 0)
 		{
 			if (moveGen.inCheck)
 				return negativeInfinity;
@@ -110,17 +106,20 @@ public class MoveSearcher
 				return 0;
 		}
 		
-		short firstMove = (plyFromRoot == 0 ? bestMove : transpositionTable.lookupMove(board.boardInfo.getZobristHash()));
-		moveOrderer.guessMoveEvals(board, moves, moveCount, firstMove, moveGen.enemyAttackMap, moveGen.enemyPawnAttackMap, false, plyFromRoot);
+		final short firstMove = (plyFromRoot == 0 ? bestMove : transpositionTable.lookupMove(board.boardInfo.getZobristHash()));
+		final int[] scores = moveOrderer.guessMoveEvals(board, moves, firstMove, moveGen.enemyAttackMap, moveGen.enemyPawnAttackMap, false, plyFromRoot);
 		
 		int bound = TranspositionTable.UPPER_BOUND;
 		short bestMoveInPosition = MoveHelper.NULL_MOVE;
-		for (int i = 0; i < moveCount; i++)
+		final int length = moves.length;
+		for (int i = 0; i < length; i++)
 		{
-			short move = moves[i];
+			MoveOrderer.singleSelectionSort(moves, scores, i);
 			
-			BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
-			int captured = board.movePiece(move);
+			final short move = moves[i];
+			
+			final BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
+			final int captured = board.movePiece(move);
 			int evaluation = -(search(depth - 1, plyFromRoot + 1, -beta, -alpha));
 			board.moveBack(move, captured, boardInfoOld);
 			
@@ -160,11 +159,11 @@ public class MoveSearcher
 						moveOrderer.killers[plyFromRoot].addKiller(move);
 					}
 					
-					int colorIndex = board.boardInfo.isWhiteToMove() ? 0 : 1;
+					final int colorIndex = board.boardInfo.isWhiteToMove() ? 0 : 1;
 					// multiply the color index by 64*64 = 2^12
 					// then add start square multiplied by 64 = 2^6
 					// then add target square
-					int index = (colorIndex << 12) | (MoveHelper.getStartIndex(move) << 6) | MoveHelper.getTargetIndex(move);
+					final int index = (colorIndex << 12) | (MoveHelper.getStartIndex(move) << 6) | MoveHelper.getTargetIndex(move);
 					moveOrderer.historyHeuristic[index] += depth*depth;
 				}
 				
@@ -177,7 +176,7 @@ public class MoveSearcher
 		return alpha;
 	}
 	
-	public int searchCaptures(int alpha, int beta)
+	public int searchCaptures(int alpha, final int beta)
 	{
 		if (searchCancelled) return 0;
 		
@@ -190,17 +189,19 @@ public class MoveSearcher
 		}
 		alpha = Math.max(alpha, evaluation);
 		
-		short [] moves = new short[128];	// theoretical maximum captures + queen promotions is 72 (though likely far less)
-		int moveCount = moveGen.generateMoves(moves, true);
+		final short [] moves = moveGen.generateMoves(true);
 		
-		moveOrderer.guessMoveEvals(board, moves, moveCount, MoveHelper.NULL_MOVE, moveGen.enemyAttackMap, moveGen.enemyPawnAttackMap, true, 0);
-				
-		for (int i = 0; i < moveCount; i++)
+		final int [] scores = moveOrderer.guessMoveEvals(board, moves, MoveHelper.NULL_MOVE, moveGen.enemyAttackMap, moveGen.enemyPawnAttackMap, true, 0);
+		
+		final int length = moves.length;
+		for (int i = 0; i < length; i++)
 		{
-			short move = moves[i];
+			MoveOrderer.singleSelectionSort(moves, scores, i);
 			
-			BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
-			int captured = board.movePiece(move);
+			final short move = moves[i];
+			
+			final BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
+			final int captured = board.movePiece(move);
 			evaluation = -(searchCaptures(-beta, -alpha));
 			board.moveBack(move, captured, boardInfoOld);
 
@@ -217,12 +218,12 @@ public class MoveSearcher
 	
 	public boolean isDuplicatePosition()
 	{
-		long zobristHash = board.boardInfo.getZobristHash();
-		ArrayList<Long> positions = board.boardInfo.getPositionList();
+		final long zobristHash = board.boardInfo.getZobristHash();
+		final ArrayList<Long> positions = board.boardInfo.getPositionList();
 		positions.remove(positions.size() - 1); // remove the most recent hash
 		
 		int index = positions.size() - 1;
-		int minIndex = Math.max(index - board.boardInfo.getHalfMoves() + 1, 0);
+		final int minIndex = Math.max(index - board.boardInfo.getHalfMoves() + 1, 0);
 		while (index >= minIndex)
 		{
 			if (positions.get(index) == zobristHash)
@@ -243,8 +244,8 @@ public class MoveSearcher
 		evaluation = board.boardInfo.getWhiteMaterial() + board.boardInfo.getWhiteSquareBonus();
 		evaluation -= (board.boardInfo.getBlackMaterial() + board.boardInfo.getBlackSquareBonus());
 		
-		int whiteKingIndex = Bitboards.getLSB(board.bitBoards.pieceBoards[PieceHelper.WHITE_KING]);
-		int blackKingIndex = Bitboards.getLSB(board.bitBoards.pieceBoards[PieceHelper.BLACK_KING]);
+		final int whiteKingIndex = Bitboards.getLSB(board.bitBoards.pieceBoards[PieceHelper.WHITE_KING]);
+		final int blackKingIndex = Bitboards.getLSB(board.bitBoards.pieceBoards[PieceHelper.BLACK_KING]);
 		evaluation += forceKingToCorner(whiteKingIndex, blackKingIndex, 1 - (board.boardInfo.getBlackMaterial() / 2000));
 		evaluation -= forceKingToCorner(blackKingIndex, whiteKingIndex, 1 - (board.boardInfo.getWhiteMaterial() / 2000));
 		
@@ -253,21 +254,21 @@ public class MoveSearcher
 		return (int)evaluation;
 	}
 
-	public int forceKingToCorner(int friendlyKingIndex, int enemyKingIndex, float endgameWeight)
+	public int forceKingToCorner(final int friendlyKingIndex, final int enemyKingIndex, final float endgameWeight)
 	{
 		if (endgameWeight < 0)
 			return 0;
 
 		double evaluation = 0;
 
-		int enemyRank = 8 - (enemyKingIndex / 8);
-		int enemyFile = (enemyKingIndex % 8) + 1;
-		int distToCenter = Math.max(4 - enemyRank, enemyRank - 5) + Math.max(4 - enemyFile, enemyFile - 5);
+		final int enemyRank = 8 - (enemyKingIndex / 8);
+		final int enemyFile = (enemyKingIndex % 8) + 1;
+		final int distToCenter = Math.max(4 - enemyRank, enemyRank - 5) + Math.max(4 - enemyFile, enemyFile - 5);
 		evaluation += distToCenter;
 
-		int friendlyRank = 8 - (friendlyKingIndex / 8);
-		int friendlyFile = (friendlyKingIndex % 8) + 1;
-		int distBetweenKings = Math.abs(friendlyRank - enemyRank) + Math.abs(friendlyFile - enemyFile);
+		final int friendlyRank = 8 - (friendlyKingIndex / 8);
+		final int friendlyFile = (friendlyKingIndex % 8) + 1;
+		final int distBetweenKings = Math.abs(friendlyRank - enemyRank) + Math.abs(friendlyFile - enemyFile);
 		evaluation += (distBetweenKings);
 
 		return (int) (evaluation * endgameWeight);

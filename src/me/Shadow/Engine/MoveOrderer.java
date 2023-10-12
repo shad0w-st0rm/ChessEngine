@@ -27,30 +27,31 @@ public class MoveOrderer
 		historyHeuristic = new int[2*64*64];
 	}
 	
-	public void guessMoveEvals(Board board, short[] moves, int moveCount, short firstMove, long enemyAttackMap, long enemyPawnAttackMap, boolean inQuietSearch, int ply)
+	public int[] guessMoveEvals(final Board board, final short[] moves, final short firstMove, final long enemyAttackMap, final long enemyPawnAttackMap, final boolean inQuietSearch, final int ply)
 	{
-		boolean endgame = board.boardInfo.getWhiteMaterial() + board.boardInfo.getBlackMaterial() < 4000;
-		int[] moveEvals = new int[moveCount];
-		for (int i = 0 ; i < moveCount; i++)
+		final boolean endgame = board.boardInfo.getWhiteMaterial() + board.boardInfo.getBlackMaterial() < 4000;
+		final int[] moveEvals = new int[moves.length];
+		for (int i = 0; i < moves.length; i++)
 		{
-			short move = moves[i];
+			final short move = moves[i];
 			
 			if (move == firstMove)
 			{
-				moveEvals[i] = maxMoveBias - firstMoveBias;
+				moveEvals[i] = firstMoveBias;
 				continue;
 			}
-			int start = MoveHelper.getStartIndex(move);
-			int target = MoveHelper.getTargetIndex(move);
-			int piece = board.squares[start];
+			final int start = MoveHelper.getStartIndex(move);
+			final int target = MoveHelper.getTargetIndex(move);
+			final int piece = board.squares[start];
+			final int capturedPiece = board.squares[target];
 			int evalGuess = 0;
 			
-			if (board.squares[target] != PieceHelper.NONE)
+			if (capturedPiece != PieceHelper.NONE)
 			{
-				int capturedPieceInfo = board.squares[target];
-				int materialDifference = PieceHelper.getValue(capturedPieceInfo) - PieceHelper.getValue(piece);
+				final int materialDifference = PieceHelper.getValue(capturedPiece) - PieceHelper.getValue(piece);
 				
-				boolean canOpponentRecapture = false;
+				// theoretically this is not 100% accurate because the attack map is based on the position prior to the piece moving
+				final boolean canOpponentRecapture = ((enemyAttackMap & (1L << target)) != 0);	// enemy attacks this square
 				if (canOpponentRecapture)
 				{
 					evalGuess += (materialDifference >= 0 ? goodCaptureBias : badCaptureBias) + materialDifference;
@@ -63,13 +64,6 @@ public class MoveOrderer
 			else if (MoveHelper.getPromotedPiece(move) == PieceHelper.QUEEN) // dont stack capture bias and promoting bias (it will always be winning capture bias if promoting)
 			{
 				evalGuess += promotingBias;
-			}
-			
-			if (board.squares[start] == PieceHelper.NONE)
-			{
-				board.printBoard();
-				System.out.println(start + " " + target);
-				System.out.println(board.bitBoards.colorBoards[board.boardInfo.isWhiteToMove() ? 0 : 1]);
 			}
 			
 			evalGuess -= PieceHelper.getPieceSquareValue(piece, start, endgame);
@@ -85,25 +79,26 @@ public class MoveOrderer
 			}
 			
 			
-			if (board.squares[target] == PieceHelper.NONE) // not a capture move, killers rank below winning captures and killer move unlikely to be losing capture
+			if (capturedPiece == PieceHelper.NONE) // not a capture move, killers rank below winning captures and killer move unlikely to be losing capture
 			{
-				boolean isKillerMove = !inQuietSearch && ply < maxKillerDepth && killers[ply].isKiller(move);
+				final boolean isKillerMove = !inQuietSearch && ply < maxKillerDepth && killers[ply].isKiller(move);
 				if (isKillerMove) evalGuess += killerMoveBias;
 				else evalGuess += noBias;
 				
 				// multiply the color index by 64*64 = 2^12 except only shift 9 times because color index is already shifted left 3 times
 				// then add start square multiplied by 64 = 2^6
 				// then add target square
-				int index = (PieceHelper.getColor(piece) << 9) | (start << 6) | target;
+				final int index = (PieceHelper.getColor(piece) << 9) | (start << 6) | target;
 				evalGuess += historyHeuristic[index];
 			}
 			
 			
-			moveEvals[i] = maxMoveBias - evalGuess;
+			moveEvals[i] = evalGuess;
 		}
 		//quickSort(moves, moveEvals, 0, moveCount - 1);
 		//insertionSort(moves, moveEvals);
-		binaryInsertionSort(moves, moveEvals);
+		//binaryInsertionSort(moves, moveEvals);
+		return moveEvals;
 	}
 	
 	public void clearKillers()
@@ -123,6 +118,29 @@ public class MoveOrderer
 		{
 			historyHeuristic[i] = 0;
 		}
+	}
+	
+	public static void singleSelectionSort(final short [] moves, final int [] scores, final int startIndex)
+	{
+		final int length = moves.length;
+		int bestMoveIndex = startIndex;
+		int bestScore = scores[startIndex];
+		for (int i = startIndex; i < length; i++)
+		{
+			if (scores[i] > bestScore)
+			{
+				bestMoveIndex = i;
+				bestScore = scores[i];
+			}
+		}
+		
+		final short tempMove = moves[bestMoveIndex];
+		moves[bestMoveIndex] = moves[startIndex];
+		moves[startIndex] = tempMove;
+		
+		final int tempScore = scores[bestMoveIndex];
+		scores[bestMoveIndex] = scores[startIndex];
+		scores[startIndex] = tempScore;
 	}
 	
 	public static void binaryInsertionSort(short [] moves, int [] scores)

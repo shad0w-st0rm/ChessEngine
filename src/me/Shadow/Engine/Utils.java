@@ -38,9 +38,7 @@ public class Utils
 	public static short getMoveFromUCINotation(Board board, String uciMove)
 	{
 		MoveGenerator moveGen = new MoveGenerator(board);
-		short [] moves = new short[MoveGenerator.MAXIMUM_LEGAL_MOVES];
-		int moveCount = moveGen.generateMoves(moves, false);
-		moves = Arrays.copyOf(moves, moveCount);
+		short [] moves = moveGen.generateMoves(false);
 		
 		uciMove = uciMove.replace("=", ""); // promotions sometimes have = (e.g. d7d8=q vs d7d8q)
 		for (short move : moves)
@@ -53,9 +51,7 @@ public class Utils
 	public static short getMoveFromAlgebraicNotation(Board board, String algebraicMove)
 	{
 		MoveGenerator moveGen = new MoveGenerator(board);
-		short [] moves = new short[MoveGenerator.MAXIMUM_LEGAL_MOVES];
-		int moveCount = moveGen.generateMoves(moves, false);
-		moves = Arrays.copyOf(moves, moveCount);
+		short [] moves = moveGen.generateMoves(false);
 		
 		algebraicMove = algebraicMove.replace("-", "").replace("x", "").replace("+", "").replace("#", "");
 		for (short move : moves)
