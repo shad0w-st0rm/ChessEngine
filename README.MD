@@ -17,7 +17,7 @@
 * Late Move Reductions (LMR)
 
 ## Play against the Bot
-* Play against the bot on lichess at lichess.org/@/shadowstormbot
+* Play against the bot on [lichess](https://lichess.org/@/shadowstormbot)
 * Build the jar and run Engine class to play with custom GUI
 * Alternatively, run EngineUCI class for engine to start in UCI mode and can be used with any UCI compatible software
 
