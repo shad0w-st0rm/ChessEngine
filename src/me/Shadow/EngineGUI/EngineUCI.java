@@ -17,7 +17,6 @@ public class EngineUCI
 	
 	public static void main (String [] args)
 	{
-		//System.setErr(System.out);
 		setupEngine();
 		
 		EngineUCI uci = new EngineUCI();
@@ -59,8 +58,6 @@ public class EngineUCI
 		if (tokens[0].equals("uci"))
 		{
 			engine = new Player(new Board());
-			//sendResponse("id name ShadowChess");
-			//sendResponse("id author shadowstorm");
 			sendResponse("uciok");
 		}
 		else if (tokens[0].equals("isready"))

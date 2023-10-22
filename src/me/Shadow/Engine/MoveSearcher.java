@@ -13,7 +13,7 @@ public class MoveSearcher
 	Board board;
 	MoveGenerator moveGen;
 	MoveOrderer moveOrderer;
-	TranspositionTable transpositionTable;
+	public TranspositionTable transpositionTable;
 	static final int MAX_DEPTH = 64;
 	
 	static final int positiveInfinity = 1_000_000;

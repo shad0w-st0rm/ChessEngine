@@ -67,10 +67,7 @@ public class Engine
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
-		Perft.runPerftSuite(10);
-		System.exit(0);
-		
+				
 		gui = new ChessGui();
 		gui.createGui(this);
 		
@@ -141,7 +138,9 @@ public class Engine
 		if (move != MoveHelper.NULL_MOVE)
 		{
 			makeMove(move);
-		}		
+			System.out.println("Transposition Table: Type Two Collisions (Cumulative): " + enginePlayer.searcher.transpositionTable.typeTwoCollisions);
+			System.out.println("Transposition Table: Positions Stored (Cumulative): " + enginePlayer.searcher.transpositionTable.positionsStored);
+		}
 		
 		return move;
 	}

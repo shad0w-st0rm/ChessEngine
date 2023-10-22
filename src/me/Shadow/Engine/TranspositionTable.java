@@ -23,7 +23,8 @@ public class TranspositionTable
 	long [] table;
 	long size;
 	long indexBitMask = 0;
-	int numStored;
+	public int typeTwoCollisions;
+	public int positionsStored;
 	
 	public TranspositionTable()
 	{
@@ -53,7 +54,8 @@ public class TranspositionTable
 		{
 			table[i] = 0;
 		}
-		numStored = 0;
+		typeTwoCollisions = 0;
+		positionsStored = 0;
 	}
 	
 	public int lookupEvaluation(long zobristKey, int depth, int alpha, int beta)
@@ -87,7 +89,17 @@ public class TranspositionTable
 	
 	public void storeEvaluation(long zobristKey, int evaluation, int depth, int bound, short move)
 	{
-		if (getEntry(zobristKey) != 0) numStored++;
+		/*
+		long storedEntry = getEntry(zobristKey);
+		if (storedEntry == 0)
+		{
+			positionsStored++;
+		}
+		else if ((storedEntry & PARTIAL_KEY_MASK) != ((zobristKey >>> 48) & PARTIAL_KEY_MASK))
+		{
+			typeTwoCollisions++;
+		}
+		*/
 		
 		long entry = ((long)evaluation) << 43;
 		entry |= ((long)bound) << 41;
