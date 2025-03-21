@@ -223,7 +223,7 @@ public class ChessGui
 	{
 		try
 		{
-			BufferedImage bi = ImageIO.read(Thread.currentThread().getContextClassLoader().getResource("resources/chesspieces.png"));
+			BufferedImage bi = ImageIO.read(Thread.currentThread().getContextClassLoader().getResource("chesspieces.png"));
 			for (int i = 0; i < 2; i++)
 			{
 				for (int j = 0; j < 4; j++)

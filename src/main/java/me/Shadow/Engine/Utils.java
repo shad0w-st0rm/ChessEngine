@@ -1,7 +1,5 @@
 package me.Shadow.Engine;
 
-import java.util.Arrays;
-
 public class Utils
 {
 	public static int getSquareRank(int index)

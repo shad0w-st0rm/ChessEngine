@@ -6,7 +6,6 @@ public class MoveSearcher
 {
 	short bestMove;
 	short bestMoveCurrentIteration;
-	boolean oneMoveSearched;
 	
 	boolean searchCancelled;
 	
@@ -33,8 +32,8 @@ public class MoveSearcher
 		
 		// clearSearchStats();
 		bestMove = bestMoveCurrentIteration = MoveHelper.NULL_MOVE;
-		oneMoveSearched = false;
 		moveOrderer.clearHistoryHeuristic();
+		transpositionTable.setObsoleteFlag(board.bitBoards.getNumPawns(PieceHelper.WHITE_PIECE), board.bitBoards.getNumPawns(PieceHelper.BLACK_PIECE), board.boardInfo.getCastlingRights());
 		int depth = 0;
 		
 		while (!searchCancelled && depth < MAX_DEPTH)
@@ -42,7 +41,7 @@ public class MoveSearcher
 			depth++;
 			final int evaluation = search(depth, 0, negativeInfinity, positiveInfinity);
 			
-			if (oneMoveSearched)
+			if (bestMoveCurrentIteration != MoveHelper.NULL_MOVE)
 			{
 				bestMove = bestMoveCurrentIteration;
 				
@@ -59,7 +58,6 @@ public class MoveSearcher
 			}
 						
 			bestMoveCurrentIteration = MoveHelper.NULL_MOVE;
-			oneMoveSearched = false;
 		}
 				
 		return bestMove;
@@ -85,7 +83,6 @@ public class MoveSearcher
 			if (plyFromRoot == 0)
 			{
 				bestMoveCurrentIteration = transpositionTable.lookupMove(board.boardInfo.getZobristHash());
-				oneMoveSearched = true;
 			}
 			
 			return transposEval;
@@ -106,7 +103,17 @@ public class MoveSearcher
 				return 0;
 		}
 		
-		final short firstMove = (plyFromRoot == 0 ? bestMove : transpositionTable.lookupMove(board.boardInfo.getZobristHash()));
+		short firstMove = MoveHelper.NULL_MOVE;
+		if (plyFromRoot != 0)
+		{
+			if (transposEval != TranspositionTable.LOOKUP_FAILED)
+			{
+				firstMove = transpositionTable.lookupMove(board.boardInfo.getZobristHash());
+			}
+		}
+		else firstMove = bestMove;
+
+		//final short firstMove = (plyFromRoot == 0 ? bestMove : transpositionTable.lookupMove(board.boardInfo.getZobristHash()));
 		final int[] scores = moveOrderer.guessMoveEvals(board, moves, firstMove, moveGen.enemyAttackMap, moveGen.enemyPawnAttackMap, false, plyFromRoot);
 		
 		int bound = TranspositionTable.UPPER_BOUND;
@@ -142,7 +149,6 @@ public class MoveSearcher
 				if (plyFromRoot == 0)
 				{
 					bestMoveCurrentIteration = move;
-					oneMoveSearched = true;
 				}
 			}
 			
@@ -204,6 +210,8 @@ public class MoveSearcher
 			final int captured = board.movePiece(move);
 			evaluation = -(searchCaptures(-beta, -alpha));
 			board.moveBack(move, captured, boardInfoOld);
+
+			if (searchCancelled) return 0;
 
 			if (evaluation >= beta)
 			{

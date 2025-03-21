@@ -5,7 +5,7 @@ import java.util.TimerTask;
 
 public class Player
 {
-	Board board;
+	private Board board;
 	public MoveSearcher searcher;
 	
 	int searchNum;
@@ -20,19 +20,20 @@ public class Player
 	{
 		searchNum++;
 		int currentSearchNum = searchNum;
-		Timer timer = new Timer();
-		timer.schedule(new TimerTask()
-		{
-			@Override
-			public void run()
-			{
-				stopSearching(currentSearchNum);
-			}
-		}, thinkTimeMS);
 		
 		short move = tryGetBookMove(false);
 		if (move == MoveHelper.NULL_MOVE)
 		{
+			Timer timer = new Timer();
+			timer.schedule(new TimerTask()
+			{
+				@Override
+				public void run()
+				{
+					stopSearching(currentSearchNum);
+				}
+			}, thinkTimeMS);
+			
 			move = searcher.startSearch();
 			//searcher.printSearchStats();
 		}
@@ -74,9 +75,21 @@ public class Player
 		}
 	}
 	
-	public void makeMove(String moveString)
+	public boolean makeMove(String moveString)
 	{
-		board.movePiece(Utils.getMoveFromUCINotation(board, moveString));
+		short move = Utils.getMoveFromUCINotation(board, moveString);
+		if (move != MoveHelper.NULL_MOVE)
+		{
+			board.movePiece(move);
+			return true;
+		}
+		else
+		{
+			System.out.println(moveString);
+			printBoard();
+			return false;
+		}
+		
 	}
 	
 	public void stopSearching()
@@ -98,9 +111,15 @@ public class Player
 		board.loadFEN(fen);
 	}
 	
+	public String getPosition(boolean includeMoveNums)
+	{
+		return board.createFEN(includeMoveNums);
+	}
+	
 	public void newPosition()
 	{
-		searcher.newPosition();
+		board = new Board();
+		searcher = new MoveSearcher(board);
 	}
 	
 	public int chooseTimeToThink(int whiteTimeMS, int blackTimeMS, int whiteIncrementMS, int blackIncrementMS)

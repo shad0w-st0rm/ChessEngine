@@ -140,6 +140,7 @@ public class Engine
 			makeMove(move);
 			System.out.println("Transposition Table: Type Two Collisions (Cumulative): " + enginePlayer.searcher.transpositionTable.typeTwoCollisions);
 			System.out.println("Transposition Table: Positions Stored (Cumulative): " + enginePlayer.searcher.transpositionTable.positionsStored);
+			System.out.println("Transposition Table: Lookups (Cumulative): " + enginePlayer.searcher.transpositionTable.lookups);
 		}
 		
 		return move;

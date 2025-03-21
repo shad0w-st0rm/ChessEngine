@@ -112,12 +112,7 @@ public class MoveOrderer
 	
 	public void clearHistoryHeuristic()
 	{
-		// historyHeuristic = new int[2*64*64];
-		// maybe this avoids some expensive garbage collecting during a search
-		for (int i = 0; i < historyHeuristic.length; i++)
-		{
-			historyHeuristic[i] = 0;
-		}
+		historyHeuristic = new int[2*64*64];
 	}
 	
 	public static void singleSelectionSort(final short [] moves, final int [] scores, final int startIndex)

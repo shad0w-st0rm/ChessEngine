@@ -1,6 +1,5 @@
 package me.Shadow.Engine;
 
-import java.util.Arrays;
 
 public class Perft
 {
