@@ -3,7 +3,7 @@
   
   <groupId>ChessEngine</groupId>
   <artifactId>ChessEngine</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <version>1.0.0</version>
   <name>ChessEngine</name>
   
   <!-- Spring Boot Parent for managing dependencies -->

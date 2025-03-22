@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,10 +27,10 @@ import org.springframework.web.bind.annotation.RestController;
 import me.Shadow.Engine.OpeningBook;
 import me.Shadow.Engine.PrecomputedData;
 import me.Shadow.Engine.PrecomputedMagicNumbers;
-import me.Shadow.EngineGUI.EngineService.GamePlayer;
 
 @SpringBootApplication
 @EnableAsync
+@EnableScheduling
 public class EngineServer
 {
 	public static void main(String[] args)
@@ -134,5 +135,11 @@ class EngineServerController
 	public CompletableFuture<ResponseEntity<String>> endGame(@RequestParam Integer playerID)
 	{
 		return engineService.endGame(playerID);
+	}
+	
+	@GetMapping("/keepalive")
+	public CompletableFuture<ResponseEntity<String>> keepAlive(@RequestParam Integer playerID)
+	{
+		return engineService.keepAlive(playerID);
 	}
 }

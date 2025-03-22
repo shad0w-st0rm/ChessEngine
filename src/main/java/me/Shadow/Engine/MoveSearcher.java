@@ -77,7 +77,9 @@ public class MoveSearcher
 			return 0;
 		}
 		
-		final int transposEval = transpositionTable.lookupEvaluation(board.boardInfo.getZobristHash(), depth, alpha, beta);
+		int obsoleteFlag = transpositionTable.createObsoleteFlag(board.bitBoards.getNumPawns(PieceHelper.WHITE_PIECE), board.bitBoards.getNumPawns(PieceHelper.BLACK_PIECE), board.boardInfo.getCastlingRights());
+		
+		final int transposEval = transpositionTable.lookupEvaluation(board.boardInfo.getZobristHash(), depth, alpha, beta, obsoleteFlag);
 		if (transposEval != TranspositionTable.LOOKUP_FAILED)
 		{			
 			if (plyFromRoot == 0)
@@ -102,18 +104,8 @@ public class MoveSearcher
 			else
 				return 0;
 		}
-		
-		short firstMove = MoveHelper.NULL_MOVE;
-		if (plyFromRoot != 0)
-		{
-			if (transposEval != TranspositionTable.LOOKUP_FAILED)
-			{
-				firstMove = transpositionTable.lookupMove(board.boardInfo.getZobristHash());
-			}
-		}
-		else firstMove = bestMove;
 
-		//final short firstMove = (plyFromRoot == 0 ? bestMove : transpositionTable.lookupMove(board.boardInfo.getZobristHash()));
+		final short firstMove = (plyFromRoot == 0 ? bestMove : transpositionTable.lookupMove(board.boardInfo.getZobristHash()));
 		final int[] scores = moveOrderer.guessMoveEvals(board, moves, firstMove, moveGen.enemyAttackMap, moveGen.enemyPawnAttackMap, false, plyFromRoot);
 		
 		int bound = TranspositionTable.UPPER_BOUND;
@@ -156,7 +148,9 @@ public class MoveSearcher
 			{
 				// move was too good so opponent will avoid this branch
 				bound = TranspositionTable.LOWER_BOUND;
-				transpositionTable.storeEvaluation(board.boardInfo.getZobristHash(), beta, depth, bound, move);
+				
+				
+				transpositionTable.storeEvaluation(board.boardInfo.getZobristHash(), beta, depth, bound, move, obsoleteFlag);
 				
 				if (captured == PieceHelper.NONE) // ignore captures for killer moves
 				{
@@ -177,7 +171,7 @@ public class MoveSearcher
 			}
 		}
 		
-		transpositionTable.storeEvaluation(board.boardInfo.getZobristHash(), alpha, depth, bound, bestMoveInPosition);
+		transpositionTable.storeEvaluation(board.boardInfo.getZobristHash(), alpha, depth, bound, bestMoveInPosition, obsoleteFlag);
 		
 		return alpha;
 	}
