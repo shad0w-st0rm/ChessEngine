@@ -6,7 +6,7 @@ import java.util.TimerTask;
 public class Player
 {
 	private Board board;
-	public MoveSearcher searcher;
+	private MoveSearcher searcher;
 	
 	int searchNum;
 	
@@ -89,7 +89,6 @@ public class Player
 			printBoard();
 			return false;
 		}
-		
 	}
 	
 	public void stopSearching()

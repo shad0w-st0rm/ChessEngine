@@ -9,10 +9,10 @@ public class MoveSearcher
 	
 	boolean searchCancelled;
 	
-	Board board;
-	MoveGenerator moveGen;
-	MoveOrderer moveOrderer;
-	public TranspositionTable transpositionTable;
+	private Board board;
+	private MoveGenerator moveGen;
+	private MoveOrderer moveOrderer;
+	private TranspositionTable transpositionTable;
 	static final int MAX_DEPTH = 64;
 	
 	static final int positiveInfinity = 1_000_000;
@@ -220,22 +220,25 @@ public class MoveSearcher
 	
 	public boolean isDuplicatePosition()
 	{
+		if (board.boardInfo.getHalfMoves() < 4) return false;
+		
 		final long zobristHash = board.boardInfo.getZobristHash();
 		final ArrayList<Long> positions = board.boardInfo.getPositionList();
-		positions.remove(positions.size() - 1); // remove the most recent hash
+		//positions.remove(positions.size() - 1); // remove the most recent hash
 		
-		int index = positions.size() - 1;
+		//int index = positions.size() - 1;
+		int index = positions.size() - 5;
 		final int minIndex = Math.max(index - board.boardInfo.getHalfMoves() + 1, 0);
 		while (index >= minIndex)
 		{
 			if (positions.get(index) == zobristHash)
 			{
-				positions.add(zobristHash);
+				//positions.add(zobristHash);
 				return true;
 			}
-			index--;
+			index -= 2;
 		}
-		positions.add(zobristHash);
+		//positions.add(zobristHash);
 		return false;
 	}
 	
@@ -281,23 +284,4 @@ public class MoveSearcher
 		moveOrderer.clearKillers();
 		transpositionTable.clearTable();
 	}
-	
-	/*
-	public void clearSearchStats()
-	{
-		numPositions = numTranspositions = 0;
-		moveGenTime = moveEvalTime = movePieceTime = moveBackTime = positionEvaluationTime = transpositionTime = boardInfoTime = checkRepetitionTime = 0;
-	}
-	
-	public void printSearchStats()
-	{
-		System.out.println("Evaluation time: " + (System.currentTimeMillis() - startTime) + "\t\t\tEvaluation for Engine: " + "\t\tEvaluation Depth: ");
-		System.out.println("Number of positions: " + numPositions + "\t\tNumber of Transpositions: " + numTranspositions + "\t\tStored Transpositions: " + transpositionTable.numStored);
-		System.out.println("Move Generation Time: " + moveGenTime + "\t\tMove Eval Time: " + moveEvalTime);
-		System.out.println("Move Piece Time: " + movePieceTime + "\t\t\tMove Back Time: " + moveBackTime + "\t\t\tEvaluation Time: " + positionEvaluationTime);
-		System.out.println("Transposition Lookup Time: " + transpositionTime + "\t\t\tBoard Info Time: " + boardInfoTime + "\t\tCheck Repetition Time: " + checkRepetitionTime + "\n");
-		long sum = moveGenTime + moveEvalTime + movePieceTime + moveBackTime + positionEvaluationTime + transpositionTime + boardInfoTime + checkRepetitionTime;
-		System.out.println("Tracked Time: " + sum);
-	}
-	*/
 }

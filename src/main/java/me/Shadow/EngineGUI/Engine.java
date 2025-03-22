@@ -138,15 +138,6 @@ public class Engine
 		if (move != MoveHelper.NULL_MOVE)
 		{
 			makeMove(move);
-			System.out.println("Transposition Table: Lookups (Cumulative): " + enginePlayer.searcher.transpositionTable.lookups);
-			System.out.println("Transposition Table: Lookup Hits (Cumulative): " + enginePlayer.searcher.transpositionTable.lookupHits);
-			System.out.println("Transposition Table: Lookup Successes (Cumulative): " + enginePlayer.searcher.transpositionTable.lookupSuccesses);
-			System.out.println("Transposition Table: Hit Rate (Cumulative): " + (float)enginePlayer.searcher.transpositionTable.lookupHits / enginePlayer.searcher.transpositionTable.lookups);
-			System.out.println("Transposition Table: Successful Hit Rate (Cumulative): " + (float)enginePlayer.searcher.transpositionTable.lookupSuccesses / enginePlayer.searcher.transpositionTable.lookups);
-			System.out.println("Transposition Table: Positions Stored (Cumulative): " + enginePlayer.searcher.transpositionTable.positionsStored);
-			System.out.println("Transposition Table: Self Replacements (Cumulative): " + enginePlayer.searcher.transpositionTable.selfReplacements);
-			System.out.println("Transposition Table: Type Two Replacements (Cumulative): " + enginePlayer.searcher.transpositionTable.typeTwoReplacements);
-			System.out.println("Transposition Table: Type One Collisions (Cumulative): " + enginePlayer.searcher.transpositionTable.typeOneCollisions);
 		}
 		
 		return move;

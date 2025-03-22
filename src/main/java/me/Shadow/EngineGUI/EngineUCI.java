@@ -14,29 +14,29 @@ public class EngineUCI
 {
 	Player engine;
 	int commandsProcessing = 0;
-	
-	public static void main (String [] args)
+
+	public static void main(String[] args)
 	{
 		setupEngine();
-		
+
 		EngineUCI uci = new EngineUCI();
 		uci.listenToGUI();
 	}
-	
+
 	public static void setupEngine()
 	{
 		PrecomputedData.generateData();
 		PrecomputedMagicNumbers.precomputeMagics();
 		try
 		{
-			OpeningBook.createBookFromBinary("resources/LichessOpeningBookBinary.dat");
+			OpeningBook.createBookFromBinary("LichessOpeningBookBinary.dat");
 		}
 		catch (IOException e)
 		{
 			e.printStackTrace();
 		}
 	}
-	
+
 	public void listenToGUI()
 	{
 		Scanner scanner = new Scanner(System.in);
@@ -50,11 +50,11 @@ public class EngineUCI
 		}
 		scanner.close();
 	}
-	
+
 	public void commandReceived(String commandLine)
 	{
-		String [] tokens = commandLine.split(" ");
-		
+		String[] tokens = commandLine.split(" ");
+
 		if (tokens[0].equals("uci"))
 		{
 			engine = new Player(new Board());
@@ -98,9 +98,14 @@ public class EngineUCI
 					e.printStackTrace();
 				}
 			}
-			
+
 			String bestMove = parseGoCommand(tokens, commandLine);
 			sendResponse("bestmove " + bestMove);
+		}
+		else if (tokens[0].equals("move"))
+		{
+			String moveString = tokens[1];
+			engine.makeMove(moveString);
 		}
 		else if (tokens[0].equals("stop"))
 		{
@@ -108,17 +113,18 @@ public class EngineUCI
 		}
 		else if (tokens[0].equals("quit"))
 		{
-			if (engine != null) engine.stopSearching();
+			if (engine != null)
+				engine.stopSearching();
 		}
 		else if (tokens[0].equals("printboard"))
 		{
 			engine.printBoard();
 		}
-		
+
 		commandsProcessing--;
 	}
-	
-	public void parsePositionCommand(String [] tokens)
+
+	public void parsePositionCommand(String[] tokens)
 	{
 		String fen = Board.defaultFEN;
 		int currentIndex = 1;
@@ -128,16 +134,18 @@ public class EngineUCI
 			fen = "";
 			while (currentIndex < tokens.length)
 			{
-				if (tokens[currentIndex].equals("moves")) break;
-				
+				if (tokens[currentIndex].equals("moves"))
+					break;
+
 				fen += tokens[currentIndex] + " ";
 				currentIndex++;
 			}
 		}
-		else currentIndex++;
-		
+		else
+			currentIndex++;
+
 		engine.loadPosition(fen.trim());
-		
+
 		if (currentIndex < tokens.length && tokens[currentIndex].equals("moves"))
 		{
 			currentIndex++;
@@ -148,8 +156,8 @@ public class EngineUCI
 			}
 		}
 	}
-	
-	public String parseGoCommand(String [] tokens, String fullCommand)
+
+	public String parseGoCommand(String[] tokens, String fullCommand)
 	{
 		short moveFound = MoveHelper.NULL_MOVE;
 		if (fullCommand.contains("movetime"))
@@ -164,27 +172,28 @@ public class EngineUCI
 			int whiteTimeMS = Integer.parseInt(trimmed.split(" ")[1]);
 			trimmed = fullCommand.substring(fullCommand.indexOf("btime")).trim();
 			int blackTimeMS = Integer.parseInt(trimmed.split(" ")[1]);
-			
+
 			int whiteIncrementMS = 0;
 			if (fullCommand.contains("winc"))
 			{
 				trimmed = fullCommand.substring(fullCommand.indexOf("winc")).trim();
 				whiteIncrementMS = Integer.parseInt(trimmed.split(" ")[1]);
 			}
-			
+
 			int blackIncrementMS = 0;
 			if (fullCommand.contains("binc"))
 			{
 				trimmed = fullCommand.substring(fullCommand.indexOf("binc")).trim();
 				blackIncrementMS = Integer.parseInt(trimmed.split(" ")[1]);
 			}
-			
-			moveFound = engine.searchMove(engine.chooseTimeToThink(whiteTimeMS, blackTimeMS, whiteIncrementMS, blackIncrementMS));
+
+			moveFound = engine
+					.searchMove(engine.chooseTimeToThink(whiteTimeMS, blackTimeMS, whiteIncrementMS, blackIncrementMS));
 		}
-		
+
 		return MoveHelper.toString(moveFound);
 	}
-	
+
 	public void sendResponse(String response)
 	{
 		System.out.println(response);
