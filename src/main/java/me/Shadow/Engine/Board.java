@@ -234,6 +234,27 @@ public class Board
 			bitBoards.toggleSquare(captured, captureSquare);
 		}
 	}
+	
+	public boolean isDuplicatePosition()
+	{
+		if (boardInfo.getHalfMoves() < 4)
+			return false;
+
+		final long zobristHash = boardInfo.getZobristHash();
+		final ArrayList<Long> positions = boardInfo.getPositionList();
+
+		int index = positions.size() - 5;
+		final int minIndex = Math.max(index - boardInfo.getHalfMoves() + 1, 0);
+		while (index >= minIndex)
+		{
+			if (positions.get(index) == zobristHash)
+			{
+				return true;
+			}
+			index -= 2;
+		}
+		return false;
+	}
 
 	public long createZobristHash()
 	{

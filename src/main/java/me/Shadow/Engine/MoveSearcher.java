@@ -1,7 +1,5 @@
 package me.Shadow.Engine;
 
-import java.util.ArrayList;
-
 public class MoveSearcher
 {
 	short bestMove;
@@ -72,7 +70,7 @@ public class MoveSearcher
 	{
 		if (searchCancelled) return 0;
 		
-		if ((isDuplicatePosition() && plyFromRoot > 0) || board.boardInfo.getHalfMoves() >= 100)
+		if ((board.isDuplicatePosition() && plyFromRoot > 0) || board.boardInfo.getHalfMoves() >= 100)
 		{
 			return 0;
 		}
@@ -216,30 +214,6 @@ public class MoveSearcher
 		}
 		
 		return alpha;
-	}
-	
-	public boolean isDuplicatePosition()
-	{
-		if (board.boardInfo.getHalfMoves() < 4) return false;
-		
-		final long zobristHash = board.boardInfo.getZobristHash();
-		final ArrayList<Long> positions = board.boardInfo.getPositionList();
-		//positions.remove(positions.size() - 1); // remove the most recent hash
-		
-		//int index = positions.size() - 1;
-		int index = positions.size() - 5;
-		final int minIndex = Math.max(index - board.boardInfo.getHalfMoves() + 1, 0);
-		while (index >= minIndex)
-		{
-			if (positions.get(index) == zobristHash)
-			{
-				//positions.add(zobristHash);
-				return true;
-			}
-			index -= 2;
-		}
-		//positions.add(zobristHash);
-		return false;
 	}
 	
 	
