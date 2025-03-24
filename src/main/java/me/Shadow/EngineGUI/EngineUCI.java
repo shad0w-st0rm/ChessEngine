@@ -2,6 +2,7 @@ package me.Shadow.EngineGUI;
 
 import java.io.IOException;
 import java.util.Scanner;
+import java.util.concurrent.ExecutorService;
 
 import me.Shadow.Engine.Board;
 import me.Shadow.Engine.MoveHelper;
@@ -46,7 +47,8 @@ public class EngineUCI
 			nextLine = scanner.nextLine().trim();
 			final String nextLineCopy = nextLine;
 			commandsProcessing++;
-			new Thread(() -> commandReceived(nextLineCopy)).start();
+			//new Thread(() -> commandReceived(nextLineCopy)).start();
+			commandReceived(nextLineCopy);
 		}
 		scanner.close();
 	}

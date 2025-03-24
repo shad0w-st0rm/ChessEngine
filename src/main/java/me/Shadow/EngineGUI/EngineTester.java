@@ -14,6 +14,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Random;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -139,39 +141,7 @@ public class EngineTester
 		writeResults(tournamentResults, pgnOutputPath);
 	}
 
-	public void writeResults(List<GameResult> results, String pgnOutputPath) throws IOException
-	{
-		HashMap<EnginePlayer, Float> points = new HashMap<EnginePlayer, Float>();
-		HashMap<String, Integer> gameOverReasons = new HashMap<String, Integer>();
-
-		File pgnFile = new File(pgnOutputPath);
-		pgnFile.createNewFile();
-		BufferedWriter pgnWriter = new BufferedWriter(new FileWriter(pgnFile));
-
-		for (GameResult game : results)
-		{
-			points.put(game.getWhite(), points.getOrDefault(game.getWhite(), 0f) + game.getWhitePoints());
-			points.put(game.getBlack(), points.getOrDefault(game.getBlack(), 0f) + game.getBlackPoints());
-
-			GameOverReason reason = game.getGameOverReason();
-			String reasonString = reason.toString();
-			if (reason == GameOverReason.WHITE_CHECKMATED)
-				reasonString = game.getWhite().getName() + "_" + reasonString;
-			else if (reason == GameOverReason.BLACK_CHECKMATED)
-				reasonString = game.getBlack().getName() + "_" + reasonString;
-
-			gameOverReasons.put(reasonString, gameOverReasons.getOrDefault(reasonString, 0) + 1);
-
-			pgnWriter.append(game.getPgn() + " \n\n");
-		}
-
-		for (Entry<String, Integer> entry : gameOverReasons.entrySet())
-		{
-			System.out.println(entry.getKey() + ": " + entry.getValue());
-		}
-
-		pgnWriter.close();
-	}
+	
 
 	public List<GameResult> runMatch(String[] engineOneParams, String[] engineTwoParams, int thinkTimeMS,
 			ArrayList<String> positions, int thread)
@@ -183,7 +153,9 @@ public class EngineTester
 		{
 			engineOne = initializeEngine(engineOneParams[0], engineOneParams[1]);
 			engineTwo = initializeEngine(engineTwoParams[0], engineTwoParams[1]);
-
+			
+			Thread.sleep((long) (Math.random()*2000));
+			
 			List<GameResult> gameResults = runMatch(engineOne, engineTwo, thinkTimeMS, positions, thread);
 			return gameResults;
 		}
@@ -225,30 +197,35 @@ public class EngineTester
 			int round, int thread) throws IOException
 	{
 		// Set up a new game
-		engineWhite.sendCommand("ucinewgame");
-		engineBlack.sendCommand("ucinewgame");
-
-		engineWhite.sendCommand("isready");
-		engineWhite.waitForResponse("readyok");
-		engineBlack.sendCommand("isready");
-		engineBlack.waitForResponse("readyok");
-
 		Board board = new Board(fenPosition);
 		MoveGenerator moveGen = new MoveGenerator(board);
-
-		engineWhite.sendCommand("position fen " + fenPosition);
-		engineBlack.sendCommand("position fen " + fenPosition);
-
+		
+		List<String> movesList = new ArrayList<String>();
 		int originalMoveNum = board.boardInfo.getMoveNum();
 
 		boolean whiteToMove = board.boardInfo.isWhiteToMove();
-		EnginePlayer currentPlayer = whiteToMove ? engineWhite : engineBlack;
-
 		GameOverReason reason = null;
 		String result = "";
 		float whitePoints = 0;
 		float blackPoints = 0;
-		List<String> movesList = new ArrayList<String>();
+				
+		engineWhite.sendCommand("ucinewgame");
+		engineBlack.sendCommand("ucinewgame");
+
+		engineWhite.sendCommand("isready");
+		boolean success = engineWhite.waitForResponse("readyok", 100);
+		engineBlack.sendCommand("isready");
+		success = success && engineBlack.waitForResponse("readyok", 100);
+		
+		if (!success)
+		{
+			throw new IOException("Engine non responsive during game setup!");
+		}
+		
+		engineWhite.sendCommand("position fen " + fenPosition);
+		engineBlack.sendCommand("position fen " + fenPosition);
+		
+		EnginePlayer currentPlayer = whiteToMove ? engineWhite : engineBlack;
 
 		while (true)
 		{
@@ -273,7 +250,7 @@ public class EngineTester
 			currentPlayer.sendCommand("go movetime " + thinkTimeMS);
 
 			// Wait for the best move response
-			String bestMove = currentPlayer.waitForBestMove();
+			String bestMove = currentPlayer.waitForBestMove(thinkTimeMS*10);
 			movesList.add(bestMove);
 
 			short move = Utils.getMoveFromUCINotation(board, bestMove);
@@ -313,12 +290,17 @@ public class EngineTester
 		// Initialize UCI protocol for both engines
 		// System.out.println("Sent uci command to " + engineName);
 		engine.sendCommand("uci");
-		engine.waitForResponse("uciok");
+		boolean success = engine.waitForResponse("uciok", 100);
 		// System.out.println("Received uciok command from " + engineName);
 
 		// Tell engines to be ready
 		engine.sendCommand("isready");
-		engine.waitForResponse("readyok");
+		success = success && engine.waitForResponse("readyok", 100);
+		
+		if (!success)
+		{
+			throw new IOException("Engine non responsive during initialization!");
+		}
 
 		// System.out.println("Engine " + engineName + " initialized successfully.");
 
@@ -414,6 +396,40 @@ public class EngineTester
 
 		else
 			return false;
+	}
+	
+	public void writeResults(List<GameResult> results, String pgnOutputPath) throws IOException
+	{
+		HashMap<EnginePlayer, Float> points = new HashMap<EnginePlayer, Float>();
+		HashMap<String, Integer> gameOverReasons = new HashMap<String, Integer>();
+
+		File pgnFile = new File(pgnOutputPath);
+		pgnFile.createNewFile();
+		BufferedWriter pgnWriter = new BufferedWriter(new FileWriter(pgnFile));
+
+		for (GameResult game : results)
+		{
+			points.put(game.getWhite(), points.getOrDefault(game.getWhite(), 0f) + game.getWhitePoints());
+			points.put(game.getBlack(), points.getOrDefault(game.getBlack(), 0f) + game.getBlackPoints());
+
+			GameOverReason reason = game.getGameOverReason();
+			String reasonString = reason.toString();
+			if (reason == GameOverReason.WHITE_CHECKMATED)
+				reasonString = game.getWhite().getName() + "_" + reasonString;
+			else if (reason == GameOverReason.BLACK_CHECKMATED)
+				reasonString = game.getBlack().getName() + "_" + reasonString;
+
+			gameOverReasons.put(reasonString, gameOverReasons.getOrDefault(reasonString, 0) + 1);
+
+			pgnWriter.append(game.getPgn() + " \n\n");
+		}
+
+		for (Entry<String, Integer> entry : gameOverReasons.entrySet())
+		{
+			System.out.println(entry.getKey() + ": " + entry.getValue());
+		}
+
+		pgnWriter.close();
 	}
 
 	private String createPGN(int thread, int round, String whiteName, String blackName, String result, GameOverReason reason,
@@ -526,30 +542,34 @@ public class EngineTester
 			// System.out.println("Sent command [" + command + "] to " + name);
 		}
 
-		private void waitForResponse(String expected) throws IOException
+		private boolean waitForResponse(String expected, int timeout) throws IOException
 		{
+			long startTime = System.currentTimeMillis();
 			String line;
-			while ((line = engineIn.readLine()) != null)
+			while (((System.currentTimeMillis() - startTime) < timeout) && (line = engineIn.readLine()) != null)
 			{
 				// System.out.println("Received line [" + line + "] from " + name);
 				if (line.contains(expected))
 				{
-					return;
+					return true;
 				}
 			}
+			
+			return false;
 		}
 
-		private String waitForBestMove() throws IOException
+		private String waitForBestMove(int timeout) throws IOException
 		{
+			long startTime = System.currentTimeMillis();
 			String line;
 			String bestMove = MoveHelper.toString(MoveHelper.NULL_MOVE);
 
-			while ((line = engineIn.readLine()) != null)
+			while (((System.currentTimeMillis() - startTime) < timeout) && (line = engineIn.readLine()) != null)
 			{
 				// System.out.println("Received line [" + line + "] from " + name);
 				if (line.startsWith("bestmove"))
 				{
-					String[] parts = line.split("\\s+");
+					String[] parts = line.trim().split(" ");
 					if (parts.length >= 2)
 					{
 						bestMove = parts[1];

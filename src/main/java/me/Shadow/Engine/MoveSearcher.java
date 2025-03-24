@@ -5,7 +5,6 @@ import java.util.ArrayList;
 public class MoveSearcher
 {
 	short bestMove;
-	short bestMoveCurrentIteration;
 	
 	boolean searchCancelled;
 	
@@ -31,7 +30,7 @@ public class MoveSearcher
 		searchCancelled = false;
 		
 		// clearSearchStats();
-		bestMove = bestMoveCurrentIteration = MoveHelper.NULL_MOVE;
+		bestMove = MoveHelper.NULL_MOVE;
 		moveOrderer.clearHistoryHeuristic();
 		transpositionTable.setObsoleteFlag(board.bitBoards.getNumPawns(PieceHelper.WHITE_PIECE), board.bitBoards.getNumPawns(PieceHelper.BLACK_PIECE), board.boardInfo.getCastlingRights());
 		int depth = 0;
@@ -40,8 +39,6 @@ public class MoveSearcher
 		{
 			depth++;
 			final int evaluation = search(depth, 0, negativeInfinity, positiveInfinity);
-			
-			bestMove = bestMoveCurrentIteration;
 			
 			if (evaluation >= (positiveInfinity - depth))
 			{
@@ -55,7 +52,7 @@ public class MoveSearcher
 			}
 		}
 		
-		System.out.println(depth);
+		//System.out.println(depth);
 				
 		return bestMove;
 	}
@@ -81,7 +78,7 @@ public class MoveSearcher
 		{			
 			if (plyFromRoot == 0)
 			{
-				bestMoveCurrentIteration = transpositionTable.lookupMove(board.boardInfo.getZobristHash());
+				bestMove = transpositionTable.lookupMove(board.boardInfo.getZobristHash());
 			}
 			
 			return transposEval;
@@ -100,10 +97,10 @@ public class MoveSearcher
 				return negativeInfinity;
 			else
 				return 0;
-		}
+		}		
 
 		final short firstMove = (plyFromRoot == 0 ? bestMove : transpositionTable.lookupMove(board.boardInfo.getZobristHash()));
-		final int[] scores = moveOrderer.guessMoveEvals(board, moves, firstMove, moveGen.enemyAttackMap, moveGen.enemyPawnAttackMap, false, plyFromRoot);
+		final int[] scores = moveOrderer.guessMoveEvals(board, moves, firstMove, moveGen.enemyAttackMap, moveGen.enemyPawnAttackMap, false, plyFromRoot);		
 		
 		int bound = TranspositionTable.UPPER_BOUND;
 		short bestMoveInPosition = MoveHelper.NULL_MOVE;
@@ -121,6 +118,7 @@ public class MoveSearcher
 			
 			if (searchCancelled)
 			{
+				if (bestMove == MoveHelper.NULL_MOVE) bestMove = move;
 				return 0;
 			}
 			
@@ -137,7 +135,7 @@ public class MoveSearcher
 				
 				if (plyFromRoot == 0)
 				{
-					bestMoveCurrentIteration = move;
+					bestMove = move;
 				}
 			}
 			
