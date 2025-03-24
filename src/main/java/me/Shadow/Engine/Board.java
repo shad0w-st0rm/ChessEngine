@@ -7,7 +7,7 @@ import java.util.Random;
 
 public class Board
 {
-	Bitboards bitBoards;
+	public Bitboards bitBoards;
 	public int[] squares = new int[64];
 	public BoardInfo boardInfo;
 	
@@ -234,27 +234,6 @@ public class Board
 			bitBoards.toggleSquare(captured, captureSquare);
 		}
 	}
-	
-	public boolean isDuplicatePosition()
-	{
-		if (boardInfo.getHalfMoves() < 4)
-			return false;
-
-		final long zobristHash = boardInfo.getZobristHash();
-		final ArrayList<Long> positions = boardInfo.getPositionList();
-
-		int index = positions.size() - 5;
-		final int minIndex = Math.max(index - boardInfo.getHalfMoves() + 1, 0);
-		while (index >= minIndex)
-		{
-			if (positions.get(index) == zobristHash)
-			{
-				return true;
-			}
-			index -= 2;
-		}
-		return false;
-	}
 
 	public long createZobristHash()
 	{
@@ -352,7 +331,7 @@ public class Board
 		String[] fenInfo = fenOther.split(" "); // split string by spaces to split up information
 		for (int i = 0; i < fenInfo.length; i++)
 		{
-			String string = fenInfo[i];
+			String string = fenInfo[i].trim();
 			if (i == 1)
 				boardInfo.setWhiteToMove(string.equals("w")); // sets color to move
 			else if (i == 2) // checks castling rights
@@ -383,12 +362,12 @@ public class Board
 			else if (i == 4) // checks and sets half moves for 50 move rule
 			{
 				if (!string.equals("-"))
-					boardInfo.setHalfMoves(string.charAt(0) - 48);
+					boardInfo.setHalfMoves(Integer.parseInt(string));
 			}
 			else if (i == 5) // checks and sets move number
 			{
 				if (!string.equals("-"))
-					boardInfo.setMoveNum(string.charAt(0) - 48);
+					boardInfo.setMoveNum(Integer.parseInt(string));
 			}
 		}
 

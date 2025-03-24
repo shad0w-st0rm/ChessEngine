@@ -2,7 +2,7 @@ package me.Shadow.Engine;
 
 public class Bitboards
 {
-	long [] pieceBoards;
+	public long [] pieceBoards;
 	long [] colorBoards;
 	
 	public Bitboards(Board board)
@@ -45,7 +45,7 @@ public class Bitboards
 		pieceBoards[pieceInfo] ^= (1L << square);
 		colorBoards[pieceInfo >>> 3] ^= (1L << square);
 	}
-
+	
 	public int getNumPawns(int pieceColor)
 	{
 		return Long.bitCount(pieceBoards[PieceHelper.PAWN | pieceColor]);

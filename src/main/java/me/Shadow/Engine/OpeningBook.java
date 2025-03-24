@@ -21,7 +21,7 @@ import java.util.Map.Entry;
 public class OpeningBook
 {
 	public static HashMap<Long, OpeningMove[]> openingBook = new HashMap<>();
-	
+		
 	public static int createBookFromBinary(String inputPath) throws IOException
 	{
 		HashMap<Long, OpeningMove[]> bookMap = new HashMap<>();

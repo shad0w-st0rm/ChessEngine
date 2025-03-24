@@ -25,13 +25,14 @@ public class Engine
 	public Engine()
 	{
 		originalFEN = Board.defaultFEN;
+		// originalFEN = "r1b2rk1/p1q4p/2n1pp2/1p1p4/2pP4/P3QN2/1PP2PPP/R3KB1R w KQ - 1 17";	// first "balanced" position
 		// originalFEN = "8/3KP3/8/8/8/8/6k1/7q b - - 0 1"; //white king + pawn vs black king + queen
 		// originalFEN = "3r4/3r4/3k4/8/8/3K4/8/8 w - - 0 1"; //white king vs black king + 2 rooks
 		// originalFEN = "3r4/8/3k4/8/8/3K4/8/8 w - - 0 1"; //white king vs black king + rook
 		// originalFEN = "8/7k/4p3/2p1P2p/2P1P2P/8/8/7K w - - 0 1"; // king and pawns vs king and pawns
 		
 		engineIsWhite = false;
-		searchTime = 100;
+		searchTime = 50;
 	}
 
 	public static void main(String[] args)
@@ -53,16 +54,6 @@ public class Engine
 			System.out.println("Estimated size: " + (OpeningBook.openingBook.size() * 9 + moveCount*6) / 1024.0 + " kb\n");
 		}
 		catch (IOException e)
-		{
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		try
-		{
-			Thread.sleep(000);
-		}
-		catch (InterruptedException e)
 		{
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -133,12 +124,8 @@ public class Engine
 	{
 		engineSearching = true;
 		short move = enginePlayer.searchMove(searchTime);
+		makeMove(move);
 		engineSearching = false;
-
-		if (move != MoveHelper.NULL_MOVE)
-		{
-			makeMove(move);
-		}
 		
 		return move;
 	}

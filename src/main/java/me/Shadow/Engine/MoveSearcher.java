@@ -1,5 +1,7 @@
 package me.Shadow.Engine;
 
+import java.util.ArrayList;
+
 public class MoveSearcher
 {
 	short bestMove;
@@ -39,24 +41,21 @@ public class MoveSearcher
 			depth++;
 			final int evaluation = search(depth, 0, negativeInfinity, positiveInfinity);
 			
-			if (bestMoveCurrentIteration != MoveHelper.NULL_MOVE)
+			bestMove = bestMoveCurrentIteration;
+			
+			if (evaluation >= (positiveInfinity - depth))
 			{
-				bestMove = bestMoveCurrentIteration;
-				
-				if (evaluation >= (positiveInfinity - depth))
-				{
-					//System.out.println("Forced mate for engine found");
-					break;
-				}
-				else if (evaluation <= (negativeInfinity + depth))
-				{
-					//System.out.println("Forced mate against engine found");
-					break;
-				}
+				//System.out.println("Forced mate for engine found");
+				break;
 			}
-						
-			bestMoveCurrentIteration = MoveHelper.NULL_MOVE;
+			else if (evaluation <= (negativeInfinity + depth))
+			{
+				//System.out.println("Forced mate against engine found");
+				break;
+			}
 		}
+		
+		System.out.println(depth);
 				
 		return bestMove;
 	}
@@ -70,7 +69,7 @@ public class MoveSearcher
 	{
 		if (searchCancelled) return 0;
 		
-		if ((board.isDuplicatePosition() && plyFromRoot > 0) || board.boardInfo.getHalfMoves() >= 100)
+		if (isDuplicatePosition() || board.boardInfo.getHalfMoves() >= 100)
 		{
 			return 0;
 		}
@@ -216,6 +215,28 @@ public class MoveSearcher
 		return alpha;
 	}
 	
+	public boolean isDuplicatePosition()
+	{
+		if (board.boardInfo.getHalfMoves() < 8)
+			return false;
+
+		final long zobristHash = board.boardInfo.getZobristHash();
+		final ArrayList<Long> positions = board.boardInfo.getPositionList();
+
+		int index = positions.size() - 5;
+		final int minIndex = Math.max(index - board.boardInfo.getHalfMoves() + 1, 0);
+		boolean firstDuplicate = true;
+		while (index >= minIndex)
+		{
+			if (positions.get(index) == zobristHash)
+			{
+				if (!firstDuplicate) return true;
+				firstDuplicate = false;
+			}
+			index -= 2;
+		}
+		return false;
+	}
 	
 	public int staticEvaluation()
 	{

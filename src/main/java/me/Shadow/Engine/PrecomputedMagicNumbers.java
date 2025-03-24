@@ -21,12 +21,11 @@ public class PrecomputedMagicNumbers
 	public static void precomputeMagics()
 	{
 		populateMagicArray();
-		
-		// searchMagicNumbers(10000);
+		//searchMagicNumbers(250);
 	}
 	
 	public static void searchMagicNumbers(int timeMS)
-	{
+	{		
 		while (true)
 		{
 			for (int i = 0; i < 64; i++)
@@ -157,6 +156,10 @@ public class PrecomputedMagicNumbers
 			if (failed)
 			{
 				bestNumber = randomLong() & randomLong() & randomLong();
+				while (Long.bitCount(bestNumber) < 6)
+				{
+					bestNumber = randomLong() & randomLong() & randomLong();
+				}
 			}
 			else
 			{
