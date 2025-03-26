@@ -3,35 +3,36 @@
   
   <groupId>ChessEngine</groupId>
   <artifactId>ChessEngine</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.1</version>
   <name>ChessEngine</name>
   
   <!-- Spring Boot Parent for managing dependencies -->
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>2.5.4</version> <!-- Use the latest Spring Boot version if necessary -->
+    <version>3.4.4</version> <!-- Use the latest Spring Boot version if necessary -->
     <relativePath/> <!-- lookup parent from repository -->
   </parent>
   
+  <properties>
+  	<maven.compiler.target>21</maven.compiler.target>
+  	<maven.compiler.source>21</maven.compiler.source>
+  </properties>
+  
   <build>
-  	<!--
-    <sourceDirectory>src</sourceDirectory>
-    <resources>
+  <resources>     
       <resource>
-        <directory>src</directory>
-        <excludes>
-          <exclude>**/*.java</exclude>
-        </excludes>
-      </resource>
+        <directory>resources</directory>
+        <includes>                      
+          <include>**/*.properties</include>                    
+        </includes>
+      </resource>            
     </resources>
-    -->
     <plugins>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.13.0</version>
         <configuration>
-          <release>17</release>
+          <release>21</release>
         </configuration>
       </plugin>
       

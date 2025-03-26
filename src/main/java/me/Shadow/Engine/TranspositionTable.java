@@ -1,14 +1,17 @@
 package me.Shadow.Engine;
 
+import me.Shadow.Engine.MoveSearcher.PositionEvaluation;
+
 public class TranspositionTable
 {
-	static final int LOOKUP_FAILED = Integer.MIN_VALUE;
+	//static final int LOOKUP_FAILED = Integer.MIN_VALUE;
 	
-	static final int EXACT_BOUND = 0;
-	static final int LOWER_BOUND = 1;
-	static final int UPPER_BOUND = 2;
+	static final int NULL_BOUND = 0;
+	static final int UPPER_BOUND = 1;
+	static final int EXACT_BOUND = 2;
+	static final int LOWER_BOUND = 3;
 	
-	static final int DEFAULT_TABLE_SIZE_MB = 8;
+	static final int DEFAULT_TABLE_SIZE_MB = 64;
 	static final int BYTES_PER_ENTRY = 8;
 
 	static final int MOVE_MASK = 0x7FFF;
@@ -95,9 +98,10 @@ public class TranspositionTable
 	}
 
 	
-	public void setObsoleteFlag(int numWhitePawns, int numBlackPawns, byte castlingRights)
+	public int setObsoleteFlag(int numWhitePawns, int numBlackPawns, byte castlingRights)
 	{
 		currentObsoleteFlag = createObsoleteFlag(numWhitePawns, numBlackPawns, castlingRights);
+		return currentObsoleteFlag;
 	}
 	
 	public int createObsoleteFlag(int numWhitePawns, int numBlackPawns, byte castlingRights)
@@ -107,7 +111,29 @@ public class TranspositionTable
 		return (numBlackPawns << BPAWNS_SHIFT) | (numWhitePawns << WPAWNS_SHIFT) | (castlingRights << CASTLING_SHIFT);
 	}
 	
-	public int lookupEvaluation(long zobristKey, int depth, int alpha, int beta, int obsoleteFlag)
+	public PositionEvaluation getEntry(long zobristKey)
+	{
+		int index = (int)(zobristKey & indexBitMask);
+		long entry = positionTable[index];
+		
+		if ((entry & PARTIAL_KEY_MASK) == (zobristKey >>> ZOBRIST_SHIFT))
+		{
+			int evaluation = (int) (entry >> EVAL_SHIFT);	// take advantage of sign extending here
+			int depth = (int) ((entry >>> DEPTH_SHIFT) & DEPTH_MASK);
+			int bound = (int) ((entry >>> BOUND_SHIFT) & BOUND_MASK);
+			int moveEntry = moveTable[index];
+			short move = (short) ((moveEntry >>> MOVE_SHIFT) & MOVE_MASK);
+			int obsoleteFlag = (moveEntry & OBSOLETE_MASK);
+			
+			if (bound == NULL_BOUND) System.out.println("Error Null Bounded TT entry retrieved!");
+			
+			return new PositionEvaluation(zobristKey, evaluation, depth, bound, move, obsoleteFlag);
+		}
+		return new PositionEvaluation(zobristKey);
+	}
+	
+	/*
+	public int lookupEvaluation(long zobristKey, int depth, int alpha, int beta)
 	{
 		//lookups++;
 		int index = (int)(zobristKey & indexBitMask);
@@ -125,13 +151,6 @@ public class TranspositionTable
 				else if (bound == LOWER_BOUND && evaluation >= beta) return evaluation;
 				else if (bound == UPPER_BOUND && evaluation <= alpha) return evaluation;
 			}
-			
-			long moveEntry = moveTable[index];
-			if ((moveEntry & OBSOLETE_MASK) != obsoleteFlag)
-			{
-				System.out.println("Type One Collision! zobristKey: " + zobristKey + " positionEntry: " + entry + " moveEntry: " + moveEntry + " input obsoleteFlag: " + obsoleteFlag);
-				//typeOneCollisions++;
-			}
 		}
 		
 		return LOOKUP_FAILED;
@@ -144,13 +163,19 @@ public class TranspositionTable
 		if ((posEntry & PARTIAL_KEY_MASK) == (zobristKey >>> ZOBRIST_SHIFT))
 		{
 			int moveEntry = moveTable[(int)(zobristKey & indexBitMask)];
-			return (short) ((moveEntry >>> MOVE_SHIFT) & PARTIAL_KEY_MASK);
+			return (short) ((moveEntry >>> MOVE_SHIFT) & MOVE_MASK);
 		}
 		return MoveHelper.NULL_MOVE;
 	}
+	*/
+	
+	public void storeEvaluation(PositionEvaluation posEval)
+	{
+		storeEvaluation(posEval.zobristHash, posEval.eval, posEval.depth, posEval.bound, posEval.move, posEval.obsoleteFlag);
+	}
 	
 	public void storeEvaluation(long zobristKey, int evaluation, int depth, int bound, short move, int obsoleteFlag)
-	{
+	{		
 		int index = (int)(zobristKey & indexBitMask);
 		long storedEntry = positionTable[index];
 		boolean notObsolete = false;
@@ -171,7 +196,7 @@ public class TranspositionTable
 			// entry exists and is of the same key (still perhaps a different position, rare type 1 error)
 			int storedEntryDepth = (int)((storedEntry >>> DEPTH_SHIFT) & DEPTH_MASK);
 			int storedEntryBound = (int)((storedEntry >>> BOUND_SHIFT) & BOUND_MASK);
-			if (storedEntryDepth > depth || (storedEntryDepth == depth && storedEntryBound < bound))
+			if (storedEntryDepth > depth || (storedEntryDepth == depth && storedEntryBound > bound))
 			{
 				return; // favor higher depth entries or better bounded equal depth entries
 			}

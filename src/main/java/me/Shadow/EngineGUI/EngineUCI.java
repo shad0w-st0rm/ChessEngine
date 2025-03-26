@@ -30,7 +30,7 @@ public class EngineUCI
 		PrecomputedMagicNumbers.precomputeMagics();
 		try
 		{
-			OpeningBook.createBookFromBinary("resources/LichessOpeningBookBinary.dat");
+			OpeningBook.createBookFromBinary("LichessOpeningBookBinary.dat");
 		}
 		catch (IOException e)
 		{

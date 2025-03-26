@@ -47,6 +47,8 @@ public class Engine
 		PrecomputedMagicNumbers.precomputeMagics();
 		PrecomputedMagicNumbers.printMagicsTableSize();
 		
+		//Perft.runPerftSuite(10);
+		
 		try
 		{
 			int moveCount = OpeningBook.createBookFromBinary("LichessOpeningBookBinary.dat");
@@ -64,7 +66,7 @@ public class Engine
 		
 		board = new Board(originalFEN);
 		playerMoveMade = (engineIsWhite == board.boardInfo.isWhiteToMove());
-		enginePlayer = new Player(new Board(board));
+		enginePlayer = new Player(new Board(originalFEN));
 	}
 	
 	public void gameLoop()
@@ -93,7 +95,11 @@ public class Engine
 				{
 					playerMoveMade = false;
 					if (isGameOver(board))
+					{
 						timer.cancel();
+						return;
+					}
+					
 					gui.message.setText("Engine is thinking");
 
 					if (engineMoveOld != MoveHelper.NULL_MOVE)
@@ -127,6 +133,7 @@ public class Engine
 		makeMove(move);
 		engineSearching = false;
 		
+		//System.out.println("Nodes: " + enginePlayer.searcher.nodes);
 		return move;
 	}
 	

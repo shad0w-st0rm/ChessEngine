@@ -14,8 +14,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Random;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -351,7 +349,7 @@ public class EngineTester
 		if (positions.size() == 0)
 			return false;
 
-		long zobristHash = positions.remove(positions.size() - 1);
+		long zobristHash = positions.removeLast();
 		if (positions.indexOf(zobristHash) != positions.lastIndexOf(zobristHash))
 		{
 			positions.add(zobristHash);

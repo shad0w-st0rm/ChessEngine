@@ -29,13 +29,6 @@ public class Board
 		boardInfo = new BoardInfo();
 		loadFEN(fen);
 	}
-	
-	public Board(Board board)
-	{
-		squares = Arrays.copyOf(board.squares, 64);
-		bitBoards = new Bitboards(this);
-		boardInfo = new BoardInfo(board.boardInfo);		
-	}
 
 	public int movePiece(final short move)
 	{
@@ -188,7 +181,7 @@ public class Board
 	public void moveBack(final short move, final int captured, final BoardInfo boardInfoOld)
 	{
 		boardInfo = boardInfoOld; // replace current BoardInfo object with the old BoardInfo object
-		boardInfo.getPositionList().remove(boardInfo.getPositionList().size()-1); // remove the most recent position
+		boardInfo.getPositionList().removeLast(); // remove the most recent position
 
 		final int start = MoveHelper.getStartIndex(move);
 		final int target = MoveHelper.getTargetIndex(move);
@@ -400,11 +393,13 @@ public class Board
 			{
 				if (PieceHelper.isColor(piece, PieceHelper.WHITE_PIECE))
 				{
-					boardInfo.setWhiteMaterial(boardInfo.getWhiteMaterial() + PieceHelper.getPieceSquareValue(piece, index, endgame));
+					boardInfo.setWhiteSquareBonus(boardInfo.getWhiteSquareBonus() + PieceHelper.getPieceSquareValue(piece, index, endgame));
+					//boardInfo.setWhiteMaterial(boardInfo.getWhiteMaterial() + PieceHelper.getPieceSquareValue(piece, index, endgame));
 				}
 				else
 				{
-					boardInfo.setBlackMaterial(boardInfo.getBlackMaterial() + PieceHelper.getPieceSquareValue(piece, index, endgame));
+					boardInfo.setBlackSquareBonus(boardInfo.getBlackSquareBonus() + PieceHelper.getPieceSquareValue(piece, index, endgame));
+					//boardInfo.setBlackMaterial(boardInfo.getBlackMaterial() + PieceHelper.getPieceSquareValue(piece, index, endgame));
 				}
 			}
 		}

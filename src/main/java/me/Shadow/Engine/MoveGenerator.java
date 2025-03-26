@@ -203,12 +203,15 @@ public class MoveGenerator
 		final long promotionRank = (friendlyColor == PieceHelper.WHITE_PIECE) ? EIGHTH_RANK : FIRST_RANK;
 		final long doublePushTargetRank = (friendlyColor == PieceHelper.WHITE_PIECE) ? FOURTH_RANK : FIFTH_RANK;
 		
+		
 		final long pawnsBitboard = bitBoards.pieceBoards[PieceHelper.PAWN | friendlyColor];
+		// dont AND with check mask yet because perhaps a double push is legal
 		long singlePushSquares = Bitboards.shift(pawnsBitboard, (direction * 8)) & (~allPiecesBitboard);
 		
 		// single push square needs to be a move as well to ensure that pawn does not hop over a piece
 		long doublePushSquares = Bitboards.shift(singlePushSquares, (direction * 8)) & doublePushTargetRank & (~allPiecesBitboard) & checkRaysMask;
 		
+		// replace single push promoting moves with promotions, and now AND with check mask
 		long singlePushAndPromoting = singlePushSquares & promotionRank & checkRaysMask;
 		singlePushSquares &= ~promotionRank & checkRaysMask;
 		
@@ -316,6 +319,7 @@ public class MoveGenerator
 			final long enPassantSquareBitboard = 1L << targetSquare;
 			final int captureSquare = board.boardInfo.getEnPassantIndex() - (direction * 8);
 			
+			// if the enemy pawn is part of checkraysmask, either king is not in check, or this pawn is a checker
 			if (((1L << captureSquare) & checkRaysMask) != 0)
 			{
 				long enPassantPawns = Bitboards.shift(enPassantSquareBitboard & captureRightMask, (-direction) * 7) & pawnsBitboard;
@@ -465,23 +469,29 @@ public class MoveGenerator
 		final long kingBitboard = 1L << friendlyKingIndex;
 		long enemyKnightsBitboard = bitBoards.pieceBoards[PieceHelper.KNIGHT | enemyColor];
 		
-		while (enemyKnightsBitboard != 0)
+		// only possible for one knight to be checking the king
+		long knightAttackingKing = PrecomputedData.KNIGHT_MOVES[friendlyKingIndex] & enemyKnightsBitboard;
+		if (knightAttackingKing != 0)
 		{
-			final int knightIndex = Bitboards.getLSB(enemyKnightsBitboard);
-			enemyKnightsBitboard = Bitboards.toggleBit(enemyKnightsBitboard, knightIndex);
-			
-			// get pregenerated knight moves
-			final long newKnightAttacks = PrecomputedData.KNIGHT_MOVES[knightIndex];
-			
-			if ((newKnightAttacks & kingBitboard) != 0)
+			// set the checking square if this piece is giving a check
+			checkRaysMask |= 1L << Bitboards.getLSB(knightAttackingKing);
+			doubleCheck = inCheck;
+			inCheck = true;
+		}
+		
+		// get pregenerated knight moves if 2 or fewer knights
+		if (enemyKnightsBitboard != 0 && Long.bitCount(enemyKnightsBitboard) <= 2)
+		{
+			enemyKnightAttacks |= PrecomputedMagicNumbers.getKnightMoves(enemyKnightsBitboard);
+		}
+		else
+		{
+			while (enemyKnightsBitboard != 0)
 			{
-				// set the checking square if this piece is pinning
-				checkRaysMask |= 1L << knightIndex;
-				doubleCheck = inCheck;
-				inCheck = true;
+				final int knightIndex = Bitboards.getLSB(enemyKnightsBitboard);
+				enemyKnightsBitboard = Bitboards.toggleBit(enemyKnightsBitboard, knightIndex);
+				enemyKnightAttacks |= PrecomputedData.KNIGHT_MOVES[knightIndex];
 			}
-			
-			enemyKnightAttacks |= newKnightAttacks;
 		}
 		
 		// pawn attacks next
@@ -504,17 +514,17 @@ public class MoveGenerator
 			doubleCheck = inCheck;
 			inCheck = true;
 			
-			long pawnLocations = 0;
+			long potentialPawnLocations = 0;
 			// mask out edge files and pretend the king is a pawn to see which squares it could attack
 			if (friendlyColor == PieceHelper.WHITE_PIECE)
 			{
-				pawnLocations = ((kingBitboard & (~A_FILE)) << 7) | ((kingBitboard & (~H_FILE)) << 9);
+				potentialPawnLocations = ((kingBitboard & (~A_FILE)) << 7) | ((kingBitboard & (~H_FILE)) << 9);
 			}
 			else
 			{
-				pawnLocations = ((kingBitboard & (~A_FILE)) >>> 9) | ((kingBitboard & (~H_FILE)) >>> 7);
+				potentialPawnLocations = ((kingBitboard & (~A_FILE)) >>> 9) | ((kingBitboard & (~H_FILE)) >>> 7);
 			}
-			checkRaysMask |= pawnLocations & enemyPawnsBitboard;
+			checkRaysMask |= potentialPawnLocations & enemyPawnsBitboard;
 		}
 		
 		final int enemyKingIndex = Bitboards.getLSB(bitBoards.pieceBoards[PieceHelper.KING | enemyColor]);

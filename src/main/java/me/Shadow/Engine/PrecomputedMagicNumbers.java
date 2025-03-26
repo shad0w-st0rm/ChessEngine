@@ -1,5 +1,6 @@
 package me.Shadow.Engine;
 
+import java.util.Arrays;
 import java.util.Random;
 
 public class PrecomputedMagicNumbers
@@ -14,13 +15,18 @@ public class PrecomputedMagicNumbers
 	public static final long [][] MAGIC_BISHOP_MOVES = new long[64][];
 	public static final long [] BISHOP_MAGICS = {1246321520696262655L, 2964807252734377828L, -5473993736587794196L, -4750118561034045445L, 8017547122931826693L, -4097989331536246539L, -4482866017747368576L, 1865446903162077047L, -9192578451771025414L, -519613031812067334L, 2060991351107020429L, -428484053063902008L, 4564763313375550634L, 8327613666734186273L, 2909078326010199926L, 557588397172293552L, -5026012465266479130L, -2116617174395852813L, -6184560938050124951L, 2231534663403436673L, 7920707193292401163L, -4642294523751456757L, 136234212513857462L, 4265471984730841077L, -8320303265151840237L, 3843738111193393502L, -758853237703179519L, 844699875409930L, 1154328949300412448L, -5077793182291295183L, 6050759777852138555L, 6141198240838907990L, -77229584079147100L, -4107370751822388212L, 7478728764757118388L, 22007412949520L, 450361070838677576L, 2560194713404440833L, -8613123687293620297L, -1645913910722065393L, 5413232013905346598L, -7633607183318867945L, 4205359864546963465L, 5045544374155661570L, 6459849916410840067L, 886141519273241088L, -4053304385237091324L, 2197709830768616964L, -2771985578258547642L, -5081188147547963507L, 61437694819987263L, -4561078173826541578L, -6552139250450425242L, -3520926116525768599L, 6340956441735673809L, -3693011389175682350L, 5211790114995001424L, 6846764439243966807L, 5499666308325177567L, 574430245069817891L, -6014670161983960573L, 8488853738152878562L, 2912421546914802930L, -4287571988613693108L};
 	public static final int [] BISHOP_SHIFTS = {59, 60, 59, 59, 59, 59, 60, 59, 60, 60, 59, 59, 59, 59, 60, 60, 60, 60, 57, 57, 57, 57, 60, 60, 59, 59, 57, 55, 55, 57, 59, 59, 59, 59, 57, 55, 55, 57, 59, 59, 60, 60, 57, 57, 57, 57, 60, 60, 60, 60, 59, 59, 59, 59, 60, 60, 59, 60, 59, 59, 59, 59, 60, 59};
-
+	
+	public static final long MAGIC_KNIGHT_NUMBER = 4620695640156013605L;
+	public static final int KNIGHT_SHIFT = 46;
+	public static final long [] MAGIC_KNIGHT_MOVES = new long[1 << (64 - KNIGHT_SHIFT)];
+	
 	
 	public static Random rng = new Random();
 	
 	public static void precomputeMagics()
 	{
 		populateMagicArray();
+		//findNewMagicKnightNumber(10*60*1000);
 		//searchMagicNumbers(250);
 	}
 	
@@ -48,7 +54,7 @@ public class PrecomputedMagicNumbers
 			for (long blocker : allBlockers)
 			{
 				int index = (int) ((blocker * ROOK_MAGICS[i]) >>> ROOK_SHIFTS[i]);
-				MAGIC_ROOK_MOVES[i][index] = getAllPossibleMoves(i, blocker, true);
+				MAGIC_ROOK_MOVES[i][index] = getAllPossibleSliderMoves(i, blocker, true);
 			}
 			
 			BISHOP_MASK[i] = createMovementMask(i, false);
@@ -57,7 +63,17 @@ public class PrecomputedMagicNumbers
 			for (long blocker : allBlockers)
 			{
 				int index = (int) ((blocker * BISHOP_MAGICS[i]) >>> BISHOP_SHIFTS[i]);
-				MAGIC_BISHOP_MOVES[i][index] = getAllPossibleMoves(i, blocker, false);
+				MAGIC_BISHOP_MOVES[i][index] = getAllPossibleSliderMoves(i, blocker, false);
+			}
+			
+			for (int j = i; j < 64; j++)
+			{
+				// in case i == j, they are same square, bitboard key for one knight
+				long knightBitboard = 1L << i | 1L << j;
+				long knightMoves = PrecomputedData.KNIGHT_MOVES[i] | PrecomputedData.KNIGHT_MOVES[j];
+				
+				int arrayIndex = (int) ((knightBitboard * MAGIC_KNIGHT_NUMBER) >>> KNIGHT_SHIFT);
+				MAGIC_KNIGHT_MOVES[arrayIndex] = knightMoves;
 			}
 		}
 	}
@@ -123,6 +139,8 @@ public class PrecomputedMagicNumbers
 		System.out.print("Average Bishop table size: ");
 		averageSize = tableSizeSum / 64;
 		System.out.println(averageSize + " kb\n");
+		
+		System.out.println("Knight table size: " + (((1 << (64 - KNIGHT_SHIFT)) * 8) / 1024) + " kb\n");
 	}
 	
 	public static boolean findNewMagicNumber(int square, boolean orthogonal, int timeLimitMS)
@@ -181,6 +199,65 @@ public class PrecomputedMagicNumbers
 		return false;
 	}
 	
+	public static void findNewMagicKnightNumber(int timeLimitMS)
+	{
+		long bestNumber = MAGIC_KNIGHT_NUMBER;
+		int shiftAmount = KNIGHT_SHIFT;
+		long startTime = System.currentTimeMillis();
+		
+		while (System.currentTimeMillis() < startTime + timeLimitMS)
+		{
+			boolean failed = false;
+			long [] magicArray = new long[1 << (64 - shiftAmount)];
+			
+			for (int i = 0; i < 64; i++)
+			{
+				for (int j = i; j < 64; j++)
+				{
+					// in case i == j, they are same square, bitboard key for one knight
+					long knightBitboard = (1L << i) | (1L << j);
+					long knightMoves = PrecomputedData.KNIGHT_MOVES[i] | PrecomputedData.KNIGHT_MOVES[j];
+					
+					int arrayIndex = (int) ((knightBitboard * bestNumber) >>> shiftAmount);
+					if (magicArray[arrayIndex] != 0)
+					{
+						if (knightMoves != magicArray[arrayIndex])
+						{
+							failed = true;
+							break;
+						}
+					}
+					else
+					{
+						magicArray[arrayIndex] = knightMoves;
+					}
+				}
+				
+				if (failed) break;
+			}
+			
+			if (failed)
+			{
+				//bestNumber = randomLong();
+				bestNumber = randomLong() & randomLong() & randomLong();
+				/*
+				while (Long.bitCount(bestNumber) < 6)
+				{
+					bestNumber = randomLong() & randomLong() & randomLong();
+				}
+				*/
+			}
+			else
+			{
+				System.out.println("New best Knight Magic Number found: " + bestNumber);
+				System.out.println("Knight Magic Shift: " + shiftAmount);
+				System.out.println("Estimated table size: " + (((1 << (64 - shiftAmount)) * 8) / 1024) + " kb\n\n");
+				
+				shiftAmount++;
+			}
+		}
+	}
+	
 	public static long randomLong()
 	{
 		return (rng.nextLong() & 0xFFFFFFFFL) | ((rng.nextLong() & 0xFFFFFFFFL) << 32);
@@ -201,30 +278,12 @@ public class PrecomputedMagicNumbers
 		return MAGIC_BISHOP_MOVES[square][(int)(((blockers & BISHOP_MASK[square]) * BISHOP_MAGICS[square]) >>> BISHOP_SHIFTS[square])];
 	}
 	
-	/*
-	public static HashMap<Integer, HashMap<Long, Long>> precomputeMagics(boolean orthogonal)
+	public static long getKnightMoves(long knightsBitboard)
 	{
-		HashMap<Integer, HashMap<Long, Long>> squaresToBlockersMap = new HashMap<>(64);
-		for (int square = 0; square < 64; square++)
-		{
-			HashMap<Long, Long> blockersToMovesMap = new HashMap<>();
-			
-			long mask = createMovementMask(square, orthogonal);
-			
-			long [] blockers = getAllPossibleBlockers(mask);
-			for (long blockersMask : blockers)
-			{
-				long moves = getAllPossibleMoves(square, blockersMask, orthogonal);
-				blockersToMovesMap.put(blockersMask, moves);				
-			}
-						
-			squaresToBlockersMap.put(square, blockersToMovesMap);
-		}
-		return squaresToBlockersMap;
+		return MAGIC_KNIGHT_MOVES[(int) ((knightsBitboard * MAGIC_KNIGHT_NUMBER) >>> KNIGHT_SHIFT)];
 	}
-	*/
 	
-	public static long getAllPossibleMoves(int square, long blockers, boolean orthogonal)
+	public static long getAllPossibleSliderMoves(int square, long blockers, boolean orthogonal)
 	{
 		long moves = 0;
 		int startIndex = orthogonal ? 0 : 4;

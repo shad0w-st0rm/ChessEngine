@@ -72,7 +72,7 @@ public class EngineServer
 }
 
 @RestController
-@CrossOrigin(origins = {"http://localhost:8081", "https://chess-engine--preview.expo.app", "https://chess-engine.expo.app", "https://chess-engine-shadow.netlify.app"}) // Enable CORS for this controller
+@CrossOrigin(origins = {"*"}) // Enable CORS for this controller
 class EngineServerController
 {
 	@Autowired
