@@ -5,14 +5,14 @@ import java.util.Arrays;
 public class MoveGenerator
 {
 	private static final int MAXIMUM_LEGAL_MOVES = 218;
-	private static final long ALL_ONE_BITS = ~0L;
+	public static final long ALL_ONE_BITS = ~0L;
 	
-	private static final long FIRST_RANK = 0xFFL;
-	private static final long EIGHTH_RANK = FIRST_RANK << 56;
-	private static final long FOURTH_RANK = FIRST_RANK << 24;
-	private static final long FIFTH_RANK = FIRST_RANK << 32;
-	private static final long A_FILE = 0x0101010101010101L;
-	private static final long H_FILE = A_FILE << 7;
+	public static final long FIRST_RANK = 0xFFL;
+	public static final long EIGHTH_RANK = FIRST_RANK << 56;
+	public static final long FOURTH_RANK = FIRST_RANK << 24;
+	public static final long FIFTH_RANK = FIRST_RANK << 32;
+	public static final long A_FILE = 0x0101010101010101L;
+	public static final long H_FILE = A_FILE << 7;
 	
 	private Board board;
 	private Bitboards bitBoards;

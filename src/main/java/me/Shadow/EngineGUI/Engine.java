@@ -32,7 +32,7 @@ public class Engine
 		// originalFEN = "8/7k/4p3/2p1P2p/2P1P2P/8/8/7K w - - 0 1"; // king and pawns vs king and pawns
 		
 		engineIsWhite = false;
-		searchTime = 50;
+		searchTime = 100;
 	}
 
 	public static void main(String[] args)
