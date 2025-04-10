@@ -75,7 +75,7 @@ public class MoveSearcher
 			
 			final short move = moves[i];
 			
-			int evaluation = searchMove(move, alpha, beta, depth, 0);
+			int evaluation = searchMove(move, alpha, beta, depth, 0, i);
 			
 			if (searchCancelled)
 			{
@@ -152,7 +152,7 @@ public class MoveSearcher
 		{
 			searchedFirst = true;
 			
-			int evaluation = searchMove(bestMoveInPosition, alpha, beta, depth, plyFromRoot);
+			int evaluation = searchMove(bestMoveInPosition, alpha, beta, depth, plyFromRoot, 0);
 			
 			if (searchCancelled) return evaluation;
 			
@@ -187,7 +187,7 @@ public class MoveSearcher
 			
 			final short move = moves[i];
 			
-			int evaluation = searchMove(move, alpha, beta, depth, plyFromRoot);
+			int evaluation = searchMove(move, alpha, beta, depth, plyFromRoot, i);
 			
 			if (searchCancelled) return evaluation;
 			
@@ -211,14 +211,14 @@ public class MoveSearcher
 		return alpha;
 	}
 	
-	public int searchMove(short move, int alpha, int beta, int depth, int plyFromRoot)
+	public int searchMove(short move, int alpha, int beta, int depth, int plyFromRoot, int moveNum)
 	{
 		final BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
 		final int captured = board.movePiece(move);
 		
-		int searchExtension = calculateSearchExtension(move);
+		int searchDepth = calculateSearchDepth(move, captured, depth, moveNum);
 		
-		int evaluation = -(search(depth - 1 + searchExtension, plyFromRoot + 1, -beta, -alpha));
+		int evaluation = -(search(searchDepth, plyFromRoot + 1, -beta, -alpha));
 		board.moveBack(move, captured, boardInfoOld);
 		
 		if (evaluation > (positiveInfinity - depth) || evaluation < (negativeInfinity + depth))
@@ -247,19 +247,21 @@ public class MoveSearcher
 		return evaluation;
 	}
 	
-	public int calculateSearchExtension(short move)
+	public int calculateSearchDepth(short move, int captured, int depth, int moveNum)
 	{
-		if (board.inCheck()) return 1;
+		depth--;
+		if (board.inCheck()) return depth + 1;
 		
-		//int start = MoveHelper.getStartIndex(move);
+		// give bonus to a pawn moving to one square from promotion
+		// maybe change this just to a promotion move itself
 		int target = MoveHelper.getTargetIndex(move);
-		
 		if (((board.squares[target] & PieceHelper.TYPE_MASK) == PieceHelper.PAWN) && (Utils.getSquareRank(target) == 2 || Utils.getSquareRank(target) == 7))
 		{
-			return 1;
+			return depth + 1;
 		}
 		
-		return 0;
+		// search reduction, ensure depth doesn't go negative
+		return Math.max(((moveNum >= 3 && captured == PieceHelper.NONE && depth >= 3) ? (depth - 1) : depth), 0);
 	}
 	
 	public int searchCaptures(int alpha, int beta)
