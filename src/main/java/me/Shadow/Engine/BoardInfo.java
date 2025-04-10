@@ -12,10 +12,10 @@ public class BoardInfo
 	private byte castlingRightsByte;	// 4 bits
 	private int enPassantIndex;		//4 bits (could be done in 3)
 	
-	private int whiteMaterial;	// 12 bits
-	private int blackMaterial;	// 12 bits
-	private int whiteSquareBonus;	// 11 bits
-	private int blackSquareBonus;	// 11 bits
+	private int whiteMGBonus;
+	private int whiteEGBonus;
+	private int blackMGBonus;
+	private int blackEGBonus;
 	private int moveNum;	// 14 bits maximum
 	private int halfMoves;	// 7 bits
 	private ArrayList<Long> positionList = new ArrayList<Long>();
@@ -26,7 +26,6 @@ public class BoardInfo
 	{
 		whiteToMove = true;
 		enPassantIndex = -1;
-		whiteMaterial = blackMaterial = 4000;
 		moveNum = 0;
 		halfMoves = 0;
 	}
@@ -36,10 +35,10 @@ public class BoardInfo
 		whiteToMove = boardInfoCopy.whiteToMove;
 		castlingRightsByte = boardInfoCopy.castlingRightsByte;
 		enPassantIndex = boardInfoCopy.enPassantIndex;
-		whiteMaterial = boardInfoCopy.whiteMaterial;
-		blackMaterial = boardInfoCopy.blackMaterial;
-		whiteSquareBonus = boardInfoCopy.whiteSquareBonus;
-		blackSquareBonus = boardInfoCopy.blackSquareBonus;
+		whiteMGBonus = boardInfoCopy.whiteMGBonus;
+		whiteEGBonus = boardInfoCopy.whiteEGBonus;
+		blackMGBonus = boardInfoCopy.blackMGBonus;
+		blackEGBonus = boardInfoCopy.blackEGBonus;
 		moveNum = boardInfoCopy.moveNum;
 		halfMoves = boardInfoCopy.halfMoves;
 		positionList = boardInfoCopy.positionList;
@@ -53,10 +52,10 @@ public class BoardInfo
 		return castlingRightsByte;
 	}
 	public int getEnPassantIndex() { return enPassantIndex; }
-	public int getWhiteMaterial() { return whiteMaterial; }
-	public int getBlackMaterial() { return blackMaterial; }
-	public int getWhiteSquareBonus() { return whiteSquareBonus; }
-	public int getBlackSquareBonus() { return blackSquareBonus; }
+	public int getWhiteMGBonus() { return whiteMGBonus; }
+	public int getWhiteEGBonus() { return whiteEGBonus; }
+	public int getBlackMGBonus() { return blackMGBonus; }
+	public int getBlackEGBonus() { return blackEGBonus; }
 	
 	public int getMoveNum() { return moveNum; }
 	public void incrementMoveNum()
@@ -87,10 +86,10 @@ public class BoardInfo
 		castlingRightsByte = castlingRightsIn;
 	}
 	public void setEnPassantIndex(int enPassantIndexIn) { enPassantIndex = enPassantIndexIn; }
-	public void setWhiteMaterial(int whiteMaterialIn) { whiteMaterial = whiteMaterialIn; }
-	public void setBlackMaterial(int blackMaterialIn) { blackMaterial = blackMaterialIn; }
-	public void setWhiteSquareBonus(int whiteBonus) { whiteSquareBonus = whiteBonus; }
-	public void setBlackSquareBonus(int blackBonus) { blackSquareBonus = blackBonus; }
+	public void setWhiteMGBonus(int whiteMGBonusIn) { whiteMGBonus = whiteMGBonusIn; }
+	public void setWhiteEGBonus(int whiteEGBonusIn) { whiteEGBonus = whiteEGBonusIn; }
+	public void setBlackMGBonus(int blackMGBonusIn) { blackMGBonus = blackMGBonusIn; }
+	public void setBlackEGBonus(int blackEGBonusIn) { blackEGBonus = blackEGBonusIn; }
 	public void setPositionList(ArrayList<Long> positionListIn) { positionList = positionListIn; }
 	public void setZobristHash(long zobristIn) { zobristHash = zobristIn; }
 }

@@ -21,6 +21,7 @@ public class PrecomputedData
 	
 	public static void generateData()
 	{
+		PieceHelper.initPieceSquareTables();
 		// num squares to edge
 		// knight moves
 		// king moves

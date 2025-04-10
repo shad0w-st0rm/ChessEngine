@@ -354,13 +354,15 @@ public class MoveSearcher
 	public int staticEvaluation()
 	{
 		double evaluation = 0;
-		evaluation = board.boardInfo.getWhiteMaterial() + board.boardInfo.getWhiteSquareBonus();
-		evaluation -= (board.boardInfo.getBlackMaterial() + board.boardInfo.getBlackSquareBonus());
+		
+		float gamePhase = getGamePhase();
+		evaluation = evaluateMaterial(gamePhase);
 		
 		final int whiteKingIndex = Bitboards.getLSB(board.bitBoards.pieceBoards[PieceHelper.WHITE_KING]);
 		final int blackKingIndex = Bitboards.getLSB(board.bitBoards.pieceBoards[PieceHelper.BLACK_KING]);
-		evaluation += forceKingToCorner(whiteKingIndex, blackKingIndex, 1 - (board.boardInfo.getBlackMaterial() / 2000));
-		evaluation -= forceKingToCorner(blackKingIndex, whiteKingIndex, 1 - (board.boardInfo.getWhiteMaterial() / 2000));
+		
+		evaluation += forceKingToCorner(whiteKingIndex, blackKingIndex, 1 - (gamePhase * (24 / 5.0f)));
+		evaluation -= forceKingToCorner(blackKingIndex, whiteKingIndex, 1 - (gamePhase * (24 / 5.0f)));
 		
 		evaluation += evaluatePawns(PieceHelper.WHITE_PIECE, PieceHelper.BLACK_PIECE);
 		evaluation -= evaluatePawns(PieceHelper.BLACK_PIECE, PieceHelper.WHITE_PIECE);
@@ -368,6 +370,32 @@ public class MoveSearcher
 		evaluation *= board.boardInfo.isWhiteToMove() ? 1 : -1;
 		
 		return (int)evaluation;
+	}
+	
+	public double evaluateMaterial(float gamePhase)
+	{
+		int mgScore = board.boardInfo.getWhiteMGBonus() - board.boardInfo.getBlackMGBonus();
+		int egScore = board.boardInfo.getWhiteEGBonus() - board.boardInfo.getBlackEGBonus();
+		return mgScore * gamePhase + egScore * (1- gamePhase);
+	}
+	
+	public float getGamePhase()
+	{
+		int mgPhase = 0;
+		mgPhase += Long.bitCount(board.bitBoards.pieceBoards[PieceHelper.WHITE_QUEEN]
+				| board.bitBoards.pieceBoards[PieceHelper.BLACK_QUEEN])
+		* PieceHelper.getGamePhaseValue(PieceHelper.QUEEN);
+		
+		mgPhase += Long.bitCount(board.bitBoards.pieceBoards[PieceHelper.WHITE_ROOK]
+				| board.bitBoards.pieceBoards[PieceHelper.BLACK_ROOK])
+		* PieceHelper.getGamePhaseValue(PieceHelper.QUEEN);
+		
+		mgPhase += Long.bitCount(board.bitBoards.pieceBoards[PieceHelper.WHITE_BISHOP]
+				| board.bitBoards.pieceBoards[PieceHelper.BLACK_BISHOP])
+		* PieceHelper.getGamePhaseValue(PieceHelper.QUEEN);
+		
+		if (mgPhase > 24) mgPhase = 24;
+		return mgPhase / 24.0f;
 	}
 	
 	public int evaluatePawns(int friendlyColor, int enemyColor)
