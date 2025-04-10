@@ -215,7 +215,10 @@ public class MoveSearcher
 	{
 		final BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
 		final int captured = board.movePiece(move);
-		int evaluation = -(search(depth - 1, plyFromRoot + 1, -beta, -alpha));
+		
+		int searchExtension = calculateSearchExtension(move);
+		
+		int evaluation = -(search(depth - 1 + searchExtension, plyFromRoot + 1, -beta, -alpha));
 		board.moveBack(move, captured, boardInfoOld);
 		
 		if (evaluation > (positiveInfinity - depth) || evaluation < (negativeInfinity + depth))
@@ -242,6 +245,21 @@ public class MoveSearcher
 		}
 		
 		return evaluation;
+	}
+	
+	public int calculateSearchExtension(short move)
+	{
+		if (board.inCheck()) return 1;
+		
+		//int start = MoveHelper.getStartIndex(move);
+		int target = MoveHelper.getTargetIndex(move);
+		
+		if (((board.squares[target] & PieceHelper.TYPE_MASK) == PieceHelper.PAWN) && (Utils.getSquareRank(target) == 2 || Utils.getSquareRank(target) == 7))
+		{
+			return 1;
+		}
+		
+		return 0;
 	}
 	
 	public int searchCaptures(int alpha, int beta)

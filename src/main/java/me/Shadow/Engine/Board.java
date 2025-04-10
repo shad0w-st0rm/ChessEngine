@@ -7,12 +7,16 @@ import java.util.Random;
 
 public class Board
 {
+	final static long [] zobristHashes = new Random(8108415243282079581L).longs(781).toArray();
+	public final static String defaultFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+	
+	
 	public Bitboards bitBoards;
 	public int[] squares = new int[64];
 	public BoardInfo boardInfo;
 	
-	final static long [] zobristHashes = new Random(8108415243282079581L).longs(781).toArray();
-	public final static String defaultFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+	boolean cachedCheckValue = false;
+	boolean isCachedCheckValid = false;
 
 	public Board()
 	{
@@ -28,6 +32,70 @@ public class Board
 	{
 		boardInfo = new BoardInfo();
 		loadFEN(fen);
+	}
+	
+	public boolean inCheck()
+	{
+		if (isCachedCheckValid) return cachedCheckValue;
+		else
+		{
+			cachedCheckValue = isInCheck();
+			isCachedCheckValid = true;
+			return cachedCheckValue;
+		}
+	}
+	
+	private boolean isInCheck()
+	{
+		
+		int friendlyColor = boardInfo.isWhiteToMove() ? PieceHelper.WHITE_PIECE : PieceHelper.BLACK_PIECE;
+		int enemyColor = friendlyColor ^ PieceHelper.BLACK_PIECE;
+		
+		int friendlyKingIndex = Bitboards.getLSB(bitBoards.pieceBoards[PieceHelper.KING | friendlyColor]);
+		
+		long friendlyPiecesBitboard = bitBoards.colorBoards[friendlyColor >>> 3];
+		long enemyPiecesBitboard = bitBoards.colorBoards[enemyColor >>> 3];
+		long allPiecesBitboard = friendlyPiecesBitboard | enemyPiecesBitboard;
+		
+		long orthoSlidersBitboard = bitBoards.getOrthogonalSliders(enemyColor);
+		long diagSlidersBitboard = bitBoards.getDiagonalSliders(enemyColor);
+		
+		if (orthoSlidersBitboard != 0)
+		{
+			if ((PrecomputedMagicNumbers.getRookMoves(friendlyKingIndex, allPiecesBitboard) & orthoSlidersBitboard) != 0)
+			{
+				return true;
+			}
+		}
+		
+		if (diagSlidersBitboard != 0)
+		{
+			if ((PrecomputedMagicNumbers.getBishopMoves(friendlyKingIndex, allPiecesBitboard) & diagSlidersBitboard) != 0)
+			{
+				return true;
+			}
+		}
+		
+		long enemyKnightsBitboard = bitBoards.pieceBoards[PieceHelper.KNIGHT | enemyColor];
+		
+		if ((PrecomputedData.KNIGHT_MOVES[friendlyKingIndex] & enemyKnightsBitboard) != 0) return true;
+		
+		long kingBitboard = 1L << friendlyKingIndex;
+		long enemyPawnsBitboard = bitBoards.pieceBoards[PieceHelper.PAWN | enemyColor];
+		long potentialPawnLocations = 0;
+		// mask out edge files and pretend the king is a pawn to see which squares it could attack
+		if (friendlyColor == PieceHelper.WHITE_PIECE)
+		{
+			potentialPawnLocations = ((kingBitboard & (~MoveGenerator.A_FILE)) << 7) | ((kingBitboard & (~MoveGenerator.H_FILE)) << 9);
+		}
+		else
+		{
+			potentialPawnLocations = ((kingBitboard & (~MoveGenerator.A_FILE)) >>> 9) | ((kingBitboard & (~MoveGenerator.H_FILE)) >>> 7);
+		}
+		
+		if ((potentialPawnLocations & enemyPawnsBitboard) != 0) return true;
+		
+		return false;
 	}
 
 	public int movePiece(final short move)
@@ -174,6 +242,8 @@ public class Board
 		
 		boardInfo.setZobristHash(zobristHash);	// set the hash
 		boardInfo.getPositionList().add(zobristHash);
+		
+		isCachedCheckValid = false;
 				
 		return capturedPiece; // return the captured piece
 	}
@@ -226,6 +296,8 @@ public class Board
 			squares[captureSquare] = captured;
 			bitBoards.toggleSquare(captured, captureSquare);
 		}
+		
+		isCachedCheckValid = false;
 	}
 
 	public long createZobristHash()
@@ -409,6 +481,8 @@ public class Board
 		
 		if(bitBoards == null) bitBoards = new Bitboards(this);
 		else bitBoards.createBitboards(this);
+		
+		isCachedCheckValid = false;
 	}
 
 	/**
