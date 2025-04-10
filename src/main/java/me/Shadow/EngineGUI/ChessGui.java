@@ -280,17 +280,17 @@ public class ChessGui
 				int pieceType = PieceHelper.getPieceType(engine.board.squares[i]);
 				int pieceColor = PieceHelper.getColor(engine.board.squares[i]);
 				if (pieceType == PieceHelper.PAWN)
-					icon = new ImageIcon(chessPieceImages[(pieceColor >>> 3) ^ 1][PAWN]);
+					icon = new ImageIcon(chessPieceImages[(pieceColor) ^ 1][PAWN]);
 				else if (pieceType == PieceHelper.KNIGHT)
-					icon = new ImageIcon(chessPieceImages[(pieceColor >>> 3) ^ 1][KNIGHT]);
+					icon = new ImageIcon(chessPieceImages[(pieceColor) ^ 1][KNIGHT]);
 				else if (pieceType == PieceHelper.ROOK)
-					icon = new ImageIcon(chessPieceImages[(pieceColor >>> 3) ^ 1][ROOK]);
+					icon = new ImageIcon(chessPieceImages[(pieceColor) ^ 1][ROOK]);
 				else if (pieceType == PieceHelper.BISHOP)
-					icon = new ImageIcon(chessPieceImages[(pieceColor >>> 3) ^ 1][BISHOP]);
+					icon = new ImageIcon(chessPieceImages[(pieceColor) ^ 1][BISHOP]);
 				else if (pieceType == PieceHelper.QUEEN)
-					icon = new ImageIcon(chessPieceImages[(pieceColor >>> 3) ^ 1][QUEEN]);
+					icon = new ImageIcon(chessPieceImages[(pieceColor) ^ 1][QUEEN]);
 				else if (pieceType == PieceHelper.KING)
-					icon = new ImageIcon(chessPieceImages[(pieceColor >>> 3) ^ 1][KING]);
+					icon = new ImageIcon(chessPieceImages[(pieceColor) ^ 1][KING]);
 			}
 			chessBoardSquares[squareRow][squareCol].setIcon(icon);
 		}

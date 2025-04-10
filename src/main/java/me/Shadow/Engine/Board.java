@@ -53,8 +53,8 @@ public class Board
 		
 		int friendlyKingIndex = Bitboards.getLSB(bitBoards.pieceBoards[PieceHelper.KING | friendlyColor]);
 		
-		long friendlyPiecesBitboard = bitBoards.colorBoards[friendlyColor >>> 3];
-		long enemyPiecesBitboard = bitBoards.colorBoards[enemyColor >>> 3];
+		long friendlyPiecesBitboard = bitBoards.colorBoards[friendlyColor];
+		long enemyPiecesBitboard = bitBoards.colorBoards[enemyColor];
 		long allPiecesBitboard = friendlyPiecesBitboard | enemyPiecesBitboard;
 		
 		long orthoSlidersBitboard = bitBoards.getOrthogonalSliders(enemyColor);
@@ -140,6 +140,7 @@ public class Board
 			// remove captured piece from the board
 			squares[captureIndex] = PieceHelper.NONE;
 			bitBoards.toggleSquare(capturedPiece, captureIndex);
+			//bitBoards.setAttacksFrom(captureIndex, 0);
 			
 			zobristHash ^= zobristHashes[(captureIndex * 12 + PieceHelper.getZobristOffset(capturedPiece))]; // remove captured piece
 			
@@ -159,6 +160,8 @@ public class Board
 			
 			bitBoards.toggleSquare(rook, rookStart);
 			bitBoards.toggleSquare(rook, rookTarget);
+			//bitBoards.setAttacksFrom(rookStart, 0);
+			//bitBoards.createAttacksFrom(rookTarget, rook);
 			
 			zobristHash ^= zobristHashes[(rookStart * 12 + PieceHelper.getZobristOffset(rook))]; // remove rook from start square
 			zobristHash ^= zobristHashes[(rookTarget * 12 + PieceHelper.getZobristOffset(rook))]; // add rook to target square
@@ -210,6 +213,8 @@ public class Board
 		squares[target] = piece;
 		bitBoards.toggleSquare(piece, start);
 		bitBoards.toggleSquare(piece, target);
+		//bitBoards.setAttacksFrom(start, 0);
+		//bitBoards.createAttacksFrom(target, piece);
 		
 		zobristHash ^= zobristHashes[(start * 12 + PieceHelper.getZobristOffset(piece))]; // remove piece from start square
 		zobristHash ^= zobristHashes[(target * 12 + PieceHelper.getZobristOffset(piece))]; // add piece to target square
@@ -246,6 +251,9 @@ public class Board
 		
 		bitBoards.toggleSquare(piece, start);
 		bitBoards.toggleSquare(piece, target);
+		
+		//bitBoards.setAttacksFrom(target, 0);
+		//bitBoards.createAttacksFrom(start, piece);
 
 		if (MoveHelper.isCastleMove(move)) // if it was a castle move
 		{
@@ -258,6 +266,9 @@ public class Board
 			
 			bitBoards.toggleSquare(squares[rookStart], rookStart);
 			bitBoards.toggleSquare(squares[rookStart], rookTarget);
+			
+			//bitBoards.setAttacksFrom(rookTarget, 0);
+			//bitBoards.createAttacksFrom(rookStart, squares[rookStart]);
 		}
 		else if (MoveHelper.getPromotedPiece(move) != 0) // if it was a promotion
 		{
@@ -277,6 +288,7 @@ public class Board
 			// put captured piece back on the board
 			squares[captureSquare] = captured;
 			bitBoards.toggleSquare(captured, captureSquare);
+			//bitBoards.createAttacksFrom(captureSquare, captured);
 		}
 		
 		isCachedCheckValid = false;

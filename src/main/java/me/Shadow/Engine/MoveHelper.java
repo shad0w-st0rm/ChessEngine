@@ -8,10 +8,11 @@ public class MoveHelper
 	static final int EN_PASSANT_CAPTURE_FLAG = 0b0001;
 	static final int PAWN_DOUBLE_PUSH_FLAG = 0b0010;
 	static final int CASTLING_FLAG = 0b0011;
-	static final int PROMOTION_QUEEN_FLAG = 0b0100;
-	static final int PROMOTION_ROOK_FLAG = 0b0101;
-	static final int PROMOTION_BISHOP_FLAG = 0b0110;
-	static final int PROMOTION_KNIGHT_FLAG = 0b0111;
+	
+	static final int PROMOTION_KNIGHT_FLAG = 0b0100;
+	static final int PROMOTION_BISHOP_FLAG = 0b0101;
+	static final int PROMOTION_ROOK_FLAG = 0b0110;
+	static final int PROMOTION_QUEEN_FLAG = 0b0111;
 
 	public static short createMove(int start, int target, int flags)
 	{
@@ -49,9 +50,9 @@ public class MoveHelper
 	public static int getPromotedPiece(short move)
 	{
 		int promotion = isolateFlags(move);
-		if (promotion >= PROMOTION_QUEEN_FLAG && promotion <= PROMOTION_KNIGHT_FLAG)
+		if (promotion >= PROMOTION_KNIGHT_FLAG && promotion <= PROMOTION_QUEEN_FLAG)
 		{
-			return ((promotion - PROMOTION_QUEEN_FLAG) + 1);
+			return ((promotion - 2) << 1);
 		}
 		return 0;
 	}

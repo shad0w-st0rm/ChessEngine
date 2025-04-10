@@ -3,15 +3,16 @@ package me.Shadow.Engine;
 public class PieceHelper
 {	
 	public static final int NONE = 0;
-	public static final int QUEEN = 1;
-	public static final int ROOK = 2;
-	public static final int BISHOP = 3;
-	public static final int KNIGHT = 4;
-	public static final int PAWN = 5;
-	public static final int KING = 6;
 	
-	public static final int WHITE_PIECE = 0b0000; // 0
-	public static final int BLACK_PIECE = 0b1000; // 8
+	public static final int PAWN = 2;	// 001X
+	public static final int KNIGHT = 4;	// 010X
+	public static final int BISHOP = 6;	// 011X
+	public static final int ROOK = 8;	// 100X
+	public static final int QUEEN = 10;	// 101X
+	public static final int KING = 12;	// 110X
+	
+	public static final int WHITE_PIECE = 0;
+	public static final int BLACK_PIECE = 1;
 	
 	public static final int WHITE_QUEEN = QUEEN | WHITE_PIECE;
 	public static final int WHITE_ROOK = ROOK | WHITE_PIECE;
@@ -27,11 +28,11 @@ public class PieceHelper
 	public static final int BLACK_PAWN = PAWN | BLACK_PIECE;
 	public static final int BLACK_KING = KING | BLACK_PIECE;
 	
-	public static final int TYPE_MASK = 0b111;
-	public static final int COLOR_MASK = 0b1000;
+	public static final int TYPE_MASK = 0b1110;
+	public static final int COLOR_MASK = 1;
 	
-	static final int [] mg_value = { 0, 1025, 477, 365, 337, 82, 0 };
-	static final int [] eg_value = { 0, 936, 512, 297, 281, 94, 0 };
+	static final int [] mg_value = { 0, 82, 337, 365, 477, 1025, 0 };
+	static final int [] eg_value = { 0, 94, 281, 297, 512, 936, 0 };
 	
 	static final int [] mg_pawn_table = {
 	      0,   0,   0,   0,   0,   0,  0,   0,
@@ -167,38 +168,37 @@ public class PieceHelper
 	
 	static final int[][] mg_pesto_table = {
 		{},
-		mg_queen_table,
-		mg_rook_table,
-		mg_bishop_table,
-		mg_knight_table,
 		mg_pawn_table,
+		mg_knight_table,
+		mg_bishop_table,
+		mg_rook_table,
+		mg_queen_table,
 		mg_king_table
 	};
 	
 	static final int [][] eg_pesto_table = {
 		{},
-		eg_queen_table,
-		eg_rook_table,
-		eg_bishop_table,
-		eg_knight_table,
 		eg_pawn_table,
+		eg_knight_table,
+		eg_bishop_table,
+		eg_rook_table,
+		eg_queen_table,
 		eg_king_table
 	};
 	
 	
-	private static int [] gamephaseValue = {0, 4, 2, 1, 1, 0, 0, 0, 4, 2, 1, 1, 0, 0};
-	static int [][] mg_table = new int[15][64];
-	static int [][] eg_table = new int[15][64];
+	private static int [] gamephaseValue = {0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 4, 4, 0, 0};
+	static int [][] mg_table = new int[14][64];
+	static int [][] eg_table = new int[14][64];
 	
 	public static void initPieceSquareTables()
 	{
-		//int pc, p, sq;
-	    for (int piece = QUEEN; piece <= KING; piece++) {
+	    for (int piece = PAWN; piece <= KING; piece += 2) {
 	        for (int sq = 0; sq < 64; sq++) {
-	            mg_table[piece]  [sq] = mg_value[piece] + mg_pesto_table[piece][sq^56];
-	            eg_table[piece]  [sq] = eg_value[piece] + eg_pesto_table[piece][sq^56];
-	            mg_table[piece | BLACK_PIECE][sq] = mg_value[piece] + mg_pesto_table[piece][sq];
-	            eg_table[piece | BLACK_PIECE][sq] = eg_value[piece] + eg_pesto_table[piece][sq];
+	            mg_table[piece]  [sq] = mg_value[piece >>> 1] + mg_pesto_table[piece >>> 1][sq^56];
+	            eg_table[piece]  [sq] = eg_value[piece >>> 1] + eg_pesto_table[piece >>> 1][sq^56];
+	            mg_table[piece | BLACK_PIECE][sq] = mg_value[piece >>> 1] + mg_pesto_table[piece >>> 1][sq];
+	            eg_table[piece | BLACK_PIECE][sq] = eg_value[piece >>> 1] + eg_pesto_table[piece >>> 1][sq];
 	        }
 	    }
 	}
@@ -232,14 +232,12 @@ public class PieceHelper
 	
 	public static int getValue(int pieceInfo, float mgWeight)
 	{
-		return (int) (mg_value[pieceInfo & TYPE_MASK] * mgWeight + eg_value[pieceInfo & TYPE_MASK] * (1 - mgWeight));
+		return (int) (mg_value[(pieceInfo & TYPE_MASK) >>> 2] * mgWeight + eg_value[(pieceInfo & TYPE_MASK) >>> 2] * (1 - mgWeight));
 	}
 	
 	public static int getZobristOffset(int pieceInfo)
 	{
-		int offset = (pieceInfo & TYPE_MASK) * 2;
-		offset += (pieceInfo & COLOR_MASK) >>> 3;
-		return (offset - 2);
+		return (pieceInfo - 2);
 	}
 	
 	public static char getPieceSymbol(int pieceInfo)
@@ -270,6 +268,6 @@ public class PieceHelper
 	
 	public static int getGamePhaseValue(int pieceInfo)
 	{
-		return gamephaseValue[pieceInfo & TYPE_MASK];
+		return gamephaseValue[pieceInfo];
 	}
 }

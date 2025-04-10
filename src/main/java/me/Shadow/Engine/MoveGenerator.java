@@ -74,8 +74,8 @@ public class MoveGenerator
 		
 		inCheck = doubleCheck = false;
 		
-		friendlyPiecesBitboard = bitBoards.colorBoards[friendlyColor >>> 3];
-		enemyPiecesBitboard = bitBoards.colorBoards[enemyColor >>> 3];
+		friendlyPiecesBitboard = bitBoards.getAllFriendlyPieces(friendlyColor);
+		enemyPiecesBitboard = bitBoards.getAllFriendlyPieces(enemyColor);
 		allPiecesBitboard = friendlyPiecesBitboard | enemyPiecesBitboard;
 		
 		checkRaysMask = pinRaysMask = 0;
@@ -403,66 +403,35 @@ public class MoveGenerator
 		{
 			final boolean diagonal = direction >= 4;
 			final long sliders = diagonal ? bitBoards.getDiagonalSliders(enemyColor) : bitBoards.getOrthogonalSliders(enemyColor);
-						
-			if ((PrecomputedData.rayDirectionMask[friendlyKingIndex*8 + direction] & sliders) == 0)
+			
+			long rayDirMask = PrecomputedData.rayDirectionMask[friendlyKingIndex*8 + direction];
+			if ((rayDirMask & sliders) == 0)
 			{
 				// no enemy sliders of relevant type along this ray on this specific direction from the friendly king
 				continue;
 			}
-						
-			// at least one relevant slider exists
-			boolean friendlyPieceFound = false;
-			long potentialPinRayMask = 0;
-			final int numSquares = PrecomputedData.numSquaresToEdge[friendlyKingIndex*8 + direction];
-			final int directionOffset = PrecomputedData.directionOffsets[direction];
 			
-			for (int i = 1; i <= numSquares; i++)
+			long rayFromKing = PrecomputedMagicNumbers.getSliderMoves(friendlyKingIndex, allPiecesBitboard, !diagonal) & rayDirMask;
+			if ((rayFromKing & sliders) != 0)
 			{
-				final int newIndex = friendlyKingIndex + (directionOffset * i);
-				potentialPinRayMask |= (1L << newIndex);
+				// first piece between relevant sliders and the king is a relevant checking slider
+				// found a check
+				checkRaysMask |= rayFromKing;
+				doubleCheck = inCheck;
+				inCheck = true;
 				
-				final int pieceInfo = board.squares[newIndex];
-				if (pieceInfo != PieceHelper.NONE)
+				if (doubleCheck) break;
+			}
+			else if ((rayFromKing & friendlyPiecesBitboard) != 0)
+			{
+				// first piece between relevant sliders and the king is a friendly piece, potential pin
+				long rayExcludingPin = PrecomputedMagicNumbers.getSliderMoves(friendlyKingIndex, allPiecesBitboard & ~(rayFromKing & friendlyPiecesBitboard), !diagonal) & rayDirMask;
+				if ((rayExcludingPin & sliders) != 0)
 				{
-					if (PieceHelper.isColor(pieceInfo, friendlyColor))
-					{
-						// possible pinned piece found or second piece found so no pin
-						if (!friendlyPieceFound) friendlyPieceFound = true;
-						else break;
-					}
-					else
-					{
-						// enemy piece found so if it can attack king along this ray pin or check found
-						if ((diagonal && PieceHelper.isDiagonalSlider(pieceInfo)) || (!diagonal && PieceHelper.isOrthogonalSlider(pieceInfo)))
-						{
-							if (friendlyPieceFound)
-							{
-								// found a pin
-								pinRaysMask |= potentialPinRayMask;
-							}
-							else
-							{
-								// found a check
-								checkRaysMask |= potentialPinRayMask;
-								doubleCheck = inCheck;
-								inCheck = true;
-							}
-							break;
-						}
-						else
-						{
-							// if it cant attack the king on this ray, cant pin or check anything
-							break;
-						}
-					}
-				}
-				
-				// if in double check, only king moves are legal so any more pins are meaningless
-				if (doubleCheck)
-				{
-					break;
+					pinRaysMask |= rayExcludingPin;
 				}
 			}
+			// else: first piece between relevant sliders and the king is an enemy piece (by elimination), move on
 		}
 				
 		long enemyKnightAttacks = 0;

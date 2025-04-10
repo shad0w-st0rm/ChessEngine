@@ -175,6 +175,7 @@ public class OpeningBook
 			{
 				algebraicMove = algebraicMove.trim();
 				short move = Utils.getMoveFromAlgebraicNotation(board, algebraicMove);
+				if (move == MoveHelper.NULL_MOVE) break;
 				
 				HashMap<Short, Integer> movesInPosition = openingBookSetup.getOrDefault(board.boardInfo.getZobristHash(), new HashMap<Short, Integer>());
 				int newPlayCount = movesInPosition.getOrDefault(move, 0) + 1;

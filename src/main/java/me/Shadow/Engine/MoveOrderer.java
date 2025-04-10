@@ -49,26 +49,19 @@ public class MoveOrderer
 
 			if (capturedPiece != PieceHelper.NONE)
 			{
-				final int materialDifference = PieceHelper.getValue(capturedPiece, gamePhase) - PieceHelper.getValue(piece, gamePhase);
-
-				// theoretically this is not 100% accurate because the attack map is based on
-				// the position prior to the piece moving
-				final boolean canOpponentRecapture = ((enemyAttackMap & (1L << target)) != 0); // enemy attacks this
-																								// square
-				if (canOpponentRecapture)
+				int captureSEE = SEE(board, start, target, piece, capturedPiece, gamePhase);
+				if (captureSEE >= 0)
 				{
-					evalGuess += (materialDifference >= 0 ? goodCaptureBias : badCaptureBias) + materialDifference;
+					evalGuess += goodCaptureBias + captureSEE;
 				}
 				else
 				{
-					evalGuess += goodCaptureBias + materialDifference;
+					evalGuess += badCaptureBias + captureSEE;
 				}
 			}
-			else if (MoveHelper.getPromotedPiece(move) == PieceHelper.QUEEN) // dont stack capture bias and promoting
-																				// bias (it will always be winning
-																				// capture bias if promoting)
+			else if (MoveHelper.getPromotedPiece(move) != PieceHelper.NONE)
 			{
-				evalGuess += promotingBias;
+				evalGuess += promotingBias + PieceHelper.getValue(MoveHelper.getPromotedPiece(move), gamePhase) - PieceHelper.getValue(piece, gamePhase);
 			}
 
 			evalGuess -= PieceHelper.getPieceSquareValue(piece, start, gamePhase);
@@ -108,22 +101,86 @@ public class MoveOrderer
 		return moveEvals;
 	}
 
+	public int SEE(Board board, int start, int target, int piece, int captured, float mgWeight)
+	{
+		int[] gain = new int[32];
+		long xrayPieces = board.bitBoards.getXrayPieces();
+		long fromBitboard = 1L << start;
+		long allPieces = board.bitBoards.getAllPieces();
+		long squareAtksDefs = board.bitBoards.getAttacksTo(target);
+		int depth = 0;
+		int color = piece & PieceHelper.COLOR_MASK;
+		gain[depth] = PieceHelper.getValue(captured, mgWeight);
+		do
+		{
+			depth++;
+			gain[depth] = PieceHelper.getValue(piece, mgWeight) - gain[depth - 1];
+			squareAtksDefs ^= fromBitboard;
+			allPieces ^= fromBitboard;
+			if ((xrayPieces & fromBitboard) != 0)
+			{
+				squareAtksDefs |= considerXrays(board, allPieces, target);
+			}
+			color ^= PieceHelper.BLACK_PIECE;
+			fromBitboard = getLeastValuablePiece(board, squareAtksDefs, color);
+			if (fromBitboard != 0) piece = board.squares[Bitboards.getLSB(fromBitboard)];
+
+		} while (fromBitboard != 0);
+
+		while (depth > 1)
+		{
+			depth--;
+			gain[depth - 1] = -Math.max(-gain[depth - 1], gain[depth]);
+		}
+
+		return gain[0];
+	}
+
+	public long getLeastValuablePiece(Board board, long pieces, int color)
+	{
+		for (int piece = PieceHelper.PAWN + color; piece <= PieceHelper.KING + color; piece += 2)
+		{
+			long pieceBoard = pieces & board.bitBoards.pieceBoards[piece];
+			if (pieceBoard != 0)
+				return pieceBoard & -pieceBoard;
+		}
+		return 0L;
+	}
+
+	public long considerXrays(Board board, long allPieces, int target)
+	{
+		long diagSliders, orthoSliders;
+		diagSliders = orthoSliders = board.bitBoards.pieceBoards[PieceHelper.WHITE_QUEEN]
+				| board.bitBoards.pieceBoards[PieceHelper.BLACK_QUEEN];
+		diagSliders |= board.bitBoards.pieceBoards[PieceHelper.WHITE_BISHOP]
+				| board.bitBoards.pieceBoards[PieceHelper.BLACK_BISHOP];
+		orthoSliders |= board.bitBoards.pieceBoards[PieceHelper.WHITE_ROOK]
+				| board.bitBoards.pieceBoards[PieceHelper.BLACK_ROOK];
+		diagSliders &= PrecomputedMagicNumbers.getBishopMoves(target, allPieces) & allPieces;
+		orthoSliders &= PrecomputedMagicNumbers.getRookMoves(target, allPieces) & allPieces;
+		return diagSliders | orthoSliders;
+	}
+
 	public float getGamePhase(Board board)
 	{
 		int mgPhase = 0;
-		mgPhase += Long.bitCount(board.bitBoards.pieceBoards[PieceHelper.WHITE_QUEEN]
-				| board.bitBoards.pieceBoards[PieceHelper.BLACK_QUEEN])
-		* PieceHelper.getGamePhaseValue(PieceHelper.QUEEN);
-		
-		mgPhase += Long.bitCount(board.bitBoards.pieceBoards[PieceHelper.WHITE_ROOK]
-				| board.bitBoards.pieceBoards[PieceHelper.BLACK_ROOK])
-		* PieceHelper.getGamePhaseValue(PieceHelper.QUEEN);
-		
-		mgPhase += Long.bitCount(board.bitBoards.pieceBoards[PieceHelper.WHITE_BISHOP]
-				| board.bitBoards.pieceBoards[PieceHelper.BLACK_BISHOP])
-		* PieceHelper.getGamePhaseValue(PieceHelper.QUEEN);
-		
-		if (mgPhase > 24) mgPhase = 24;
+		mgPhase += Long
+				.bitCount(board.bitBoards.pieceBoards[PieceHelper.WHITE_QUEEN]
+						| board.bitBoards.pieceBoards[PieceHelper.BLACK_QUEEN])
+				* PieceHelper.getGamePhaseValue(PieceHelper.QUEEN);
+
+		mgPhase += Long
+				.bitCount(board.bitBoards.pieceBoards[PieceHelper.WHITE_ROOK]
+						| board.bitBoards.pieceBoards[PieceHelper.BLACK_ROOK])
+				* PieceHelper.getGamePhaseValue(PieceHelper.QUEEN);
+
+		mgPhase += Long
+				.bitCount(board.bitBoards.pieceBoards[PieceHelper.WHITE_BISHOP]
+						| board.bitBoards.pieceBoards[PieceHelper.BLACK_BISHOP])
+				* PieceHelper.getGamePhaseValue(PieceHelper.QUEEN);
+
+		if (mgPhase > 24)
+			mgPhase = 24;
 		return mgPhase / 24.0f;
 	}
 
