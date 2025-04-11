@@ -28,7 +28,7 @@ public class MoveOrderer
 	}
 
 	public int[] guessMoveEvals(final Board board, final short[] moves, final short firstMove,
-			final long enemyAttackMap, final long enemyPawnAttackMap, final boolean inQuietSearch, final int ply)
+			final boolean inQuietSearch, final int ply)
 	{
 		float gamePhase = getGamePhase(board);
 		final int[] moveEvals = new int[moves.length];
@@ -49,49 +49,55 @@ public class MoveOrderer
 
 			if (capturedPiece != PieceHelper.NONE)
 			{
-				int captureSEE = SEE(board, start, target, piece, capturedPiece, gamePhase);
-				if (captureSEE >= 0)
+				// Most Valuable Victim - Least Valuable Aggresor estimation
+				// capture best possible piece, with worst possible piece first
+				int MVV = PieceHelper.getValue(capturedPiece, gamePhase);
+				int LVA = PieceHelper.getValue(piece, gamePhase);
+				
+				if (MVV >= LVA)
 				{
-					evalGuess += goodCaptureBias + captureSEE;
+					evalGuess = goodCaptureBias + MVV*2 - LVA;
 				}
 				else
 				{
-					evalGuess += badCaptureBias + captureSEE;
+					int captureSEE = SEE(board, start, target, piece, capturedPiece, gamePhase);
+					if (captureSEE >= 0)
+					{
+						evalGuess = goodCaptureBias + MVV*2 - LVA;
+					}
+					else
+					{
+						evalGuess += badCaptureBias + captureSEE;
+					}
 				}
+				
+				moveEvals[i] = evalGuess;
+				continue;
 			}
-			else if (MoveHelper.getPromotedPiece(move) != PieceHelper.NONE)
+
+			if (MoveHelper.getPromotedPiece(move) != PieceHelper.NONE)
 			{
-				evalGuess += promotingBias + PieceHelper.getValue(MoveHelper.getPromotedPiece(move), gamePhase) - PieceHelper.getValue(piece, gamePhase);
+				evalGuess += promotingBias + PieceHelper.getValue(MoveHelper.getPromotedPiece(move), gamePhase)
+						- PieceHelper.getValue(piece, gamePhase);
 			}
 
 			evalGuess -= PieceHelper.getPieceSquareValue(piece, start, gamePhase);
 			evalGuess += PieceHelper.getPieceSquareValue(piece, target, gamePhase);
 
-			if ((enemyPawnAttackMap & (1L << target)) != 0)
-			{
-				evalGuess -= 50; // square is attacked by enemy pawns
-			}
-			else if ((enemyAttackMap & (1L << target)) != 0)
-			{
-				evalGuess -= 25; // square is attacked by some enemy piece
-			}
+			// not a capture move, killers rank below winning captures and killer move
+			// unlikely to be losing capture
+			final boolean isKillerMove = !inQuietSearch && ply < maxKillerDepth && killers[ply].isKiller(move);
+			if (isKillerMove)
+				evalGuess += killerMoveBias;
+			else
+				evalGuess += noBias;
 
-			if (capturedPiece == PieceHelper.NONE) // not a capture move, killers rank below winning captures and killer
-													// move unlikely to be losing capture
-			{
-				final boolean isKillerMove = !inQuietSearch && ply < maxKillerDepth && killers[ply].isKiller(move);
-				if (isKillerMove)
-					evalGuess += killerMoveBias;
-				else
-					evalGuess += noBias;
-
-				// multiply the color index by 64*64 = 2^12 except only shift 9 times because
-				// color index is already shifted left 3 times
-				// then add start square multiplied by 64 = 2^6
-				// then add target square
-				final int index = (PieceHelper.getColor(piece) << 9) | (start << 6) | target;
-				evalGuess += historyHeuristic[index];
-			}
+			// multiply the color index by 64*64 = 2^12 except only shift 9 times because
+			// color index is already shifted left 3 times
+			// then add start square multiplied by 64 = 2^6
+			// then add target square
+			final int index = (PieceHelper.getColor(piece) << 9) | (start << 6) | target;
+			evalGuess += historyHeuristic[index];
 
 			moveEvals[i] = evalGuess;
 		}
@@ -115,6 +121,10 @@ public class MoveOrderer
 		{
 			depth++;
 			gain[depth] = PieceHelper.getValue(piece, mgWeight) - gain[depth - 1];
+
+			if (gain[depth] < 0 && -gain[depth - 1] < 0)
+				break;
+
 			squareAtksDefs ^= fromBitboard;
 			allPieces ^= fromBitboard;
 			if ((xrayPieces & fromBitboard) != 0)
@@ -123,12 +133,14 @@ public class MoveOrderer
 			}
 			color ^= PieceHelper.BLACK_PIECE;
 			fromBitboard = getLeastValuablePiece(board, squareAtksDefs, color);
-			if (fromBitboard != 0) piece = board.squares[Bitboards.getLSB(fromBitboard)];
-
-		} while (fromBitboard != 0);
+			if (fromBitboard != 0)
+				piece = board.squares[Bitboards.getLSB(fromBitboard)];
+		}
+		while (fromBitboard != 0);
 
 		while (depth > 1)
 		{
+
 			depth--;
 			gain[depth - 1] = -Math.max(-gain[depth - 1], gain[depth]);
 		}
@@ -172,12 +184,12 @@ public class MoveOrderer
 		mgPhase += Long
 				.bitCount(board.bitBoards.pieceBoards[PieceHelper.WHITE_ROOK]
 						| board.bitBoards.pieceBoards[PieceHelper.BLACK_ROOK])
-				* PieceHelper.getGamePhaseValue(PieceHelper.QUEEN);
+				* PieceHelper.getGamePhaseValue(PieceHelper.ROOK);
 
 		mgPhase += Long
 				.bitCount(board.bitBoards.pieceBoards[PieceHelper.WHITE_BISHOP]
 						| board.bitBoards.pieceBoards[PieceHelper.BLACK_BISHOP])
-				* PieceHelper.getGamePhaseValue(PieceHelper.QUEEN);
+				* PieceHelper.getGamePhaseValue(PieceHelper.BISHOP);
 
 		if (mgPhase > 24)
 			mgPhase = 24;

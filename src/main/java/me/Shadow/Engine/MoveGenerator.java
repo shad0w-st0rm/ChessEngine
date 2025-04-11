@@ -70,7 +70,7 @@ public class MoveGenerator
 		friendlyColor = board.boardInfo.isWhiteToMove() ? PieceHelper.WHITE_PIECE : PieceHelper.BLACK_PIECE;
 		enemyColor = friendlyColor ^ PieceHelper.BLACK_PIECE;
 		
-		friendlyKingIndex = Bitboards.getLSB(bitBoards.pieceBoards[PieceHelper.KING | friendlyColor]);
+		friendlyKingIndex = Bitboards.getLSB(bitBoards.pieceBoards[PieceHelper.KING + friendlyColor]);
 		
 		inCheck = doubleCheck = false;
 		
@@ -178,7 +178,7 @@ public class MoveGenerator
 	private void generateKnightMoves()
 	{
 		// ignore pinned knights because they are always absolutely pinned
-		long knightsBitboard = bitBoards.pieceBoards[PieceHelper.KNIGHT | friendlyColor] & (~pinRaysMask);
+		long knightsBitboard = bitBoards.pieceBoards[PieceHelper.KNIGHT + friendlyColor] & (~pinRaysMask);
 		while (knightsBitboard != 0)
 		{
 			final int startSquare = Bitboards.getLSB(knightsBitboard);
@@ -204,7 +204,7 @@ public class MoveGenerator
 		final long doublePushTargetRank = (friendlyColor == PieceHelper.WHITE_PIECE) ? FOURTH_RANK : FIFTH_RANK;
 		
 		
-		final long pawnsBitboard = bitBoards.pieceBoards[PieceHelper.PAWN | friendlyColor];
+		final long pawnsBitboard = bitBoards.pieceBoards[PieceHelper.PAWN + friendlyColor];
 		// dont AND with check mask yet because perhaps a double push is legal
 		long singlePushSquares = Bitboards.shift(pawnsBitboard, (direction * 8)) & (~allPiecesBitboard);
 		
@@ -355,34 +355,18 @@ public class MoveGenerator
 	
 	private boolean isEnPassantLegal(final int startSquare, final int captureSquare)
 	{
-		if (friendlyKingIndex / 8 != startSquare / 8) return true; // king is not on same rank
+		if ((friendlyKingIndex >>> 3) != (startSquare >>> 3)) return true; // king is not on same rank
 		
 		final long startSquareBitboard = 1l << startSquare;
 		final long captureSquareBitboard = 1l << captureSquare;
 				
-		long rankMask = (FIRST_RANK << ((friendlyKingIndex / 8) * 8));	// mask of all squares on this rank
+		long rankMask = (FIRST_RANK << (friendlyKingIndex & (~7)));	// mask of all squares on this rank
 		
 		long orthogonalSliders = bitBoards.getOrthogonalSliders(enemyColor) & rankMask;
+		if (orthogonalSliders == 0) return true;
 		
-		while (orthogonalSliders != 0)
-		{
-			final int sliderSquare = Bitboards.getLSB(orthogonalSliders);
-			orthogonalSliders = Bitboards.toggleBit(orthogonalSliders, sliderSquare);
-			
-			// shift bits to clear squares beyond the king or beyond the slider including the slider and king square themselves
-			rankMask = (rankMask << ((Math.min(friendlyKingIndex, sliderSquare) % 8) + 1) & (rankMask >>> (8 - Math.max(friendlyKingIndex, sliderSquare) % 8)));
-			// ignore the two pawns
-			rankMask &= ~(startSquareBitboard | captureSquareBitboard);
-			
-			
-			// if no other piece on the open squares then en passant is illegal
-			if ((rankMask & allPiecesBitboard) == 0)
-			{
-				return false;
-			}
-		}
-		
-		return true;
+		long orthoMoves = PrecomputedMagicNumbers.getRookMoves(friendlyKingIndex, allPiecesBitboard ^ (startSquareBitboard | captureSquareBitboard));
+		return ((orthoMoves & orthogonalSliders) == 0);
 	}
 	
 	public void addMove(final short move)
@@ -398,6 +382,7 @@ public class MoveGenerator
 	private void calculateAllAttacks()
 	{
 		final long enemySlidingAttackMap = calculateSliderAttacks();
+		long kingRays = PrecomputedMagicNumbers.getRookMoves(friendlyKingIndex, allPiecesBitboard) | PrecomputedMagicNumbers.getBishopMoves(friendlyKingIndex, allPiecesBitboard);
 		
 		for (int direction = 0; direction < 8; direction++)
 		{
@@ -411,7 +396,7 @@ public class MoveGenerator
 				continue;
 			}
 			
-			long rayFromKing = PrecomputedMagicNumbers.getSliderMoves(friendlyKingIndex, allPiecesBitboard, !diagonal) & rayDirMask;
+			long rayFromKing = kingRays & rayDirMask;
 			if ((rayFromKing & sliders) != 0)
 			{
 				// first piece between relevant sliders and the king is a relevant checking slider
@@ -483,16 +468,7 @@ public class MoveGenerator
 			doubleCheck = inCheck;
 			inCheck = true;
 			
-			long potentialPawnLocations = 0;
-			// mask out edge files and pretend the king is a pawn to see which squares it could attack
-			if (friendlyColor == PieceHelper.WHITE_PIECE)
-			{
-				potentialPawnLocations = ((kingBitboard & (~A_FILE)) << 7) | ((kingBitboard & (~H_FILE)) << 9);
-			}
-			else
-			{
-				potentialPawnLocations = ((kingBitboard & (~A_FILE)) >>> 9) | ((kingBitboard & (~H_FILE)) >>> 7);
-			}
+			long potentialPawnLocations = PrecomputedData.getPawnCaptures(friendlyKingIndex, friendlyColor);
 			checkRaysMask |= potentialPawnLocations & enemyPawnsBitboard;
 		}
 		

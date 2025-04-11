@@ -4,8 +4,8 @@ public class PrecomputedData
 {
 	public static final long [] KNIGHT_MOVES = new long[64];
 	public static final long [] KING_MOVES = new long[64];
-	public static final long [] PAWN_MOVES = new long[64];
-	public static final long [] PAWN_CAPTURES = new long[64];
+	public static final long [] PAWN_MOVES = new long[64*2];
+	public static final long [] PAWN_CAPTURES = new long[64*2];
 	
 	public static final int[] directionOffsets = {8, -8, -1, 1, 7, -7, 9, -9};
 	
@@ -74,15 +74,15 @@ public class PrecomputedData
 				KING_MOVES[index] |= (1l << targetIndex);
 			}
 			
-			if (index >= 8 && index < 56)
-			{
-				long pawnBitboard = 1L << index;
-				long pawnMoves = pawnBitboard << 8;
-				//pawnMoves |= (pawnMoves << 8) & MoveGenerator.FOURTH_RANK;
-				long pawnAttacks = ((pawnBitboard & (~MoveGenerator.A_FILE)) << 7) | ((pawnBitboard & (~MoveGenerator.H_FILE)) << 9);
-				PAWN_MOVES[index] = pawnMoves;
-				PAWN_CAPTURES[index] = pawnAttacks;
-			}
+			long pawnBitboard = 1L << index;
+			long pawnMovesWhite = pawnBitboard << 8;
+			long pawnMovesBlack = pawnBitboard >>> 8;
+			long pawnAttacksWhite = ((pawnBitboard & (~MoveGenerator.A_FILE)) << 7) | ((pawnBitboard & (~MoveGenerator.H_FILE)) << 9);
+			long pawnAttacksBlack = ((pawnBitboard & (~MoveGenerator.A_FILE)) >>> 9) | ((pawnBitboard & (~MoveGenerator.H_FILE)) >>> 7);
+			PAWN_MOVES[index * 2] = pawnMovesWhite;
+			PAWN_MOVES[index * 2 + PieceHelper.BLACK_PIECE] = pawnMovesBlack;
+			PAWN_CAPTURES[index * 2] = pawnAttacksWhite;
+			PAWN_CAPTURES[index * 2 + PieceHelper.BLACK_PIECE] = pawnAttacksBlack;
 		}
 		
 		// ray direction mask
@@ -135,39 +135,12 @@ public class PrecomputedData
 	
 	public static long getPawnMoves(int index, int color)
 	{
-		if (color == PieceHelper.WHITE_PIECE)
-		{
-			return PAWN_MOVES[index];
-		}
-		else
-		{
-			return PAWN_MOVES[index^56]^56;
-		}
-	}
-	
-	public static long getDoublePawnPush(int index, int color)
-	{
-		index = index >> 8;
-		if (color == PieceHelper.WHITE_PIECE)
-		{
-			return PAWN_MOVES[index];
-		}
-		else
-		{
-			return PAWN_MOVES[index^56]^56;
-		}
+		return PAWN_MOVES[index * 2 + color];
 	}
 	
 	public static long getPawnCaptures(int index, int color)
 	{
-		if (color == PieceHelper.WHITE_PIECE)
-		{
-			return PAWN_CAPTURES[index];
-		}
-		else
-		{
-			return PAWN_CAPTURES[index^56]^56;
-		}
+		return PAWN_CAPTURES[index * 2 + color];
 	}
 	
 	public static void printRayDirectionMask(int dir)

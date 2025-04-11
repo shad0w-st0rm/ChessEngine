@@ -65,7 +65,7 @@ public class MoveSearcher
 		// checkmate/stalemate
 		if (moves.length == 0) return moveGen.inCheck ? negativeInfinity : 0;
 		
-		final int[] scores = moveOrderer.guessMoveEvals(board, moves, bestMove, moveGen.enemyAttackMap, moveGen.enemyPawnAttackMap, false, 0);
+		final int[] scores = moveOrderer.guessMoveEvals(board, moves, bestMove, false, 0);
 		
 		int bound = TranspositionTable.UPPER_BOUND;
 		final int length = moves.length;
@@ -176,7 +176,7 @@ public class MoveSearcher
 		if (moves.length == 0) return moveGen.inCheck ? negativeInfinity : 0;
 		
 		// ensure the potentially first searched move gets boosted to top with highest score
-		final int[] scores = moveOrderer.guessMoveEvals(board, moves, bestMoveInPosition, moveGen.enemyAttackMap, moveGen.enemyPawnAttackMap, false, plyFromRoot);
+		final int[] scores = moveOrderer.guessMoveEvals(board, moves, bestMoveInPosition, false, plyFromRoot);
 		// push the first searched move to the top (guaranteed to be highest score)
 		if (searchedFirst) MoveOrderer.singleSelectionSort(moves, scores, 0);
 		
@@ -303,7 +303,7 @@ public class MoveSearcher
 		
 		final short [] moves = moveGen.generateMoves(true);
 		
-		final int [] scores = moveOrderer.guessMoveEvals(board, moves, MoveHelper.NULL_MOVE, moveGen.enemyAttackMap, moveGen.enemyPawnAttackMap, true, 0);
+		final int [] scores = moveOrderer.guessMoveEvals(board, moves, MoveHelper.NULL_MOVE, true, 0);
 		
 		final int length = moves.length;
 		for (int i = 0; i < length; i++)
