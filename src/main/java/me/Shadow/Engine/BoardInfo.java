@@ -8,7 +8,6 @@ public class BoardInfo
 	public static final long BLACK_KING_CASTLING = 0b100;
 	public static final long BLACK_QUEEN_CASTLING = 0b1000;
 	
-	private boolean whiteToMove;	// 1 bit
 	private byte castlingRightsByte;	// 4 bits
 	private int enPassantIndex;		//4 bits (could be done in 3)
 	
@@ -21,10 +20,10 @@ public class BoardInfo
 	private ArrayList<Long> positionList = new ArrayList<Long>();
 	//private ArrayList<Short> moveList = new ArrayList<Short>();
 	private long zobristHash;
+	private long pawnsHash;
 		
 	public BoardInfo()
 	{
-		whiteToMove = true;
 		enPassantIndex = -1;
 		moveNum = 0;
 		halfMoves = 0;
@@ -32,7 +31,6 @@ public class BoardInfo
 	
 	public BoardInfo(BoardInfo boardInfoCopy)
 	{
-		whiteToMove = boardInfoCopy.whiteToMove;
 		castlingRightsByte = boardInfoCopy.castlingRightsByte;
 		enPassantIndex = boardInfoCopy.enPassantIndex;
 		whiteMGBonus = boardInfoCopy.whiteMGBonus;
@@ -44,18 +42,33 @@ public class BoardInfo
 		positionList = boardInfoCopy.positionList;
 		//moveList = boardInfoCopy.moveList;
 		zobristHash = boardInfoCopy.zobristHash;
+		pawnsHash = boardInfoCopy.pawnsHash;
 	}
 	
-	public boolean isWhiteToMove() { return whiteToMove; }
 	public byte getCastlingRights()
 	{
 		return castlingRightsByte;
 	}
 	public int getEnPassantIndex() { return enPassantIndex; }
-	public int getWhiteMGBonus() { return whiteMGBonus; }
-	public int getWhiteEGBonus() { return whiteEGBonus; }
-	public int getBlackMGBonus() { return blackMGBonus; }
-	public int getBlackEGBonus() { return blackEGBonus; }
+	public int getMaterialBonus(int color, boolean endgame)
+	{
+		if (!endgame) return color == PieceHelper.WHITE_PIECE ? whiteMGBonus : blackMGBonus;
+		else return color == PieceHelper.WHITE_PIECE ? whiteEGBonus : blackEGBonus;
+	}
+	
+	public void setMaterialBonus(int color, boolean endgame, int value)
+	{
+		if (!endgame)
+		{
+			if (color == PieceHelper.WHITE_PIECE) whiteMGBonus = value;
+			else blackMGBonus = value;
+		}
+		else
+		{
+			if (color == PieceHelper.WHITE_PIECE) whiteEGBonus = value;
+			else blackEGBonus = value;
+		}
+	}
 	
 	public int getMoveNum() { return moveNum; }
 	public void incrementMoveNum()
@@ -79,17 +92,14 @@ public class BoardInfo
 	public ArrayList<Long> getPositionList() { return positionList; }
 	//public ArrayList<Short> getMoveList() { return moveList; }
 	public long getZobristHash() { return zobristHash; }
+	public long getPawnsHash() { return pawnsHash; }
 	
-	public void setWhiteToMove(boolean whiteToMoveIn) { whiteToMove = whiteToMoveIn; }
 	public void setCastlingRights(byte castlingRightsIn)
 	{
 		castlingRightsByte = castlingRightsIn;
 	}
 	public void setEnPassantIndex(int enPassantIndexIn) { enPassantIndex = enPassantIndexIn; }
-	public void setWhiteMGBonus(int whiteMGBonusIn) { whiteMGBonus = whiteMGBonusIn; }
-	public void setWhiteEGBonus(int whiteEGBonusIn) { whiteEGBonus = whiteEGBonusIn; }
-	public void setBlackMGBonus(int blackMGBonusIn) { blackMGBonus = blackMGBonusIn; }
-	public void setBlackEGBonus(int blackEGBonusIn) { blackEGBonus = blackEGBonusIn; }
 	public void setPositionList(ArrayList<Long> positionListIn) { positionList = positionListIn; }
 	public void setZobristHash(long zobristIn) { zobristHash = zobristIn; }
+	public void setPawnsHash(long pawnsIn) { pawnsHash = pawnsIn; }
 }

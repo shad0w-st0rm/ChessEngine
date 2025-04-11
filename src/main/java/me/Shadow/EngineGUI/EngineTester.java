@@ -102,7 +102,8 @@ public class EngineTester
 	}
 
 	public void runTournament(String[] engineOneParams, String[] engineTwoParams, int thinkTimeMS, int numGames,
-			int numThreads, String positionsFilePath, String pgnOutputPath) throws IOException, InterruptedException, ExecutionException
+			int numThreads, String positionsFilePath, String pgnOutputPath)
+			throws IOException, InterruptedException, ExecutionException
 	{
 		ArrayList<String> positions = getPositionsFromFile(positionsFilePath);
 		Collections.shuffle(positions, new Random(123456));
@@ -112,34 +113,34 @@ public class EngineTester
 
 		ExecutorService executor = Executors.newFixedThreadPool(numThreads);
 		List<Callable<List<GameResult>>> runMatchThreads = new ArrayList<>();
-		
+
 		for (int i = 0; i < numThreads; i++)
 		{
 			// choose selected positions for this match
 			ArrayList<String> selectedPositions = new ArrayList<String>();
 			positions.subList(i * numGamesPerThread, (i + 1) * numGamesPerThread).forEach(selectedPositions::add);
-			int threadID = i+1;
-			
-			Callable<List<GameResult>> runMatchThread = () -> {
-				List<GameResult> matchResults = runMatch(engineOneParams, engineTwoParams, thinkTimeMS, selectedPositions, threadID);
+			int threadID = i + 1;
+
+			Callable<List<GameResult>> runMatchThread = () ->
+			{
+				List<GameResult> matchResults = runMatch(engineOneParams, engineTwoParams, thinkTimeMS,
+						selectedPositions, threadID);
 				return matchResults;
 			};
 			runMatchThreads.add(runMatchThread);
 		}
-		
+
 		List<Future<List<GameResult>>> matchThreadResults = executor.invokeAll(runMatchThreads);
-		
+
 		for (Future<List<GameResult>> matchThreadResult : matchThreadResults)
 		{
 			tournamentResults.addAll(matchThreadResult.get());
 		}
-		
+
 		executor.shutdown();
 
 		writeResults(tournamentResults, pgnOutputPath);
 	}
-
-	
 
 	public List<GameResult> runMatch(String[] engineOneParams, String[] engineTwoParams, int thinkTimeMS,
 			ArrayList<String> positions, int thread)
@@ -151,9 +152,9 @@ public class EngineTester
 		{
 			engineOne = initializeEngine(engineOneParams[0], engineOneParams[1]);
 			engineTwo = initializeEngine(engineTwoParams[0], engineTwoParams[1]);
-			
-			Thread.sleep((long) (Math.random()*2000));
-			
+
+			Thread.sleep((long) (Math.random() * 2000));
+
 			List<GameResult> gameResults = runMatch(engineOne, engineTwo, thinkTimeMS, positions, thread);
 			return gameResults;
 		}
@@ -197,16 +198,17 @@ public class EngineTester
 		// Set up a new game
 		Board board = new Board(fenPosition);
 		MoveGenerator moveGen = new MoveGenerator(board);
-		
+
 		List<String> movesList = new ArrayList<String>();
 		int originalMoveNum = board.boardInfo.getMoveNum();
 
-		boolean whiteToMove = board.boardInfo.isWhiteToMove();
+		// boolean whiteToMove = board.boardInfo.isWhiteToMove();
+		int colorToMove = board.colorToMove;
 		GameOverReason reason = null;
 		String result = "";
 		float whitePoints = 0;
 		float blackPoints = 0;
-				
+
 		engineWhite.sendCommand("ucinewgame");
 		engineBlack.sendCommand("ucinewgame");
 
@@ -214,16 +216,16 @@ public class EngineTester
 		boolean success = engineWhite.waitForResponse("readyok", 100);
 		engineBlack.sendCommand("isready");
 		success = success && engineBlack.waitForResponse("readyok", 100);
-		
+
 		if (!success)
 		{
 			throw new IOException("Engine non responsive during game setup!");
 		}
-		
+
 		engineWhite.sendCommand("position fen " + fenPosition);
 		engineBlack.sendCommand("position fen " + fenPosition);
-		
-		EnginePlayer currentPlayer = whiteToMove ? engineWhite : engineBlack;
+
+		EnginePlayer currentPlayer = colorToMove == PieceHelper.WHITE_PIECE ? engineWhite : engineBlack;
 
 		while (true)
 		{
@@ -232,8 +234,8 @@ public class EngineTester
 			{
 				if (reason == GameOverReason.WHITE_CHECKMATED || reason == GameOverReason.BLACK_CHECKMATED)
 				{
-					result = whiteToMove ? "0-1" : "1-0";
-					whitePoints = whiteToMove ? 0 : 1;
+					result = colorToMove == PieceHelper.WHITE_PIECE ? "0-1" : "1-0";
+					whitePoints = colorToMove == PieceHelper.WHITE_PIECE ? 0 : 1;
 					blackPoints = 1 - whitePoints;
 				}
 				else
@@ -248,7 +250,7 @@ public class EngineTester
 			currentPlayer.sendCommand("go movetime " + thinkTimeMS);
 
 			// Wait for the best move response
-			String bestMove = currentPlayer.waitForBestMove(thinkTimeMS*10);
+			String bestMove = currentPlayer.waitForBestMove(thinkTimeMS * 10);
 			movesList.add(bestMove);
 
 			short move = Utils.getMoveFromUCINotation(board, bestMove);
@@ -266,8 +268,8 @@ public class EngineTester
 			engineBlack.sendCommand("move " + bestMove);
 			// System.out.println("Move played: " + bestMove);
 
-			whiteToMove = board.boardInfo.isWhiteToMove();
-			currentPlayer = whiteToMove ? engineWhite : engineBlack;
+			colorToMove = board.colorToMove;
+			currentPlayer = colorToMove == PieceHelper.WHITE_PIECE ? engineWhite : engineBlack;
 		}
 
 		String pgn = createPGN(thread, round, engineWhite.getName(), engineBlack.getName(), result, reason, fenPosition,
@@ -294,7 +296,7 @@ public class EngineTester
 		// Tell engines to be ready
 		engine.sendCommand("isready");
 		success = success && engine.waitForResponse("readyok", 100);
-		
+
 		if (!success)
 		{
 			throw new IOException("Engine non responsive during initialization!");
@@ -324,8 +326,10 @@ public class EngineTester
 		short[] moves = moveGen.generateMoves(false);
 		if (moves.length == 0)
 		{
-			return moveGen.inCheck ? (board.boardInfo.isWhiteToMove() ? GameOverReason.WHITE_CHECKMATED
-					: GameOverReason.BLACK_CHECKMATED) : GameOverReason.STALEMATE;
+			return moveGen.inCheck
+					? (board.colorToMove == PieceHelper.WHITE_PIECE ? GameOverReason.WHITE_CHECKMATED
+							: GameOverReason.BLACK_CHECKMATED)
+					: GameOverReason.STALEMATE;
 		}
 		else if (board.boardInfo.getHalfMoves() >= 100)
 		{
@@ -395,7 +399,7 @@ public class EngineTester
 		else
 			return false;
 	}
-	
+
 	public void writeResults(List<GameResult> results, String pgnOutputPath) throws IOException
 	{
 		HashMap<EnginePlayer, Float> points = new HashMap<EnginePlayer, Float>();
@@ -430,8 +434,8 @@ public class EngineTester
 		pgnWriter.close();
 	}
 
-	private String createPGN(int thread, int round, String whiteName, String blackName, String result, GameOverReason reason,
-			String startingFEN, int moveNum, List<String> moves)
+	private String createPGN(int thread, int round, String whiteName, String blackName, String result,
+			GameOverReason reason, String startingFEN, int moveNum, List<String> moves)
 	{
 		String header = "[Round \"" + thread + "." + round + "\"]\n";
 		header += "[White \"" + whiteName + "\"]\n";
@@ -552,7 +556,7 @@ public class EngineTester
 					return true;
 				}
 			}
-			
+
 			return false;
 		}
 

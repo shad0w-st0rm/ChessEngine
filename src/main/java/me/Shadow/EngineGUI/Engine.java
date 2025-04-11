@@ -17,7 +17,7 @@ public class Engine
 
 	boolean engineSearching;
 	boolean playerMoveMade;
-	boolean engineIsWhite;
+	int engineColor;
 	int searchTime;
 	String originalFEN;
 
@@ -34,7 +34,7 @@ public class Engine
 		// originalFEN = "3r4/8/3k4/8/8/3K4/8/8 w - - 0 1"; //white king vs black king + rook
 		// originalFEN = "8/7k/4p3/2p1P2p/2P1P2P/8/8/7K w - - 0 1"; // king and pawns vs king and pawns
 		
-		engineIsWhite = false;
+		engineColor = PieceHelper.BLACK_PIECE;
 		searchTime = 1000;
 	}
 
@@ -68,7 +68,7 @@ public class Engine
 		gui.createGui(this);
 		
 		board = new Board(originalFEN);
-		playerMoveMade = (engineIsWhite == board.boardInfo.isWhiteToMove());
+		playerMoveMade = (engineColor == board.colorToMove);
 		enginePlayer = new Player(new Board(originalFEN));
 	}
 	
@@ -143,7 +143,7 @@ public class Engine
 	public void makeMove(short move)
 	{
 		System.out.print(board.boardInfo.getMoveNum() + ". ");
-		if(!board.boardInfo.isWhiteToMove()) System.out.print("...");
+		if(board.colorToMove == PieceHelper.BLACK_PIECE) System.out.print("...");
 		System.out.println(MoveHelper.toString(move));
 				
 		board.movePiece(move);
@@ -181,7 +181,7 @@ public class Engine
 		if (moveGen.generateMoves(false).length == 0)
 		{
 			if (moveGen.inCheck)
-				gui.message.setText("Game Over! " + (board.boardInfo.isWhiteToMove() ? "Black" : "White") + " wins by checkmate!");
+				gui.message.setText("Game Over! " + (board.colorToMove == PieceHelper.WHITE_PIECE ? "Black" : "White") + " wins by checkmate!");
 			else
 				gui.message.setText("Game Over! " + "Draw by Stalemate!");
 			return true;

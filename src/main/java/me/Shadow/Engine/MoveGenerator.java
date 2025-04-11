@@ -67,7 +67,7 @@ public class MoveGenerator
 	
 	private void analyzePosition()
 	{
-		friendlyColor = board.boardInfo.isWhiteToMove() ? PieceHelper.WHITE_PIECE : PieceHelper.BLACK_PIECE;
+		friendlyColor = board.colorToMove;
 		enemyColor = friendlyColor ^ PieceHelper.BLACK_PIECE;
 		
 		friendlyKingIndex = Bitboards.getLSB(bitBoards.pieceBoards[PieceHelper.KING + friendlyColor]);

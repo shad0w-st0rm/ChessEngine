@@ -26,7 +26,6 @@ public class TranspositionTable
 	static final int DEPTH_MASK = 0x3F;
 	static final int BOUND_MASK = 0x3;
 	static final int EVAL_MASK = 0x7FFF;
-	static final int POSITION_MASK = DEPTH_MASK | BOUND_MASK | EVAL_MASK;
 	static final long PARTIAL_KEY_MASK = 0x1FFFFFFFFFFL;
 	
 	static final int DEPTH_SHIFT = 41;
@@ -38,6 +37,11 @@ public class TranspositionTable
 	static final int DEPTH_INDEX = 1;
 	static final int BOUND_INDEX = 2;
 	static final int MOVE_INDEX = 3;
+	
+	static final long PAWNS_KEY_MASK = 0x000FFFFFFFFFFFFFL;
+	static final long PAWNS_INDEX_MASK = 0xFFF;
+	static final int PAWNS_EVAL_SHIFT = 52;
+	static final int PAWNS_ZOBRIST_SHIFT = 64 - PAWNS_EVAL_SHIFT;
 
 	// 23 highest order bits represent the transposition
 	// 		first 15 bits is the evaluation
@@ -54,6 +58,8 @@ public class TranspositionTable
 	//		final 4 bits is the castling mask
 	// last 15 bits represent the move
 	int [] moveTable;
+	
+	long [] pawnsTable;
 
 	long size;
 	long indexBitMask = 0;
@@ -88,6 +94,7 @@ public class TranspositionTable
 				break;
 			}
 		}
+		pawnsTable = new long[1 << 12];
 	}
 	
 	public void clearTable()
@@ -130,6 +137,18 @@ public class TranspositionTable
 		}
 		
 		return null;
+	}
+	
+	public int getPawnsEval(long pawnsKey)
+	{
+		int index = (int)(pawnsKey & PAWNS_INDEX_MASK);
+		long entry = pawnsTable[index];
+		if ((entry & PAWNS_KEY_MASK) == (pawnsKey >>> PAWNS_ZOBRIST_SHIFT))
+		{
+			int evaluation = (int) (entry >> PAWNS_EVAL_SHIFT); // take advantage of sign extending here
+			return evaluation;
+		}
+		return LOOKUP_FAILED;
 	}
 	
 	public void storeEvaluation(long zobristKey, int evaluation, int depth, int bound, short move, int obsoleteFlag)
@@ -175,5 +194,13 @@ public class TranspositionTable
 
 		positionTable[index] = posEntry;
 		moveTable[index] = moveEntry;
+	}
+	
+	public void storePawnsEvaluation(long pawnsKey, int evaluation)
+	{
+		int index = (int)(pawnsKey & PAWNS_INDEX_MASK);
+		long pawnsEntry = ((long)evaluation) << PAWNS_EVAL_SHIFT;
+		pawnsEntry |= (pawnsKey >>> PAWNS_ZOBRIST_SHIFT);
+		pawnsTable[index] = pawnsEntry;
 	}
 }

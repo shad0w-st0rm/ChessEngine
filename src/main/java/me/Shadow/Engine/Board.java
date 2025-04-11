@@ -13,6 +13,7 @@ public class Board
 	public Bitboards bitBoards;
 	public int[] squares = new int[64];
 	public BoardInfo boardInfo;
+	public int colorToMove;
 
 	boolean cachedCheckValue = false;
 	boolean isCachedCheckValid = false;
@@ -47,13 +48,11 @@ public class Board
 
 	boolean isInCheck()
 	{
+		int enemyColor = colorToMove ^ PieceHelper.BLACK_PIECE;
 
-		int friendlyColor = boardInfo.isWhiteToMove() ? PieceHelper.WHITE_PIECE : PieceHelper.BLACK_PIECE;
-		int enemyColor = friendlyColor ^ PieceHelper.BLACK_PIECE;
+		int friendlyKingIndex = Bitboards.getLSB(bitBoards.pieceBoards[PieceHelper.KING | colorToMove]);
 
-		int friendlyKingIndex = Bitboards.getLSB(bitBoards.pieceBoards[PieceHelper.KING | friendlyColor]);
-
-		long friendlyPiecesBitboard = bitBoards.colorBoards[friendlyColor];
+		long friendlyPiecesBitboard = bitBoards.colorBoards[colorToMove];
 		long enemyPiecesBitboard = bitBoards.colorBoards[enemyColor];
 		long allPiecesBitboard = friendlyPiecesBitboard | enemyPiecesBitboard;
 
@@ -73,7 +72,7 @@ public class Board
 		if ((PrecomputedData.KNIGHT_MOVES[friendlyKingIndex] & enemyKnightsBitboard) != 0)
 			return true;
 
-		long potentialPawnLocations = PrecomputedData.getPawnCaptures(friendlyKingIndex, friendlyColor);
+		long potentialPawnLocations = PrecomputedData.getPawnCaptures(friendlyKingIndex, colorToMove);
 		long enemyPawnsBitboard = bitBoards.pieceBoards[PieceHelper.PAWN | enemyColor];
 
 		if ((potentialPawnLocations & enemyPawnsBitboard) != 0)
@@ -95,21 +94,23 @@ public class Board
 		final int capturedPiece = squares[captureIndex];
 
 		long zobristHash = boardInfo.getZobristHash();
+		long pawnsHash = boardInfo.getPawnsHash();
 
-		boolean whiteToMove = boardInfo.isWhiteToMove();
-		int friendlyMGPieceBonus = whiteToMove ? boardInfo.getWhiteMGBonus() : boardInfo.getBlackMGBonus();
-		int friendlyEGPieceBonus = whiteToMove ? boardInfo.getWhiteEGBonus() : boardInfo.getBlackEGBonus();
-		int enemyMGPieceBonus = !whiteToMove ? boardInfo.getWhiteMGBonus() : boardInfo.getBlackMGBonus();
-		int enemyEGPieceBonus = !whiteToMove ? boardInfo.getWhiteEGBonus() : boardInfo.getBlackEGBonus();
+		int color = colorToMove;
+		int enemyColor = color ^ PieceHelper.BLACK_PIECE;
+		int friendlyMGPieceBonus = boardInfo.getMaterialBonus(color, false);
+		int friendlyEGPieceBonus = boardInfo.getMaterialBonus(color, true);
+		int enemyMGPieceBonus = boardInfo.getMaterialBonus(enemyColor, false);
+		int enemyEGPieceBonus = boardInfo.getMaterialBonus(enemyColor, true);
 
 		// update boardInfo information
-		boardInfo.setWhiteToMove(!boardInfo.isWhiteToMove());
+		colorToMove ^= PieceHelper.BLACK_PIECE;
 		zobristHash ^= zobristHashes[768]; // flip side to move
 
 		boardInfo.incrementHalfMoves();
 		if (PieceHelper.getPieceType(piece) == PieceHelper.PAWN)
 			boardInfo.setHalfMoves(0); // reset half moves for 50 move rule
-		if (PieceHelper.isColor(piece, PieceHelper.BLACK_PIECE))
+		if (color == PieceHelper.BLACK_PIECE)
 			boardInfo.incrementMoveNum();
 
 		if (boardInfo.getEnPassantIndex() != -1)
@@ -128,9 +129,10 @@ public class Board
 			bitBoards.toggleSquare(capturedPiece, captureIndex);
 			// bitBoards.setAttacksFrom(captureIndex, 0);
 
-			zobristHash ^= zobristHashes[(captureIndex * 12 + PieceHelper.getZobristOffset(capturedPiece))]; // remove
-																												// captured
-																												// piece
+			// remove captured piece
+			zobristHash ^= zobristHashes[(captureIndex * 12 + PieceHelper.getZobristOffset(capturedPiece))];
+			if (PieceHelper.getPieceType(capturedPiece) == PieceHelper.PAWN)
+				pawnsHash ^= zobristHashes[(captureIndex * 12 + PieceHelper.getZobristOffset(capturedPiece))];
 
 			enemyMGPieceBonus -= PieceHelper.getPieceSquareValue(capturedPiece, captureIndex, false);
 			enemyEGPieceBonus -= PieceHelper.getPieceSquareValue(capturedPiece, captureIndex, true);
@@ -151,10 +153,9 @@ public class Board
 			// bitBoards.setAttacksFrom(rookStart, 0);
 			// bitBoards.createAttacksFrom(rookTarget, rook);
 
-			zobristHash ^= zobristHashes[(rookStart * 12 + PieceHelper.getZobristOffset(rook))]; // remove rook from
-																									// start square
-			zobristHash ^= zobristHashes[(rookTarget * 12 + PieceHelper.getZobristOffset(rook))]; // add rook to target
-																									// square
+			// remove rook from start square, add rook to target square
+			zobristHash ^= zobristHashes[(rookStart * 12 + PieceHelper.getZobristOffset(rook))];
+			zobristHash ^= zobristHashes[(rookTarget * 12 + PieceHelper.getZobristOffset(rook))];
 
 			friendlyMGPieceBonus += PieceHelper.getPieceSquareValue(rook, rookTarget, false)
 					- PieceHelper.getPieceSquareValue(rook, rookStart, false);
@@ -165,20 +166,19 @@ public class Board
 		}
 		else if (MoveHelper.getPromotedPiece(move) != 0) // if move is promotion
 		{
-			// update material
-
+			// remove old peice from target square
 			bitBoards.toggleSquare(piece, start);
-			zobristHash ^= zobristHashes[(start * 12 + PieceHelper.getZobristOffset(piece))]; // remove old piece from
-																								// target square
+			zobristHash ^= zobristHashes[(start * 12 + PieceHelper.getZobristOffset(piece))];
+			pawnsHash ^= zobristHashes[(start * 12 + PieceHelper.getZobristOffset(piece))]; // always pawn promoting
 
 			friendlyMGPieceBonus -= PieceHelper.getPieceSquareValue(piece, start, false);
 			friendlyEGPieceBonus -= PieceHelper.getPieceSquareValue(piece, start, true);
 
 			piece = (MoveHelper.getPromotedPiece(move) | PieceHelper.getColor(piece));
 
+			// add promoted piece to target square
 			bitBoards.toggleSquare(piece, start);
-			zobristHash ^= zobristHashes[(start * 12 + PieceHelper.getZobristOffset(piece))]; // add promoted piece to
-																								// target square
+			zobristHash ^= zobristHashes[(start * 12 + PieceHelper.getZobristOffset(piece))];
 
 			friendlyMGPieceBonus += PieceHelper.getPieceSquareValue(piece, start, false);
 			friendlyEGPieceBonus += PieceHelper.getPieceSquareValue(piece, start, true);
@@ -218,9 +218,15 @@ public class Board
 		// bitBoards.setAttacksFrom(start, 0);
 		// bitBoards.createAttacksFrom(target, piece);
 
-		zobristHash ^= zobristHashes[(start * 12 + PieceHelper.getZobristOffset(piece))]; // remove piece from start
-																							// square
-		zobristHash ^= zobristHashes[(target * 12 + PieceHelper.getZobristOffset(piece))]; // add piece to target square
+		// remove piece from start square, add piece to target square
+		zobristHash ^= zobristHashes[(start * 12 + PieceHelper.getZobristOffset(piece))];
+		zobristHash ^= zobristHashes[(target * 12 + PieceHelper.getZobristOffset(piece))];
+		
+		if (PieceHelper.getPieceType(piece) == PieceHelper.PAWN)
+		{
+			pawnsHash ^= zobristHashes[(start * 12 + PieceHelper.getZobristOffset(piece))];
+			pawnsHash ^= zobristHashes[(target * 12 + PieceHelper.getZobristOffset(piece))];
+		}
 
 		friendlyMGPieceBonus += PieceHelper.getPieceSquareValue(piece, target, false)
 				- PieceHelper.getPieceSquareValue(piece, start, false);
@@ -228,12 +234,13 @@ public class Board
 				- PieceHelper.getPieceSquareValue(piece, start, true);
 
 		boardInfo.setZobristHash(zobristHash); // set the hash
+		boardInfo.setPawnsHash(pawnsHash);
 		boardInfo.getPositionList().add(zobristHash);
 
-		boardInfo.setWhiteMGBonus(whiteToMove ? friendlyMGPieceBonus : enemyMGPieceBonus);
-		boardInfo.setWhiteEGBonus(whiteToMove ? friendlyEGPieceBonus : enemyEGPieceBonus);
-		boardInfo.setBlackMGBonus(!whiteToMove ? friendlyMGPieceBonus : enemyMGPieceBonus);
-		boardInfo.setBlackEGBonus(!whiteToMove ? friendlyEGPieceBonus : enemyEGPieceBonus);
+		boardInfo.setMaterialBonus(color, false, friendlyMGPieceBonus);
+		boardInfo.setMaterialBonus(color, true, friendlyEGPieceBonus);
+		boardInfo.setMaterialBonus(enemyColor, false, enemyMGPieceBonus);
+		boardInfo.setMaterialBonus(enemyColor, true, enemyEGPieceBonus);
 
 		isCachedCheckValid = false;
 
@@ -243,6 +250,7 @@ public class Board
 	public void moveBack(final short move, final int captured, final BoardInfo boardInfoOld)
 	{
 		boardInfo = boardInfoOld; // replace current BoardInfo object with the old BoardInfo object
+		colorToMove ^= PieceHelper.BLACK_PIECE;
 		boardInfo.getPositionList().removeLast(); // remove the most recent position
 
 		final int start = MoveHelper.getStartIndex(move);
@@ -312,7 +320,7 @@ public class Board
 			}
 		}
 
-		if (!boardInfo.isWhiteToMove())
+		if (colorToMove == PieceHelper.BLACK_PIECE)
 			zobristHash ^= zobristHashes[768];
 
 		byte castlingRights = boardInfo.getCastlingRights();
@@ -329,6 +337,21 @@ public class Board
 			zobristHash ^= zobristHashes[773 + (boardInfo.getEnPassantIndex() % 8)];
 
 		return zobristHash;
+	}
+	
+	public long createPawnsHash()
+	{
+		long pawnsHash = 0;
+		for (int i = 0; i < 64; i++)
+		{
+			int piece = squares[i];
+			if (piece != PieceHelper.NONE && PieceHelper.getPieceType(piece) == PieceHelper.PAWN)
+			{
+				pawnsHash ^= zobristHashes[(i * 12 + PieceHelper.getZobristOffset(piece))];
+			}
+		}
+		
+		return pawnsHash;
 	}
 
 	/**
@@ -399,7 +422,8 @@ public class Board
 		{
 			String string = fenInfo[i].trim();
 			if (i == 1)
-				boardInfo.setWhiteToMove(string.equals("w")); // sets color to move
+				colorToMove = string.equals("w") ? PieceHelper.WHITE_PIECE : PieceHelper.BLACK_PIECE; // sets color to
+																										// move
 			else if (i == 2) // checks castling rights
 			{
 				byte castlingRights = 0;
@@ -442,6 +466,7 @@ public class Board
 		}
 
 		boardInfo.setZobristHash(createZobristHash());
+		boardInfo.setPawnsHash(createPawnsHash());
 		boardInfo.getPositionList().add(boardInfo.getZobristHash());
 
 		int whiteMGBonus = 0;
@@ -466,10 +491,10 @@ public class Board
 			}
 		}
 
-		boardInfo.setWhiteMGBonus(whiteMGBonus);
-		boardInfo.setWhiteEGBonus(whiteEGBonus);
-		boardInfo.setBlackMGBonus(blackMGBonus);
-		boardInfo.setBlackEGBonus(blackEGBonus);
+		boardInfo.setMaterialBonus(PieceHelper.WHITE_PIECE, false, whiteMGBonus);
+		boardInfo.setMaterialBonus(PieceHelper.WHITE_PIECE, true, whiteEGBonus);
+		boardInfo.setMaterialBonus(PieceHelper.BLACK_PIECE, false, blackMGBonus);
+		boardInfo.setMaterialBonus(PieceHelper.BLACK_PIECE, true, blackEGBonus);
 
 		if (bitBoards == null)
 			bitBoards = new Bitboards(this);
@@ -529,7 +554,7 @@ public class Board
 		for (String string : rows)
 			newFEN += string;
 
-		newFEN += " " + (boardInfo.isWhiteToMove() ? "w" : "b") + " "; // color to move
+		newFEN += " " + (colorToMove == PieceHelper.WHITE_PIECE ? "w" : "b") + " "; // color to move
 		byte castlingRights = boardInfo.getCastlingRights(); // set castling rights
 		if ((castlingRights & BoardInfo.WHITE_KING_CASTLING) != 0)
 			newFEN += "K";

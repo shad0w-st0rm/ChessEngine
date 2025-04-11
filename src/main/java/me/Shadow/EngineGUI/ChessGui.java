@@ -190,7 +190,7 @@ public class ChessGui
 		/*
 		 * fill the chess board
 		 */
-		if (!engine.engineIsWhite)
+		if (engine.engineColor != PieceHelper.WHITE_PIECE)
 		{
 			for (int i = 7; i >= 0; i--)
 			{
@@ -322,7 +322,7 @@ public class ChessGui
 				return;
 			}
 
-			if ((engine.board.boardInfo.isWhiteToMove() != engine.engineIsWhite) && !engine.engineSearching && (chessBoardSquares[row][col].getBackground() == darkRed || chessBoardSquares[row][col].getBackground() == lightRed))
+			if ((engine.board.colorToMove != engine.engineColor) && !engine.engineSearching && (chessBoardSquares[row][col].getBackground() == darkRed || chessBoardSquares[row][col].getBackground() == lightRed))
 			{
 				pieceMove = MoveHelper.NULL_MOVE;
 				for (short move2 : engine.movesOld)
@@ -346,7 +346,7 @@ public class ChessGui
 			if (!moveMade && !engine.engineSearching)
 			{
 				int piece = engine.board.squares[index];
-				if (piece != PieceHelper.NONE && PieceHelper.isColor(piece, PieceHelper.WHITE_PIECE) != engine.engineIsWhite)
+				if (piece != PieceHelper.NONE && PieceHelper.getColor(piece) != engine.engineColor)
 				{
 					short [] movesArray = (new MoveGenerator(engine.board)).generateMoves(false);
 					movesArray = Arrays.copyOf(movesArray, movesArray.length);
@@ -416,7 +416,7 @@ public class ChessGui
 					engine.board.loadFEN(engine.originalFEN);
 					engine.engineSearching = false;
 					//engine.transpositions.clear();
-					engine.playerMoveMade = engine.engineIsWhite == engine.board.boardInfo.isWhiteToMove();
+					engine.playerMoveMade = (engine.engineColor == engine.board.colorToMove);
 					updatePieces();
 				}
 			}

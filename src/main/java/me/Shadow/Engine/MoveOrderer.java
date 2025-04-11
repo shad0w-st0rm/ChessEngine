@@ -6,7 +6,7 @@ public class MoveOrderer
 {
 	public static final int million = 1000000;
 	public static final int maxMoveBias = 10 * million;
-	public static final int firstMoveBias = 5 * million;
+	public static final int firstMoveBias = 6 * million;
 	public static final int goodCaptureBias = 4 * million;
 	public static final int promotingBias = 3 * million;
 	public static final int killerMoveBias = 2 * million;
@@ -56,14 +56,14 @@ public class MoveOrderer
 				
 				if (MVV >= LVA)
 				{
-					evalGuess = goodCaptureBias + MVV*2 - LVA;
+					evalGuess = goodCaptureBias + MVV*100 - LVA;
 				}
 				else
 				{
 					int captureSEE = SEE(board, start, target, piece, capturedPiece, gamePhase);
 					if (captureSEE >= 0)
 					{
-						evalGuess = goodCaptureBias + MVV*2 - LVA;
+						evalGuess = goodCaptureBias + MVV*100 - LVA;
 					}
 					else
 					{
@@ -81,8 +81,8 @@ public class MoveOrderer
 						- PieceHelper.getValue(piece, gamePhase);
 			}
 
-			evalGuess -= PieceHelper.getPieceSquareValue(piece, start, gamePhase);
-			evalGuess += PieceHelper.getPieceSquareValue(piece, target, gamePhase);
+			//evalGuess -= PieceHelper.getPieceSquareValue(piece, start, gamePhase);
+			//evalGuess += PieceHelper.getPieceSquareValue(piece, target, gamePhase);
 
 			// not a capture move, killers rank below winning captures and killer move
 			// unlikely to be losing capture
@@ -92,12 +92,11 @@ public class MoveOrderer
 			else
 				evalGuess += noBias;
 
-			// multiply the color index by 64*64 = 2^12 except only shift 9 times because
-			// color index is already shifted left 3 times
+			// multiply the color index by 64*64 = 2^12
 			// then add start square multiplied by 64 = 2^6
 			// then add target square
-			final int index = (PieceHelper.getColor(piece) << 9) | (start << 6) | target;
-			evalGuess += historyHeuristic[index];
+			final int index = (PieceHelper.getColor(piece) << 12) | (start << 6) | target;
+			evalGuess += 100 * historyHeuristic[index];
 
 			moveEvals[i] = evalGuess;
 		}
@@ -316,11 +315,13 @@ public class MoveOrderer
 	{
 		short firstKiller = MoveHelper.NULL_MOVE;
 		short secondKiller = MoveHelper.NULL_MOVE;
+		short thirdKiller = MoveHelper.NULL_MOVE;
 
 		public void addKiller(short move)
 		{
-			if (move != firstKiller)
+			if (move != firstKiller && move != secondKiller)
 			{
+				thirdKiller = secondKiller;
 				secondKiller = firstKiller;
 				firstKiller = move;
 			}
@@ -328,7 +329,7 @@ public class MoveOrderer
 
 		public boolean isKiller(short move)
 		{
-			return (move == firstKiller || move == secondKiller);
+			return (move == firstKiller || move == secondKiller || move == thirdKiller);
 		}
 	}
 }
