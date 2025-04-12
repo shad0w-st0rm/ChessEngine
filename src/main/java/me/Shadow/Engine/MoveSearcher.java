@@ -406,27 +406,29 @@ public class MoveSearcher
 	public int staticEvaluation()
 	{
 		double evaluation = 0;
+		int color = board.colorToMove;
+		int enemyColor = color^PieceHelper.BLACK_PIECE;
 
 		float gamePhase = getGamePhase();
-		evaluation = evaluateMaterial(gamePhase);
+		evaluation = evaluateMaterial(color, enemyColor, gamePhase);
 
-		final int whiteKingIndex = Bitboards.getLSB(board.bitBoards.pieceBoards[PieceHelper.WHITE_KING]);
-		final int blackKingIndex = Bitboards.getLSB(board.bitBoards.pieceBoards[PieceHelper.BLACK_KING]);
+		final int friendlyKingIndex = Bitboards.getLSB(board.bitBoards.pieceBoards[PieceHelper.KING + color]);
+		final int enemyKingIndex = Bitboards.getLSB(board.bitBoards.pieceBoards[PieceHelper.KING + enemyColor]);
 
-		evaluation += forceKingToCorner(whiteKingIndex, blackKingIndex, 1 - (gamePhase * (24 / 5.0f)));
-		evaluation -= forceKingToCorner(blackKingIndex, whiteKingIndex, 1 - (gamePhase * (24 / 5.0f)));
+		evaluation += forceKingToCorner(friendlyKingIndex, enemyKingIndex, 1 - (gamePhase * (24 / 5.0f)));
+		evaluation -= forceKingToCorner(enemyKingIndex, friendlyKingIndex, 1 - (gamePhase * (24 / 5.0f)));
 
-		evaluation += evaluatePawns();
+		evaluation += evaluatePawns(color, enemyColor);
 
-		evaluation *= board.colorToMove == PieceHelper.WHITE_PIECE ? 1 : -1;
+		//evaluation *= board.colorToMove == PieceHelper.WHITE_PIECE ? 1 : -1;
 
 		return (int) evaluation;
 	}
 
-	public double evaluateMaterial(float gamePhase)
+	public double evaluateMaterial(int color, int enemyColor, float gamePhase)
 	{
-		int mgScore = Board.getMaterial(PieceHelper.WHITE_PIECE, false, board.material) - Board.getMaterial(PieceHelper.BLACK_PIECE, false, board.material);
-		int egScore = Board.getMaterial(PieceHelper.WHITE_PIECE, true, board.material) - Board.getMaterial(PieceHelper.BLACK_PIECE, true, board.material);
+		int mgScore = Board.getMaterial(color, false, board.material) - Board.getMaterial(enemyColor, false, board.material);
+		int egScore = Board.getMaterial(color, true, board.material) - Board.getMaterial(enemyColor, true, board.material);
 		return mgScore * gamePhase + egScore * (1 - gamePhase);
 	}
 
@@ -453,24 +455,23 @@ public class MoveSearcher
 		return mgPhase / 24.0f;
 	}
 	
-	public int evaluatePawns()
+	public int evaluatePawns(int color, int enemyColor)
 	{
 		long pawnsHash = board.pawnsHash;
 		int pawnsEval = transpositionTable.getPawnsEval(pawnsHash);
-		
 		if (pawnsEval != TranspositionTable.LOOKUP_FAILED)
 		{
 			return pawnsEval;
 		}
 		else
 		{
-			int newEval = evaluatePawns(PieceHelper.WHITE_PIECE, PieceHelper.BLACK_PIECE) - evaluatePawns(PieceHelper.BLACK_PIECE, PieceHelper.WHITE_PIECE);
+			int newEval = evaluatePawnsSide(color, enemyColor) - evaluatePawnsSide(enemyColor, color);
 			transpositionTable.storePawnsEvaluation(pawnsHash, newEval);
 			return newEval;
 		}
 	}
 
-	public int evaluatePawns(int friendlyColor, int enemyColor)
+	public int evaluatePawnsSide(int friendlyColor, int enemyColor)
 	{
 		final int[] passedPawnsBonus = { 0, 10, 15, 25, 40, 60, 100, 0 };
 		boolean whitePieces = friendlyColor == PieceHelper.WHITE_PIECE;

@@ -2,12 +2,10 @@ package me.Shadow.EngineGUI;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Timer;
 import java.util.TimerTask;
 
 import me.Shadow.Engine.*;
-import me.Shadow.Engine.OpeningBook.OpeningMove;
 
 public class Engine
 {
@@ -50,7 +48,7 @@ public class Engine
 		PrecomputedMagicNumbers.precomputeMagics();
 		PrecomputedMagicNumbers.printMagicsTableSize();
 		
-		//Perft.runPerftSuite(10);
+		Perft.runPerftSuite();
 		
 		try
 		{
