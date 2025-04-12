@@ -9,11 +9,24 @@ public class Board
 {
 	final static long[] zobristHashes = new Random(8108415243282079581L).longs(781).toArray();
 	public final static String defaultFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+	
+	static final long WHITE_KING_CASTLING = 0b1;
+	static final long WHITE_QUEEN_CASTLING = 0b10;
+	static final long BLACK_KING_CASTLING = 0b100;
+	static final long BLACK_QUEEN_CASTLING = 0b1000;
 
 	public Bitboards bitBoards;
 	public int[] squares = new int[64];
-	public BoardInfo boardInfo;
 	public int colorToMove;
+	
+	private long zobristHash;
+	private long pawnsHash;
+	long material;
+	private short halfMoves;
+	private short moveNum;
+	byte castlingRights;
+	short enPassantIndex;
+	public ArrayList<Long> positionList = new ArrayList<Long>();
 
 	boolean cachedCheckValue = false;
 	boolean isCachedCheckValid = false;
@@ -30,7 +43,6 @@ public class Board
 	 */
 	public Board(String fen)
 	{
-		boardInfo = new BoardInfo();
 		loadFEN(fen);
 	}
 
@@ -92,38 +104,35 @@ public class Board
 
 		int piece = squares[start];
 		final int capturedPiece = squares[captureIndex];
-
-		long zobristHash = boardInfo.getZobristHash();
-		long pawnsHash = boardInfo.getPawnsHash();
-
+		
 		int color = colorToMove;
 		int enemyColor = color ^ PieceHelper.BLACK_PIECE;
-		int friendlyMGPieceBonus = boardInfo.getMaterialBonus(color, false);
-		int friendlyEGPieceBonus = boardInfo.getMaterialBonus(color, true);
-		int enemyMGPieceBonus = boardInfo.getMaterialBonus(enemyColor, false);
-		int enemyEGPieceBonus = boardInfo.getMaterialBonus(enemyColor, true);
+		int friendlyMGPieceBonus = Board.getMaterial(color, false, material);
+		int friendlyEGPieceBonus = Board.getMaterial(color, true, material);
+		int enemyMGPieceBonus = Board.getMaterial(enemyColor, false, material);
+		int enemyEGPieceBonus = Board.getMaterial(enemyColor, true, material);
 
 		// update boardInfo information
 		colorToMove ^= PieceHelper.BLACK_PIECE;
 		zobristHash ^= zobristHashes[768]; // flip side to move
-
-		boardInfo.incrementHalfMoves();
+		
+		halfMoves++;
 		if (PieceHelper.getPieceType(piece) == PieceHelper.PAWN)
-			boardInfo.setHalfMoves(0); // reset half moves for 50 move rule
+			halfMoves = 0; // reset half moves for 50 move rule
 		if (color == PieceHelper.BLACK_PIECE)
-			boardInfo.incrementMoveNum();
+			moveNum++;
 
-		if (boardInfo.getEnPassantIndex() != -1)
-			zobristHash ^= zobristHashes[773 + (boardInfo.getEnPassantIndex() % 8)]; // remove old enpassant index
+		if (enPassantIndex != -1)
+			zobristHash ^= zobristHashes[773 + (enPassantIndex % 8)]; // remove old enpassant index
 		if (MoveHelper.getEnPassantNewIndex(move) != -1)
 			zobristHash ^= zobristHashes[773 + (MoveHelper.getEnPassantNewIndex(move) % 8)]; // add new enpassant index
 
 		// set or reset en passant index
-		boardInfo.setEnPassantIndex(MoveHelper.getEnPassantNewIndex(move));
+		enPassantIndex = (short) MoveHelper.getEnPassantNewIndex(move);
 
 		if (capturedPiece != PieceHelper.NONE) // if move is a capture
 		{
-			boardInfo.setHalfMoves(0); // reset half moves for 50 move rule
+			halfMoves = 0; // reset half moves for 50 move rule
 			// remove captured piece from the board
 			squares[captureIndex] = PieceHelper.NONE;
 			bitBoards.toggleSquare(capturedPiece, captureIndex);
@@ -166,7 +175,7 @@ public class Board
 		}
 		else if (MoveHelper.getPromotedPiece(move) != 0) // if move is promotion
 		{
-			// remove old peice from target square
+			// remove old piece from target square
 			bitBoards.toggleSquare(piece, start);
 			zobristHash ^= zobristHashes[(start * 12 + PieceHelper.getZobristOffset(piece))];
 			pawnsHash ^= zobristHashes[(start * 12 + PieceHelper.getZobristOffset(piece))]; // always pawn promoting
@@ -184,31 +193,28 @@ public class Board
 			friendlyEGPieceBonus += PieceHelper.getPieceSquareValue(piece, start, true);
 		}
 
-		final byte oldCastlingRights = boardInfo.getCastlingRights();
-		byte castlingRights = oldCastlingRights;
+		final byte oldCastlingRights = castlingRights;
 		if (start == 4 || start == 7 || target == 7)
-			castlingRights &= ~BoardInfo.WHITE_KING_CASTLING;
+			castlingRights &= ~WHITE_KING_CASTLING;
 		if (start == 4 || start == 0 || target == 0)
-			castlingRights &= ~BoardInfo.WHITE_QUEEN_CASTLING;
+			castlingRights &= ~WHITE_QUEEN_CASTLING;
 		if (start == 60 || start == 63 || target == 63)
-			castlingRights &= ~BoardInfo.BLACK_KING_CASTLING;
+			castlingRights &= ~BLACK_KING_CASTLING;
 		if (start == 60 || start == 56 || target == 56)
-			castlingRights &= ~BoardInfo.BLACK_QUEEN_CASTLING;
+			castlingRights &= ~BLACK_QUEEN_CASTLING;
 
 		final int changedCastlingRights = oldCastlingRights ^ castlingRights;
 		if (changedCastlingRights != 0)
 		{
-			if ((changedCastlingRights & BoardInfo.WHITE_KING_CASTLING) != 0)
+			if ((changedCastlingRights & WHITE_KING_CASTLING) != 0)
 				zobristHash ^= zobristHashes[769];
-			if ((changedCastlingRights & BoardInfo.WHITE_QUEEN_CASTLING) != 0)
+			if ((changedCastlingRights & WHITE_QUEEN_CASTLING) != 0)
 				zobristHash ^= zobristHashes[770];
-			if ((changedCastlingRights & BoardInfo.BLACK_KING_CASTLING) != 0)
+			if ((changedCastlingRights & BLACK_KING_CASTLING) != 0)
 				zobristHash ^= zobristHashes[771];
-			if ((changedCastlingRights & BoardInfo.BLACK_QUEEN_CASTLING) != 0)
+			if ((changedCastlingRights & BLACK_QUEEN_CASTLING) != 0)
 				zobristHash ^= zobristHashes[772];
 		}
-
-		boardInfo.setCastlingRights(castlingRights);
 
 		// move the piece to the new square
 		squares[start] = PieceHelper.NONE;
@@ -233,25 +239,20 @@ public class Board
 		friendlyEGPieceBonus += PieceHelper.getPieceSquareValue(piece, target, true)
 				- PieceHelper.getPieceSquareValue(piece, start, true);
 
-		boardInfo.setZobristHash(zobristHash); // set the hash
-		boardInfo.setPawnsHash(pawnsHash);
-		boardInfo.getPositionList().add(zobristHash);
-
-		boardInfo.setMaterialBonus(color, false, friendlyMGPieceBonus);
-		boardInfo.setMaterialBonus(color, true, friendlyEGPieceBonus);
-		boardInfo.setMaterialBonus(enemyColor, false, enemyMGPieceBonus);
-		boardInfo.setMaterialBonus(enemyColor, true, enemyEGPieceBonus);
+		positionList.add(zobristHash);
+		
+		material = Board.createMaterial(friendlyMGPieceBonus, friendlyEGPieceBonus, enemyMGPieceBonus, enemyEGPieceBonus, color);
 
 		isCachedCheckValid = false;
 
 		return capturedPiece; // return the captured piece
 	}
 
-	public void moveBack(final short move, final int captured, final BoardInfo boardInfoOld)
+	public void moveBack(final short move, final int captured, long [] boardInfoOld)
 	{
-		boardInfo = boardInfoOld; // replace current BoardInfo object with the old BoardInfo object
+		unpackBoardInfo(boardInfoOld);
 		colorToMove ^= PieceHelper.BLACK_PIECE;
-		boardInfo.getPositionList().removeLast(); // remove the most recent position
+		positionList.removeLast(); // remove the most recent position
 
 		final int start = MoveHelper.getStartIndex(move);
 		final int target = MoveHelper.getTargetIndex(move);
@@ -306,6 +307,37 @@ public class Board
 
 		isCachedCheckValid = false;
 	}
+	
+	public long getZobristHash()
+	{
+		return zobristHash;
+	}
+	
+	public long getPawnsHash()
+	{
+		return pawnsHash;
+	}
+	
+	public long[] packBoardInfo()
+	{
+		long info = (long)enPassantIndex << 48;
+		info |= (long)castlingRights << 32;
+		info |= moveNum << 16L;
+		info |= halfMoves;
+		
+		return new long[] {zobristHash, pawnsHash, material, info};
+	}
+	
+	public void unpackBoardInfo(long [] boardInfo)
+	{
+		zobristHash = boardInfo[0];
+		pawnsHash = boardInfo[1];
+		material = boardInfo[2];
+		enPassantIndex = (short) (boardInfo[3] >> 48);	// take advantage of sign extending
+		castlingRights = (byte) ((boardInfo[3] >>> 32) & 0xFFFF);
+		moveNum = (short) ((boardInfo[3] >>> 16) & 0xFFFF);
+		halfMoves = (short) (boardInfo[3] & 0xFFFF);
+	}
 
 	public long createZobristHash()
 	{
@@ -323,18 +355,17 @@ public class Board
 		if (colorToMove == PieceHelper.BLACK_PIECE)
 			zobristHash ^= zobristHashes[768];
 
-		byte castlingRights = boardInfo.getCastlingRights();
-		if ((castlingRights & BoardInfo.WHITE_KING_CASTLING) != 0)
+		if ((castlingRights & WHITE_KING_CASTLING) != 0)
 			zobristHash ^= zobristHashes[769];
-		if ((castlingRights & BoardInfo.WHITE_QUEEN_CASTLING) != 0)
+		if ((castlingRights & WHITE_QUEEN_CASTLING) != 0)
 			zobristHash ^= zobristHashes[770];
-		if ((castlingRights & BoardInfo.BLACK_KING_CASTLING) != 0)
+		if ((castlingRights & BLACK_KING_CASTLING) != 0)
 			zobristHash ^= zobristHashes[771];
-		if ((castlingRights & BoardInfo.BLACK_QUEEN_CASTLING) != 0)
+		if ((castlingRights & BLACK_QUEEN_CASTLING) != 0)
 			zobristHash ^= zobristHashes[772];
 
-		if (boardInfo.getEnPassantIndex() != -1)
-			zobristHash ^= zobristHashes[773 + (boardInfo.getEnPassantIndex() % 8)];
+		if (enPassantIndex != -1)
+			zobristHash ^= zobristHashes[773 + (enPassantIndex % 8)];
 
 		return zobristHash;
 	}
@@ -370,6 +401,8 @@ public class Board
 		int file = 1;
 		int rank = 1;
 		squares = new int[64];
+		halfMoves = moveNum = castlingRights = 0;
+		enPassantIndex = -1;
 		String[] rows = fenPieces.split("/"); // split the string into each rank
 
 		for (int i = 7; i >= 0; i--) // loop will run 8 times for each rank
@@ -426,18 +459,17 @@ public class Board
 																										// move
 			else if (i == 2) // checks castling rights
 			{
-				byte castlingRights = 0;
+				castlingRights = 0;
 				for (int j = 0; j < string.length(); j++)
 				{
 					if (string.charAt(j) == 'K')
-						castlingRights |= BoardInfo.WHITE_KING_CASTLING;
+						castlingRights |= WHITE_KING_CASTLING;
 					if (string.charAt(j) == 'Q')
-						castlingRights |= BoardInfo.WHITE_QUEEN_CASTLING;
+						castlingRights |= WHITE_QUEEN_CASTLING;
 					if (string.charAt(j) == 'k')
-						castlingRights |= BoardInfo.BLACK_KING_CASTLING;
+						castlingRights |= BLACK_KING_CASTLING;
 					if (string.charAt(j) == 'q')
-						castlingRights |= BoardInfo.BLACK_QUEEN_CASTLING;
-					boardInfo.setCastlingRights(castlingRights); // set the castling rights
+						castlingRights |= BLACK_QUEEN_CASTLING;
 				}
 			}
 			else if (i == 3) // checks en passant index
@@ -446,28 +478,25 @@ public class Board
 				{
 					int enPassantRank = string.charAt(1) - 48;
 					int enPassantFile = string.charAt(0) - 96;
-					boardInfo.setEnPassantIndex(Utils.getSquareIndexFromRankFile(enPassantRank, enPassantFile)); // set
-																													// the
-																													// en
-																													// passant
-																													// index
+					enPassantIndex = (short) Utils.getSquareIndexFromRankFile(enPassantRank, enPassantFile);																													// the																													// passant
 				}
 			}
 			else if (i == 4) // checks and sets half moves for 50 move rule
 			{
 				if (!string.equals("-"))
-					boardInfo.setHalfMoves(Integer.parseInt(string));
+					halfMoves = Short.parseShort(string);
 			}
 			else if (i == 5) // checks and sets move number
 			{
 				if (!string.equals("-"))
-					boardInfo.setMoveNum(Integer.parseInt(string));
+					moveNum = Short.parseShort(string);
 			}
 		}
 
-		boardInfo.setZobristHash(createZobristHash());
-		boardInfo.setPawnsHash(createPawnsHash());
-		boardInfo.getPositionList().add(boardInfo.getZobristHash());
+		zobristHash = createZobristHash();
+		pawnsHash = createPawnsHash();
+		positionList.clear();
+		positionList.add(zobristHash);
 
 		int whiteMGBonus = 0;
 		int whiteEGBonus = 0;
@@ -490,11 +519,8 @@ public class Board
 				}
 			}
 		}
-
-		boardInfo.setMaterialBonus(PieceHelper.WHITE_PIECE, false, whiteMGBonus);
-		boardInfo.setMaterialBonus(PieceHelper.WHITE_PIECE, true, whiteEGBonus);
-		boardInfo.setMaterialBonus(PieceHelper.BLACK_PIECE, false, blackMGBonus);
-		boardInfo.setMaterialBonus(PieceHelper.BLACK_PIECE, true, blackEGBonus);
+		
+		material = Board.createMaterial(whiteMGBonus, whiteEGBonus, blackMGBonus, blackEGBonus, PieceHelper.WHITE_PIECE);
 
 		if (bitBoards == null)
 			bitBoards = new Bitboards(this);
@@ -502,6 +528,32 @@ public class Board
 			bitBoards.createBitboards(this);
 
 		isCachedCheckValid = false;
+	}
+	
+	public int getHalfMoves()
+	{
+		return halfMoves;
+	}
+	
+	public int getMoveNum()
+	{
+		return moveNum;
+	}
+	
+	public static short getMaterial(int color, boolean endgame, long material)
+	{
+		if (color == PieceHelper.BLACK_PIECE) material = material >>> 32;
+		if (endgame) material = material >>> 16;
+		return (short) material;
+	}
+	
+	public static long createMaterial(int wMG, int wEG, int bMG, int bEG, int color)
+	{
+		// if color perspective is black, flip black and white to keep white as lower order bits
+		if (color == PieceHelper.WHITE_PIECE)
+			return (wMG & 0xFFFFFFFF) | (wEG & 0xFFFFFFFF) << 16 | (bMG & 0xFFFFFFFF) << 32 | (bEG & 0xFFFFFFFF) << 48;
+		else
+			return (bMG & 0xFFFFFFFF) | (bEG & 0xFFFFFFFF) << 16 | (wMG & 0xFFFFFFFF) << 32 | (wEG & 0xFFFFFFFF) << 48;
 	}
 
 	/**
@@ -555,25 +607,24 @@ public class Board
 			newFEN += string;
 
 		newFEN += " " + (colorToMove == PieceHelper.WHITE_PIECE ? "w" : "b") + " "; // color to move
-		byte castlingRights = boardInfo.getCastlingRights(); // set castling rights
-		if ((castlingRights & BoardInfo.WHITE_KING_CASTLING) != 0)
+		if ((castlingRights & WHITE_KING_CASTLING) != 0)
 			newFEN += "K";
-		if ((castlingRights & BoardInfo.WHITE_QUEEN_CASTLING) != 0)
+		if ((castlingRights & WHITE_QUEEN_CASTLING) != 0)
 			newFEN += "Q";
-		if ((castlingRights & BoardInfo.BLACK_KING_CASTLING) != 0)
+		if ((castlingRights & BLACK_KING_CASTLING) != 0)
 			newFEN += "k";
-		if ((castlingRights & BoardInfo.BLACK_QUEEN_CASTLING) != 0)
+		if ((castlingRights & BLACK_QUEEN_CASTLING) != 0)
 			newFEN += "q";
 		newFEN += " ";
-		if (boardInfo.getEnPassantIndex() == -1)
+		if (enPassantIndex == -1)
 			newFEN += "- "; // add dash if no en passant index
 		else
 		{
-			int index = boardInfo.getEnPassantIndex();
+			int index = enPassantIndex;
 			newFEN += Utils.getSquareName(index);
 		}
 		if (includeMoveNums)
-			newFEN += boardInfo.getHalfMoves() + " " + boardInfo.getMoveNum(); // add moves numbers if includeMoveNums
+			newFEN += halfMoves + " " + moveNum; // add moves numbers if includeMoveNums
 																				// is true
 
 		newFEN.trim();

@@ -1,7 +1,5 @@
 package me.Shadow.Engine;
 
-import java.util.ArrayList;
-
 public class MoveSearcher
 {
 	short bestMove;
@@ -37,7 +35,7 @@ public class MoveSearcher
 		bestMove = MoveHelper.NULL_MOVE;
 		moveOrderer.clearHistoryHeuristic();
 		int obsoleteFlag = transpositionTable.setObsoleteFlag(board.bitBoards.getNumPawns(PieceHelper.WHITE_PIECE),
-				board.bitBoards.getNumPawns(PieceHelper.BLACK_PIECE), board.boardInfo.getCastlingRights());
+				board.bitBoards.getNumPawns(PieceHelper.BLACK_PIECE), board.castlingRights);
 		int depth = 0;
 
 		do
@@ -112,13 +110,13 @@ public class MoveSearcher
 			if (evaluation >= beta)
 			{
 				// move was too good so opponent will avoid this branch
-				transpositionTable.storeEvaluation(board.boardInfo.getZobristHash(), beta, depth,
+				transpositionTable.storeEvaluation(board.getZobristHash(), beta, depth,
 						TranspositionTable.LOWER_BOUND, move, obsoleteFlag);
 				return beta;
 			}
 		}
 
-		transpositionTable.storeEvaluation(board.boardInfo.getZobristHash(), alpha, depth, bound, bestMove,
+		transpositionTable.storeEvaluation(board.getZobristHash(), alpha, depth, bound, bestMove,
 				obsoleteFlag);
 
 		return alpha;
@@ -129,15 +127,15 @@ public class MoveSearcher
 		if (searchCancelled)
 			return 0;
 
-		if (isDuplicatePosition() || board.boardInfo.getHalfMoves() >= 100)
+		if (isDuplicatePosition() || board.getHalfMoves() >= 100)
 		{
 			return 0;
 		}
 
 		int obsoleteFlag = transpositionTable.createObsoleteFlag(board.bitBoards.getNumPawns(PieceHelper.WHITE_PIECE),
-				board.bitBoards.getNumPawns(PieceHelper.BLACK_PIECE), board.boardInfo.getCastlingRights());
+				board.bitBoards.getNumPawns(PieceHelper.BLACK_PIECE), board.castlingRights);
 
-		long zobristHash = board.boardInfo.getZobristHash();
+		long zobristHash = board.getZobristHash();
 		short bestMoveInPosition = MoveHelper.NULL_MOVE;
 		short[] transposition = transpositionTable.getEntry(zobristHash);
 
@@ -253,7 +251,7 @@ public class MoveSearcher
 
 	public int searchMove(short move, int alpha, int beta, int depth, int plyFromRoot, int moveNum)
 	{
-		final BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
+		final long[] boardInfoOld = board.packBoardInfo();
 		final int captured = board.movePiece(move);
 
 		// if (depth > 2 && captured == PieceHelper.NONE) qMoves++;
@@ -316,7 +314,7 @@ public class MoveSearcher
 		if (searchCancelled)
 			return 0;
 
-		long zobristHash = board.boardInfo.getZobristHash();
+		long zobristHash = board.getZobristHash();
 		short[] transposition = transpositionTable.getEntry(zobristHash);
 
 		if (transposition != null)
@@ -364,7 +362,7 @@ public class MoveSearcher
 
 			final short move = moves[i];
 
-			final BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
+			final long[] boardInfoOld = board.packBoardInfo();
 			final int captured = board.movePiece(move);
 			evaluation = -(searchCaptures(-beta, -alpha));
 			board.moveBack(move, captured, boardInfoOld);
@@ -385,17 +383,16 @@ public class MoveSearcher
 
 	public boolean isDuplicatePosition()
 	{
-		if (board.boardInfo.getHalfMoves() < 4)
+		if (board.getHalfMoves() < 4)
 			return false;
 
-		final long zobristHash = board.boardInfo.getZobristHash();
-		final ArrayList<Long> positions = board.boardInfo.getPositionList();
+		final long zobristHash = board.getZobristHash();
 
-		int index = positions.size() - 5;
-		final int minIndex = Math.max(index - board.boardInfo.getHalfMoves() + 1, 0);
+		int index = board.positionList.size() - 5;
+		final int minIndex = Math.max(index - board.getHalfMoves() + 1, 0);
 		while (index >= minIndex)
 		{
-			if (positions.get(index) == zobristHash)
+			if (board.positionList.get(index) == zobristHash)
 			{
 				return true;
 			}
@@ -426,8 +423,8 @@ public class MoveSearcher
 
 	public double evaluateMaterial(float gamePhase)
 	{
-		int mgScore = board.boardInfo.getMaterialBonus(PieceHelper.WHITE_PIECE, false) - board.boardInfo.getMaterialBonus(PieceHelper.BLACK_PIECE, false);
-		int egScore = board.boardInfo.getMaterialBonus(PieceHelper.WHITE_PIECE, true) - board.boardInfo.getMaterialBonus(PieceHelper.BLACK_PIECE, true);
+		int mgScore = Board.getMaterial(PieceHelper.WHITE_PIECE, false, board.material) - Board.getMaterial(PieceHelper.BLACK_PIECE, false, board.material);
+		int egScore = Board.getMaterial(PieceHelper.WHITE_PIECE, true, board.material) - Board.getMaterial(PieceHelper.BLACK_PIECE, true, board.material);
 		return mgScore * gamePhase + egScore * (1 - gamePhase);
 	}
 
@@ -456,7 +453,7 @@ public class MoveSearcher
 	
 	public int evaluatePawns()
 	{
-		long pawnsHash = board.boardInfo.getPawnsHash();
+		long pawnsHash = board.getPawnsHash();
 		int pawnsEval = transpositionTable.getPawnsEval(pawnsHash);
 		
 		if (pawnsEval != TranspositionTable.LOOKUP_FAILED)

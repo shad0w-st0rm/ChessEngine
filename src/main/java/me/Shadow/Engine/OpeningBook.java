@@ -177,10 +177,10 @@ public class OpeningBook
 				short move = Utils.getMoveFromAlgebraicNotation(board, algebraicMove);
 				if (move == MoveHelper.NULL_MOVE) break;
 				
-				HashMap<Short, Integer> movesInPosition = openingBookSetup.getOrDefault(board.boardInfo.getZobristHash(), new HashMap<Short, Integer>());
+				HashMap<Short, Integer> movesInPosition = openingBookSetup.getOrDefault(board.getZobristHash(), new HashMap<Short, Integer>());
 				int newPlayCount = movesInPosition.getOrDefault(move, 0) + 1;
 				movesInPosition.put(move, newPlayCount);
-				openingBookSetup.put(board.boardInfo.getZobristHash(), movesInPosition);
+				openingBookSetup.put(board.getZobristHash(), movesInPosition);
 				
 				board.movePiece(move);
 				

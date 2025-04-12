@@ -2,39 +2,39 @@ package me.Shadow.Engine;
 
 public class PieceHelper
 {	
-	public static final int NONE = 0;
+	public static final byte NONE = 0;
 	
-	public static final int PAWN = 2;	// 001X
-	public static final int KNIGHT = 4;	// 010X
-	public static final int BISHOP = 6;	// 011X
-	public static final int ROOK = 8;	// 100X
-	public static final int QUEEN = 10;	// 101X
-	public static final int KING = 12;	// 110X
+	public static final byte PAWN = 2;	// 001X
+	public static final byte KNIGHT = 4;	// 010X
+	public static final byte BISHOP = 6;	// 011X
+	public static final byte ROOK = 8;	// 100X
+	public static final byte QUEEN = 10;	// 101X
+	public static final byte KING = 12;	// 110X
 	
-	public static final int WHITE_PIECE = 0;
-	public static final int BLACK_PIECE = 1;
+	public static final byte WHITE_PIECE = 0;
+	public static final byte BLACK_PIECE = 1;
 	
-	public static final int WHITE_QUEEN = QUEEN | WHITE_PIECE;
-	public static final int WHITE_ROOK = ROOK | WHITE_PIECE;
-	public static final int WHITE_BISHOP = BISHOP | WHITE_PIECE;
-	public static final int WHITE_KNIGHT = KNIGHT | WHITE_PIECE;
-	public static final int WHITE_PAWN = PAWN | WHITE_PIECE;
-	public static final int WHITE_KING = KING | WHITE_PIECE;
+	public static final byte WHITE_QUEEN = QUEEN | WHITE_PIECE;
+	public static final byte WHITE_ROOK = ROOK | WHITE_PIECE;
+	public static final byte WHITE_BISHOP = BISHOP | WHITE_PIECE;
+	public static final byte WHITE_KNIGHT = KNIGHT | WHITE_PIECE;
+	public static final byte WHITE_PAWN = PAWN | WHITE_PIECE;
+	public static final byte WHITE_KING = KING | WHITE_PIECE;
 	
-	public static final int BLACK_QUEEN = QUEEN | BLACK_PIECE;
-	public static final int BLACK_ROOK = ROOK | BLACK_PIECE;
-	public static final int BLACK_BISHOP = BISHOP | BLACK_PIECE;
-	public static final int BLACK_KNIGHT = KNIGHT | BLACK_PIECE;
-	public static final int BLACK_PAWN = PAWN | BLACK_PIECE;
-	public static final int BLACK_KING = KING | BLACK_PIECE;
+	public static final byte BLACK_QUEEN = QUEEN | BLACK_PIECE;
+	public static final byte BLACK_ROOK = ROOK | BLACK_PIECE;
+	public static final byte BLACK_BISHOP = BISHOP | BLACK_PIECE;
+	public static final byte BLACK_KNIGHT = KNIGHT | BLACK_PIECE;
+	public static final byte BLACK_PAWN = PAWN | BLACK_PIECE;
+	public static final byte BLACK_KING = KING | BLACK_PIECE;
 	
-	public static final int TYPE_MASK = 0b1110;
-	public static final int COLOR_MASK = 1;
+	public static final byte TYPE_MASK = 0b1110;
+	public static final byte COLOR_MASK = 1;
 	
-	private static final int [] mg_value = { 0, 82, 337, 365, 477, 1025, 0 };
-	private static final int [] eg_value = { 0, 94, 281, 297, 512, 936, 0 };
+	private static final short [] mg_value = { 0, 82, 337, 365, 477, 1025, 0 };
+	private static final short [] eg_value = { 0, 94, 281, 297, 512, 936, 0 };
 	
-	private static final int [] mg_pawn_table = {
+	private static final short [] mg_pawn_table = {
 	      0,   0,   0,   0,   0,   0,  0,   0,
 	     98, 134,  61,  95,  68, 126, 34, -11,
 	     -6,   7,  26,  31,  65,  56, 25, -20,
@@ -45,7 +45,7 @@ public class PieceHelper
 	      0,   0,   0,   0,   0,   0,  0,   0,
 	};
 
-	private static final int [] eg_pawn_table = {
+	private static final short [] eg_pawn_table = {
 	      0,   0,   0,   0,   0,   0,   0,   0,
 	    178, 173, 158, 134, 147, 132, 165, 187,
 	     94, 100,  85,  67,  56,  53,  82,  84,
@@ -56,7 +56,7 @@ public class PieceHelper
 	      0,   0,   0,   0,   0,   0,   0,   0,
 	};
 
-	private static final int [] mg_knight_table = {
+	private static final short [] mg_knight_table = {
 	    -167, -89, -34, -49,  61, -97, -15, -107,
 	     -73, -41,  72,  36,  23,  62,   7,  -17,
 	     -47,  60,  37,  65,  84, 129,  73,   44,
@@ -67,7 +67,7 @@ public class PieceHelper
 	    -105, -21, -58, -33, -17, -28, -19,  -23,
 	};
 
-	private static final int [] eg_knight_table = {
+	private static final short [] eg_knight_table = {
 	    -58, -38, -13, -28, -31, -27, -63, -99,
 	    -25,  -8, -25,  -2,  -9, -25, -24, -52,
 	    -24, -20,  10,   9,  -1,  -9, -19, -41,
@@ -78,7 +78,7 @@ public class PieceHelper
 	    -29, -51, -23, -15, -22, -18, -50, -64,
 	};
 
-	private static final int [] mg_bishop_table = {
+	private static final short [] mg_bishop_table = {
 	    -29,   4, -82, -37, -25, -42,   7,  -8,
 	    -26,  16, -18, -13,  30,  59,  18, -47,
 	    -16,  37,  43,  40,  35,  50,  37,  -2,
@@ -89,7 +89,7 @@ public class PieceHelper
 	    -33,  -3, -14, -21, -13, -12, -39, -21,
 	};
 
-	private static final int [] eg_bishop_table = {
+	private static final short [] eg_bishop_table = {
 	    -14, -21, -11,  -8, -7,  -9, -17, -24,
 	     -8,  -4,   7, -12, -3, -13,  -4, -14,
 	      2,  -8,   0,  -1, -2,   6,   0,   4,
@@ -100,7 +100,7 @@ public class PieceHelper
 	    -23,  -9, -23,  -5, -9, -16,  -5, -17,
 	};
 
-	private static final int [] mg_rook_table = {
+	private static final short [] mg_rook_table = {
 	     32,  42,  32,  51, 63,  9,  31,  43,
 	     27,  32,  58,  62, 80, 67,  26,  44,
 	     -5,  19,  26,  36, 17, 45,  61,  16,
@@ -111,7 +111,7 @@ public class PieceHelper
 	    -19, -13,   1,  17, 16,  7, -37, -26,
 	};
 
-	private static final int [] eg_rook_table = {
+	private static final short [] eg_rook_table = {
 	    13, 10, 18, 15, 12,  12,   8,   5,
 	    11, 13, 13, 11, -3,   3,   8,   3,
 	     7,  7,  7,  5,  4,  -3,  -5,  -3,
@@ -122,7 +122,7 @@ public class PieceHelper
 	    -9,  2,  3, -1, -5, -13,   4, -20,
 	};
 
-	private static final int [] mg_queen_table = {
+	private static final short [] mg_queen_table = {
 	    -28,   0,  29,  12,  59,  44,  43,  45,
 	    -24, -39,  -5,   1, -16,  57,  28,  54,
 	    -13, -17,   7,   8,  29,  56,  47,  57,
@@ -133,7 +133,7 @@ public class PieceHelper
 	     -1, -18,  -9,  10, -15, -25, -31, -50,
 	};
 
-	private static final int [] eg_queen_table = {
+	private static final short [] eg_queen_table = {
 	     -9,  22,  22,  27,  27,  19,  10,  20,
 	    -17,  20,  32,  41,  58,  25,  30,   0,
 	    -20,   6,   9,  49,  47,  35,  19,   9,
@@ -144,7 +144,7 @@ public class PieceHelper
 	    -33, -28, -22, -43,  -5, -32, -20, -41,
 	};
 
-	private static final int [] mg_king_table = {
+	private static final short [] mg_king_table = {
 	    -65,  23,  16, -15, -56, -34,   2,  13,
 	     29,  -1, -20,  -7,  -8,  -4, -38, -29,
 	     -9,  24,   2, -16, -20,   6,  22, -22,
@@ -155,7 +155,7 @@ public class PieceHelper
 	    -15,  36,  12, -54,   8, -28,  24,  14,
 	};
 
-	private static final int [] eg_king_table = {
+	private static final short [] eg_king_table = {
 	    -74, -35, -18, -18, -11,  15,   4, -17,
 	    -12,  17,  14,  17,  17,  38,  23,  11,
 	     10,  17,  23,  15,  20,  45,  44,  13,
@@ -166,7 +166,7 @@ public class PieceHelper
 	    -53, -34, -21, -11, -28, -14, -24, -43
 	};
 	
-	private static final int[][] mg_pesto_table = {
+	private static final short[][] mg_pesto_table = {
 		{},
 		mg_pawn_table,
 		mg_knight_table,
@@ -176,7 +176,7 @@ public class PieceHelper
 		mg_king_table
 	};
 	
-	private static final int [][] eg_pesto_table = {
+	private static final short [][] eg_pesto_table = {
 		{},
 		eg_pawn_table,
 		eg_knight_table,
@@ -187,18 +187,18 @@ public class PieceHelper
 	};
 	
 	
-	private static int [] gamephaseValue = {0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 4, 4, 0, 0};
-	private static int [][] mg_table = new int[14][64];
-	private static int [][] eg_table = new int[14][64];
+	private static byte [] gamephaseValue = {0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 4, 4, 0, 0};
+	private static short [][] mg_table = new short[14][64];
+	private static short [][] eg_table = new short[14][64];
 	
 	public static void initPieceSquareTables()
 	{
 	    for (int piece = PAWN; piece <= KING; piece += 2) {
 	        for (int sq = 0; sq < 64; sq++) {
-	            mg_table[piece]  [sq] = mg_value[piece >>> 1] + mg_pesto_table[piece >>> 1][sq^56];
-	            eg_table[piece]  [sq] = eg_value[piece >>> 1] + eg_pesto_table[piece >>> 1][sq^56];
-	            mg_table[piece | BLACK_PIECE][sq] = mg_value[piece >>> 1] + mg_pesto_table[piece >>> 1][sq];
-	            eg_table[piece | BLACK_PIECE][sq] = eg_value[piece >>> 1] + eg_pesto_table[piece >>> 1][sq];
+	            mg_table[piece]  [sq] = (short) (mg_value[piece >>> 1] + mg_pesto_table[piece >>> 1][sq^56]);
+	            eg_table[piece]  [sq] = (short) (eg_value[piece >>> 1] + eg_pesto_table[piece >>> 1][sq^56]);
+	            mg_table[piece | BLACK_PIECE][sq] = (short) (mg_value[piece >>> 1] + mg_pesto_table[piece >>> 1][sq]);
+	            eg_table[piece | BLACK_PIECE][sq] = (short) (eg_value[piece >>> 1] + eg_pesto_table[piece >>> 1][sq]);
 	        }
 	    }
 	    
@@ -218,18 +218,6 @@ public class PieceHelper
 	public static boolean isColor(int pieceInfo, int color)
 	{
 		return (getColor(pieceInfo) == color);
-	}
-	
-	public static boolean isOrthogonalSlider(int pieceInfo)
-	{
-		int type = getPieceType(pieceInfo);
-		return type == PieceHelper.QUEEN || type == PieceHelper.ROOK;
-	}
-	
-	public static boolean isDiagonalSlider(int pieceInfo)
-	{
-		int type = getPieceType(pieceInfo);
-		return type == PieceHelper.QUEEN || type == PieceHelper.BISHOP;
 	}
 	
 	public static int getValue(int pieceInfo, float mgWeight)

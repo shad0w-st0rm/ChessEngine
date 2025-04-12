@@ -111,8 +111,8 @@ public class Perft
 		for (int i = 0; i < length; i++)
 		{
 			short move = moves[i];
-						
-			BoardInfo boardInfoOld = new BoardInfo(board.boardInfo);
+									
+			long[] boardInfoOld = board.packBoardInfo();
 			int captured = board.movePiece(move);
 			
 			int add = countMoves(depth - 1);

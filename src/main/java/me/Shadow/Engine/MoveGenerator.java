@@ -8,11 +8,13 @@ public class MoveGenerator
 	public static final long ALL_ONE_BITS = ~0L;
 	
 	public static final long FIRST_RANK = 0xFFL;
+	public static final long FIRST_THREE_RANKS = 0xFFFFFFl;
 	public static final long EIGHTH_RANK = FIRST_RANK << 56;
 	public static final long FOURTH_RANK = FIRST_RANK << 24;
 	public static final long FIFTH_RANK = FIRST_RANK << 32;
 	public static final long A_FILE = 0x0101010101010101L;
 	public static final long H_FILE = A_FILE << 7;
+	public static final long ABC_FILES = A_FILE | A_FILE << 1 | A_FILE << 2;
 	
 	private Board board;
 	private Bitboards bitBoards;
@@ -98,23 +100,24 @@ public class MoveGenerator
 		if (!(capturesOnly || inCheck))
 		{
 			final boolean isWhite = friendlyColor == PieceHelper.WHITE_PIECE;
-			final byte castlingRights = board.boardInfo.getCastlingRights();
 			
-			if ((castlingRights & (isWhite ? BoardInfo.WHITE_KING_CASTLING : BoardInfo.BLACK_KING_CASTLING)) != 0)
+			if ((board.castlingRights & (isWhite ? Board.WHITE_KING_CASTLING : Board.BLACK_KING_CASTLING)) != 0)
 			{
 				long castleLegalMask = enemyAttackMap | allPiecesBitboard;
 				castleLegalMask &= isWhite ? PrecomputedData.WHITE_KINGSIDE_CASTLING_CLEAR_MASK : PrecomputedData.BLACK_KINGSIDE_CASTLING_CLEAR_MASK;
+				castleLegalMask |= bitBoards.getAttacksTo(friendlyKingIndex + 2, allPiecesBitboard) & enemyPiecesBitboard;
 				if (castleLegalMask == 0)
 				{
 					addMove(MoveHelper.createMove(friendlyKingIndex, friendlyKingIndex + 2, MoveHelper.CASTLING_FLAG));
 				}
 			}
 			
-			if ((castlingRights & (isWhite ? BoardInfo.WHITE_QUEEN_CASTLING : BoardInfo.BLACK_QUEEN_CASTLING)) != 0)
+			if ((board.castlingRights & (isWhite ? Board.WHITE_QUEEN_CASTLING : Board.BLACK_QUEEN_CASTLING)) != 0)
 			{
 				long castleLegalMask = 0;
 				castleLegalMask |= allPiecesBitboard & (isWhite ? PrecomputedData.WHITE_QUEENSIDE_CASTLING_CLEAR_MASK : PrecomputedData.BLACK_QUEENSIDE_CASTLING_CLEAR_MASK);
 				castleLegalMask |= enemyAttackMap & (isWhite ? PrecomputedData.WHITE_QUEENSIDE_CASTLING_SAFE_MASK : PrecomputedData.BLACK_QUEENSIDE_CASTLING_SAFE_MASK);
+				castleLegalMask |= bitBoards.getAttacksTo(friendlyKingIndex - 2, allPiecesBitboard) & enemyPiecesBitboard;
 				if (castleLegalMask == 0)
 				{
 					addMove(MoveHelper.createMove(friendlyKingIndex, friendlyKingIndex - 2, MoveHelper.CASTLING_FLAG));
@@ -313,11 +316,11 @@ public class MoveGenerator
 			}
 		}
 		
-		if (board.boardInfo.getEnPassantIndex() != -1)
+		if (board.enPassantIndex != -1)
 		{
-			final int targetSquare = board.boardInfo.getEnPassantIndex();
+			final int targetSquare = board.enPassantIndex;
 			final long enPassantSquareBitboard = 1L << targetSquare;
-			final int captureSquare = board.boardInfo.getEnPassantIndex() - (direction * 8);
+			final int captureSquare = board.enPassantIndex - (direction * 8);
 			
 			// if the enemy pawn is part of checkraysmask, either king is not in check, or this pawn is a checker
 			if (((1L << captureSquare) & checkRaysMask) != 0)
@@ -486,8 +489,8 @@ public class MoveGenerator
 	
 	private long calculateSliderAttacks()
 	{
-		final long orthoSliders = bitBoards.getOrthogonalSliders(enemyColor);
-		final long diagSliders = bitBoards.getDiagonalSliders(enemyColor);
+		final long orthoSliders = bitBoards.getOrthogonalSliders(enemyColor) & PrecomputedData.orthoSlidersMask[friendlyKingIndex];
+		final long diagSliders = bitBoards.getDiagonalSliders(enemyColor) & PrecomputedData.diagSlidersMask[friendlyKingIndex];
 		long enemySlidingAttackMap = 0;
 		enemySlidingAttackMap |= sliderAttacks(orthoSliders, enemyColor, true);
 		enemySlidingAttackMap |= sliderAttacks(diagSliders, enemyColor, false);
@@ -497,7 +500,7 @@ public class MoveGenerator
 	private long sliderAttacks(long pieceBoard, final int sliderColor, final boolean orthogonal)
 	{
 		long slidingAttacks = 0;
-		final long notKingBoard = allPiecesBitboard & ~(1L << friendlyKingIndex);
+		final long notKingBoard = allPiecesBitboard ^ (1L << friendlyKingIndex);
 		
 		while (pieceBoard != 0)
 		{

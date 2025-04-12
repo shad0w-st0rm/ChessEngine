@@ -200,7 +200,7 @@ public class EngineTester
 		MoveGenerator moveGen = new MoveGenerator(board);
 
 		List<String> movesList = new ArrayList<String>();
-		int originalMoveNum = board.boardInfo.getMoveNum();
+		int originalMoveNum = board.getMoveNum();
 
 		// boolean whiteToMove = board.boardInfo.isWhiteToMove();
 		int colorToMove = board.colorToMove;
@@ -331,7 +331,7 @@ public class EngineTester
 							: GameOverReason.BLACK_CHECKMATED)
 					: GameOverReason.STALEMATE;
 		}
-		else if (board.boardInfo.getHalfMoves() >= 100)
+		else if (board.getHalfMoves() >= 100)
 		{
 			return GameOverReason.FIFTY_MOVE_RULE;
 		}
@@ -349,7 +349,7 @@ public class EngineTester
 
 	public boolean isDuplicatePosition(Board board)
 	{
-		ArrayList<Long> positions = board.boardInfo.getPositionList();
+		ArrayList<Long> positions = board.positionList;
 		if (positions.size() == 0)
 			return false;
 

@@ -65,7 +65,7 @@ public class Bitboards
 				| pieceBoards[PieceHelper.WHITE_PAWN] | pieceBoards[PieceHelper.BLACK_PAWN];
 	}
 
-	public long getAttacksTo(int index)
+	public long getAttacksTo(int index, long allPieces)
 	{
 		long knights, kings, diagSliders, orthoSliders;
 		knights = (pieceBoards[PieceHelper.WHITE_KNIGHT] | pieceBoards[PieceHelper.BLACK_KNIGHT])
@@ -75,12 +75,12 @@ public class Bitboards
 		diagSliders = orthoSliders = pieceBoards[PieceHelper.WHITE_QUEEN] | pieceBoards[PieceHelper.BLACK_QUEEN];
 		diagSliders |= pieceBoards[PieceHelper.WHITE_BISHOP] | pieceBoards[PieceHelper.BLACK_BISHOP];
 		orthoSliders |= pieceBoards[PieceHelper.WHITE_ROOK] | pieceBoards[PieceHelper.BLACK_ROOK];
-		diagSliders &= PrecomputedMagicNumbers.getBishopMoves(index, getAllPieces());
-		orthoSliders &= PrecomputedMagicNumbers.getRookMoves(index, getAllPieces());
+		diagSliders &= PrecomputedMagicNumbers.getBishopMoves(index, allPieces);
+		orthoSliders &= PrecomputedMagicNumbers.getRookMoves(index, allPieces);
 
-		return knights | kings | diagSliders | orthoSliders
+		return (knights | kings | diagSliders | orthoSliders
 				| (PrecomputedData.getPawnCaptures(index, PieceHelper.WHITE_PIECE) & pieceBoards[PieceHelper.BLACK_PAWN])
-				| (PrecomputedData.getPawnCaptures(index, PieceHelper.BLACK_PIECE) & pieceBoards[PieceHelper.WHITE_PAWN]);
+				| (PrecomputedData.getPawnCaptures(index, PieceHelper.BLACK_PIECE) & pieceBoards[PieceHelper.WHITE_PAWN]));
 	}
 
 	public long getAttacksFrom(int index)
