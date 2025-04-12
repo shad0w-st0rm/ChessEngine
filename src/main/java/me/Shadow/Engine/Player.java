@@ -47,7 +47,7 @@ public class Player
 	
 	private short tryGetBookMove(boolean random)
 	{
-		OpeningBook.OpeningMove[] openingMoves = OpeningBook.openingBook.get(board.getZobristHash());
+		OpeningBook.OpeningMove[] openingMoves = OpeningBook.openingBook.get(board.zobristHash);
 		if (openingMoves == null) return MoveHelper.NULL_MOVE;
 		
 		if (!random)

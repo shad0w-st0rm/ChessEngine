@@ -50,7 +50,7 @@ public class Engine
 		PrecomputedMagicNumbers.precomputeMagics();
 		PrecomputedMagicNumbers.printMagicsTableSize();
 		
-		Perft.runPerftSuite(10);
+		//Perft.runPerftSuite(10);
 		
 		try
 		{
@@ -142,7 +142,7 @@ public class Engine
 	
 	public void makeMove(short move)
 	{
-		System.out.print(board.getMoveNum() + ". ");
+		System.out.print(board.moveNum + ". ");
 		if(board.colorToMove == PieceHelper.BLACK_PIECE) System.out.print("...");
 		System.out.println(MoveHelper.toString(move));
 				
@@ -152,7 +152,7 @@ public class Engine
 	
 	public boolean isThreeFoldRepetition(Board board)
 	{
-		long zobristHash = board.getZobristHash();
+		long zobristHash = board.zobristHash;
 		ArrayList<Long> positions = board.positionList;
 		int duplicateCount = 0;
 		for (long position : positions)
@@ -171,7 +171,7 @@ public class Engine
 			return true;
 		}
 		
-		if(board.getHalfMoves() >= 100)
+		if(board.halfMoves >= 100)
 		{
 			gui.message.setText("Game Over! " + "Draw by Fifty Move Rule!");
 			return true;

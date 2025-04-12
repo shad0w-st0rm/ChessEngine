@@ -19,11 +19,11 @@ public class Board
 	public int[] squares = new int[64];
 	public int colorToMove;
 	
-	private long zobristHash;
-	private long pawnsHash;
+	public long zobristHash;
+	long pawnsHash;
 	long material;
-	private short halfMoves;
-	private short moveNum;
+	public short halfMoves;
+	public short moveNum;
 	byte castlingRights;
 	short enPassantIndex;
 	public ArrayList<Long> positionList = new ArrayList<Long>();
@@ -308,16 +308,6 @@ public class Board
 		isCachedCheckValid = false;
 	}
 	
-	public long getZobristHash()
-	{
-		return zobristHash;
-	}
-	
-	public long getPawnsHash()
-	{
-		return pawnsHash;
-	}
-	
 	public long[] packBoardInfo()
 	{
 		long info = (long)enPassantIndex << 48;
@@ -530,16 +520,6 @@ public class Board
 		isCachedCheckValid = false;
 	}
 	
-	public int getHalfMoves()
-	{
-		return halfMoves;
-	}
-	
-	public int getMoveNum()
-	{
-		return moveNum;
-	}
-	
 	public static short getMaterial(int color, boolean endgame, long material)
 	{
 		if (color == PieceHelper.BLACK_PIECE) material = material >>> 32;
@@ -551,9 +531,9 @@ public class Board
 	{
 		// if color perspective is black, flip black and white to keep white as lower order bits
 		if (color == PieceHelper.WHITE_PIECE)
-			return (wMG & 0xFFFFFFFF) | (wEG & 0xFFFFFFFF) << 16 | (bMG & 0xFFFFFFFF) << 32 | (bEG & 0xFFFFFFFF) << 48;
+			return (wMG & 0xFFFFFFFFL) | (wEG & 0xFFFFFFFFL) << 16 | (bMG & 0xFFFFFFFFL) << 32 | (bEG & 0xFFFFFFFFL) << 48;
 		else
-			return (bMG & 0xFFFFFFFF) | (bEG & 0xFFFFFFFF) << 16 | (wMG & 0xFFFFFFFF) << 32 | (wEG & 0xFFFFFFFF) << 48;
+			return (bMG & 0xFFFFFFFFL) | (bEG & 0xFFFFFFFFL) << 16 | (wMG & 0xFFFFFFFFL) << 32 | (wEG & 0xFFFFFFFFL) << 48;
 	}
 
 	/**

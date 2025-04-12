@@ -111,7 +111,7 @@ public class MoveOrderer
 		int[] gain = new int[32];
 		long xrayPieces = board.bitBoards.getXrayPieces();
 		long fromBitboard = 1L << start;
-		long allPieces = board.bitBoards.getAllPieces();
+		long allPieces = board.bitBoards.colorBoards[PieceHelper.WHITE_PIECE] | board.bitBoards.colorBoards[PieceHelper.BLACK_PIECE];
 		long squareAtksDefs = board.bitBoards.getAttacksTo(target, allPieces);
 		int depth = 0;
 		int color = piece & PieceHelper.COLOR_MASK;

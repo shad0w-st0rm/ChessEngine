@@ -71,13 +71,12 @@ public class MoveGenerator
 	{
 		friendlyColor = board.colorToMove;
 		enemyColor = friendlyColor ^ PieceHelper.BLACK_PIECE;
-		
 		friendlyKingIndex = Bitboards.getLSB(bitBoards.pieceBoards[PieceHelper.KING + friendlyColor]);
 		
 		inCheck = doubleCheck = false;
 		
-		friendlyPiecesBitboard = bitBoards.getAllFriendlyPieces(friendlyColor);
-		enemyPiecesBitboard = bitBoards.getAllFriendlyPieces(enemyColor);
+		friendlyPiecesBitboard = bitBoards.colorBoards[friendlyColor];
+		enemyPiecesBitboard = bitBoards.colorBoards[enemyColor];
 		allPiecesBitboard = friendlyPiecesBitboard | enemyPiecesBitboard;
 		
 		checkRaysMask = pinRaysMask = 0;

@@ -83,6 +83,7 @@ public class MoveSearcher
 		final int[] scores = moveOrderer.guessMoveEvals(board, moves, bestMove, false, 0);
 
 		int bound = TranspositionTable.UPPER_BOUND;
+		long[] boardInfoOld = board.packBoardInfo();
 		final int length = moves.length;
 		for (int i = 0; i < length; i++)
 		{
@@ -90,7 +91,7 @@ public class MoveSearcher
 
 			final short move = moves[i];
 
-			int evaluation = searchMove(move, alpha, beta, depth, 0, i);
+			int evaluation = searchMove(move, alpha, beta, depth, 0, i, boardInfoOld);
 
 			if (searchCancelled)
 			{
@@ -110,13 +111,13 @@ public class MoveSearcher
 			if (evaluation >= beta)
 			{
 				// move was too good so opponent will avoid this branch
-				transpositionTable.storeEvaluation(board.getZobristHash(), beta, depth,
+				transpositionTable.storeEvaluation(board.zobristHash, beta, depth,
 						TranspositionTable.LOWER_BOUND, move, obsoleteFlag);
 				return beta;
 			}
 		}
 
-		transpositionTable.storeEvaluation(board.getZobristHash(), alpha, depth, bound, bestMove,
+		transpositionTable.storeEvaluation(board.zobristHash, alpha, depth, bound, bestMove,
 				obsoleteFlag);
 
 		return alpha;
@@ -127,7 +128,7 @@ public class MoveSearcher
 		if (searchCancelled)
 			return 0;
 
-		if (isDuplicatePosition() || board.getHalfMoves() >= 100)
+		if (isDuplicatePosition() || board.halfMoves >= 100)
 		{
 			return 0;
 		}
@@ -135,7 +136,7 @@ public class MoveSearcher
 		int obsoleteFlag = transpositionTable.createObsoleteFlag(board.bitBoards.getNumPawns(PieceHelper.WHITE_PIECE),
 				board.bitBoards.getNumPawns(PieceHelper.BLACK_PIECE), board.castlingRights);
 
-		long zobristHash = board.getZobristHash();
+		long zobristHash = board.zobristHash;
 		short bestMoveInPosition = MoveHelper.NULL_MOVE;
 		short[] transposition = transpositionTable.getEntry(zobristHash);
 
@@ -179,11 +180,13 @@ public class MoveSearcher
 
 		int bound = TranspositionTable.UPPER_BOUND;
 		boolean searchedFirst = false;
+		long[] boardInfoOld = board.packBoardInfo();
+		
 		if (bestMoveInPosition != MoveHelper.NULL_MOVE)
 		{
 			searchedFirst = true;
 
-			int evaluation = searchMove(bestMoveInPosition, alpha, beta, depth, plyFromRoot, 0);
+			int evaluation = searchMove(bestMoveInPosition, alpha, beta, depth, plyFromRoot, 0, boardInfoOld);
 
 			if (searchCancelled)
 				return evaluation;
@@ -223,7 +226,7 @@ public class MoveSearcher
 
 			final short move = moves[i];
 
-			int evaluation = searchMove(move, alpha, beta, depth, plyFromRoot, i);
+			int evaluation = searchMove(move, alpha, beta, depth, plyFromRoot, i, boardInfoOld);
 
 			if (searchCancelled)
 				return evaluation;
@@ -249,9 +252,8 @@ public class MoveSearcher
 		return alpha;
 	}
 
-	public int searchMove(short move, int alpha, int beta, int depth, int plyFromRoot, int moveNum)
+	public int searchMove(short move, int alpha, int beta, int depth, int plyFromRoot, int moveNum, long[] boardInfoOld)
 	{
-		final long[] boardInfoOld = board.packBoardInfo();
 		final int captured = board.movePiece(move);
 
 		// if (depth > 2 && captured == PieceHelper.NONE) qMoves++;
@@ -314,7 +316,7 @@ public class MoveSearcher
 		if (searchCancelled)
 			return 0;
 
-		long zobristHash = board.getZobristHash();
+		long zobristHash = board.zobristHash;
 		short[] transposition = transpositionTable.getEntry(zobristHash);
 
 		if (transposition != null)
@@ -383,13 +385,13 @@ public class MoveSearcher
 
 	public boolean isDuplicatePosition()
 	{
-		if (board.getHalfMoves() < 4)
+		if (board.halfMoves < 4)
 			return false;
 
-		final long zobristHash = board.getZobristHash();
+		final long zobristHash = board.zobristHash;
 
 		int index = board.positionList.size() - 5;
-		final int minIndex = Math.max(index - board.getHalfMoves() + 1, 0);
+		final int minIndex = Math.max(index - board.halfMoves + 1, 0);
 		while (index >= minIndex)
 		{
 			if (board.positionList.get(index) == zobristHash)
@@ -453,7 +455,7 @@ public class MoveSearcher
 	
 	public int evaluatePawns()
 	{
-		long pawnsHash = board.getPawnsHash();
+		long pawnsHash = board.pawnsHash;
 		int pawnsEval = transpositionTable.getPawnsEval(pawnsHash);
 		
 		if (pawnsEval != TranspositionTable.LOOKUP_FAILED)
