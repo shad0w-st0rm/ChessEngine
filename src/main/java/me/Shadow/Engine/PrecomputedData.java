@@ -14,8 +14,8 @@ public class PrecomputedData
 	public static final long [] rayAlignMask = new long[64*64];
 	public static final long [] rayDirectionMask = new long[64*8];
 	
-	public static final long [] orthoSlidersMask = new long[64];
-	public static final long [] diagSlidersMask = new long[64];
+	public static final byte [] distToCenter = new byte[64];
+	public static final byte [] orthoSquaresDist = new byte[64*64];
 	
 	public static final long WHITE_KINGSIDE_CASTLING_CLEAR_MASK = (0b11L << 5);
 	public static final long BLACK_KINGSIDE_CASTLING_CLEAR_MASK = (0b11L << 61);
@@ -83,9 +83,22 @@ public class PrecomputedData
 			long pawnAttacksWhite = ((pawnBitboard & (~MoveGenerator.A_FILE)) << 7) | ((pawnBitboard & (~MoveGenerator.H_FILE)) << 9);
 			long pawnAttacksBlack = ((pawnBitboard & (~MoveGenerator.A_FILE)) >>> 9) | ((pawnBitboard & (~MoveGenerator.H_FILE)) >>> 7);
 			PAWN_MOVES[index * 2] = pawnMovesWhite;
-			PAWN_MOVES[index * 2 + PieceHelper.BLACK_PIECE] = pawnMovesBlack;
+			PAWN_MOVES[index * 2 + PieceHelper.BLACK] = pawnMovesBlack;
 			PAWN_CAPTURES[index * 2] = pawnAttacksWhite;
-			PAWN_CAPTURES[index * 2 + PieceHelper.BLACK_PIECE] = pawnAttacksBlack;
+			PAWN_CAPTURES[index * 2 + PieceHelper.BLACK] = pawnAttacksBlack;
+			
+			final int dRank = 8 - (index / 8);
+			final int dFile = (index % 8) + 1;
+			final byte centerDist = (byte) (Math.max(4 - dRank, dRank - 5) + Math.max(4 - dFile, dFile - 5));
+			distToCenter[index] = centerDist;
+			
+			for (int i = 0; i < 64; i++)
+			{
+				final int otherRank = 8 - (i / 8);
+				final int otherFile = (i % 8) + 1;
+				byte squaresDist = (byte) (14 - (Math.abs(dRank - otherRank) + Math.abs(dFile - otherFile)));
+				orthoSquaresDist[(index << 6) | i] = squaresDist;
+			}
 		}
 		
 		// ray direction mask
@@ -132,69 +145,6 @@ public class PrecomputedData
 				}
 			}
 		}
-		
-		long [] singleDiagsMask = new long[64];
-		for (int kingIndex = 0; kingIndex < 64; kingIndex++)
-		{
-			//long orthoMask = Bitboards.shift(MoveGenerator.FIRST_THREE_RANKS, (kingIndex & 56) - 8);
-			//orthoMask |= Bitboards.shift(MoveGenerator.ABC_FILES, (kingIndex & 7) - 1);
-			
-			long orthoMask = MoveGenerator.FIRST_RANK << (kingIndex & 56);
-			orthoMask |= MoveGenerator.A_FILE << (kingIndex & 7);
-			orthoSlidersMask[kingIndex] = orthoMask;
-			
-			int rank = (kingIndex >>> 3);
-			int file = kingIndex & 7;
-			long posDiagonal = 0;
-			long negDiagonal = 0;
-			
-			int i, j;
-			for (i = rank - 1, j = file - 1; i >= 0 && j >= 0; i--, j--)
-			{
-				posDiagonal |= 1L << (i * 8 + j);
-			}
-			
-			for (i = rank + 1, j = file + 1; i < 8 && j < 8; i++, j++)
-			{
-				posDiagonal |= 1L << (i * 8 + j);
-			}
-			
-			for (i = rank - 1, j = file + 1; i >= 0 && j < 8; i--, j++)
-			{
-				negDiagonal |= 1L << (i * 8 + j);
-			}
-			
-			for (i = rank + 1, j = file - 1; i < 8 && j >= 0; i++, j--)
-			{
-				negDiagonal |= 1L << (i * 8 + j);
-			}
-			
-			//long diagonals = posDiagonal | negDiagonal;
-			//singleDiagsMask[kingIndex] = diagonals;
-			
-			diagSlidersMask[kingIndex] = posDiagonal | negDiagonal;
-		}
-			
-		/*
-		for (int kingIndex = 0; kingIndex < 64; kingIndex++)
-		{
-			int rank = (kingIndex >>> 3);
-			int file = kingIndex & 7;
-			long combinedDiagonals = 0;
-			
-			for (int i = rank - 1; i <= rank + 1; i++)
-			{
-				for (int j = file - 1; j <= file + 1; j++)
-				{
-					if (i < 0 || i >= 8 || j < 0 || j >= 8) continue;
-					
-					combinedDiagonals |= singleDiagsMask[(i * 8 + j)];
-				}
-			}
-			
-			diagSlidersMask[kingIndex] = combinedDiagonals;
-		}
-		*/
 		
 		// printRayDirectionMask(4);
 		// printRayAlignMask(8);

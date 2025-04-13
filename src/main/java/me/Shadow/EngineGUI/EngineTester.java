@@ -226,7 +226,7 @@ public class EngineTester
 		engineWhite.sendCommand("position fen " + fenPosition);
 		engineBlack.sendCommand("position fen " + fenPosition);
 
-		EnginePlayer currentPlayer = colorToMove == PieceHelper.WHITE_PIECE ? engineWhite : engineBlack;
+		EnginePlayer currentPlayer = colorToMove == PieceHelper.WHITE ? engineWhite : engineBlack;
 
 		while (true)
 		{
@@ -235,8 +235,8 @@ public class EngineTester
 			{
 				if (reason == GameOverReason.WHITE_CHECKMATED || reason == GameOverReason.BLACK_CHECKMATED)
 				{
-					result = colorToMove == PieceHelper.WHITE_PIECE ? "0-1" : "1-0";
-					whitePoints = colorToMove == PieceHelper.WHITE_PIECE ? 0 : 1;
+					result = colorToMove == PieceHelper.WHITE ? "0-1" : "1-0";
+					whitePoints = colorToMove == PieceHelper.WHITE ? 0 : 1;
 					blackPoints = 1 - whitePoints;
 				}
 				else
@@ -270,7 +270,7 @@ public class EngineTester
 			// System.out.println("Move played: " + bestMove);
 
 			colorToMove = board.colorToMove;
-			currentPlayer = colorToMove == PieceHelper.WHITE_PIECE ? engineWhite : engineBlack;
+			currentPlayer = colorToMove == PieceHelper.WHITE ? engineWhite : engineBlack;
 		}
 
 		String pgn = createPGN(thread, round, engineWhite.getName(), engineBlack.getName(), result, reason, fenPosition,
@@ -328,7 +328,7 @@ public class EngineTester
 		if (numMoves == 0)
 		{
 			return moveGen.inCheck
-					? (board.colorToMove == PieceHelper.WHITE_PIECE ? GameOverReason.WHITE_CHECKMATED
+					? (board.colorToMove == PieceHelper.WHITE ? GameOverReason.WHITE_CHECKMATED
 							: GameOverReason.BLACK_CHECKMATED)
 					: GameOverReason.STALEMATE;
 		}
@@ -370,27 +370,27 @@ public class EngineTester
 	public boolean isInsufficientMaterial(Board board)
 	{
 		Bitboards bitBoards = board.bitBoards;
-		long winningPieces = bitBoards.pieceBoards[PieceHelper.PAWN | PieceHelper.WHITE_PIECE]
-				| bitBoards.pieceBoards[PieceHelper.PAWN | PieceHelper.BLACK_PIECE];
-		winningPieces |= bitBoards.pieceBoards[PieceHelper.QUEEN | PieceHelper.WHITE_PIECE]
-				| bitBoards.pieceBoards[PieceHelper.QUEEN | PieceHelper.BLACK_PIECE];
-		winningPieces |= bitBoards.pieceBoards[PieceHelper.ROOK | PieceHelper.WHITE_PIECE]
-				| bitBoards.pieceBoards[PieceHelper.ROOK | PieceHelper.BLACK_PIECE];
+		long winningPieces = bitBoards.pieceBoards[PieceHelper.PAWN | PieceHelper.WHITE]
+				| bitBoards.pieceBoards[PieceHelper.PAWN | PieceHelper.BLACK];
+		winningPieces |= bitBoards.pieceBoards[PieceHelper.QUEEN | PieceHelper.WHITE]
+				| bitBoards.pieceBoards[PieceHelper.QUEEN | PieceHelper.BLACK];
+		winningPieces |= bitBoards.pieceBoards[PieceHelper.ROOK | PieceHelper.WHITE]
+				| bitBoards.pieceBoards[PieceHelper.ROOK | PieceHelper.BLACK];
 		if (winningPieces != 0)
 			return false;
 
-		long whiteMinorPieces = bitBoards.pieceBoards[PieceHelper.KNIGHT | PieceHelper.WHITE_PIECE]
-				| bitBoards.pieceBoards[PieceHelper.BISHOP | PieceHelper.WHITE_PIECE];
-		long blackMinorPieces = bitBoards.pieceBoards[PieceHelper.KNIGHT | PieceHelper.BLACK_PIECE]
-				| bitBoards.pieceBoards[PieceHelper.BISHOP | PieceHelper.BLACK_PIECE];
+		long whiteMinorPieces = bitBoards.pieceBoards[PieceHelper.KNIGHT | PieceHelper.WHITE]
+				| bitBoards.pieceBoards[PieceHelper.BISHOP | PieceHelper.WHITE];
+		long blackMinorPieces = bitBoards.pieceBoards[PieceHelper.KNIGHT | PieceHelper.BLACK]
+				| bitBoards.pieceBoards[PieceHelper.BISHOP | PieceHelper.BLACK];
 
 		if (Long.bitCount(whiteMinorPieces) >= 2 || Long.bitCount(blackMinorPieces) >= 2)
 			return false;
 
 		int whiteIndex = Long
-				.numberOfTrailingZeros(bitBoards.pieceBoards[PieceHelper.BISHOP | PieceHelper.WHITE_PIECE]);
+				.numberOfTrailingZeros(bitBoards.pieceBoards[PieceHelper.BISHOP | PieceHelper.WHITE]);
 		int blackIndex = Long
-				.numberOfTrailingZeros(bitBoards.pieceBoards[PieceHelper.BISHOP | PieceHelper.BLACK_PIECE]);
+				.numberOfTrailingZeros(bitBoards.pieceBoards[PieceHelper.BISHOP | PieceHelper.BLACK]);
 		if (whiteIndex == 64 || blackIndex == 64)
 			return true;
 

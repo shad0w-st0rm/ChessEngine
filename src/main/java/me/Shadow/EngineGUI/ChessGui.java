@@ -12,7 +12,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
@@ -190,7 +189,7 @@ public class ChessGui
 		/*
 		 * fill the chess board
 		 */
-		if (engine.engineColor != PieceHelper.WHITE_PIECE)
+		if (engine.engineColor != PieceHelper.WHITE)
 		{
 			for (int i = 7; i >= 0; i--)
 			{

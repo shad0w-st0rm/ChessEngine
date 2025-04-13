@@ -1,7 +1,6 @@
 package me.Shadow.Engine;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Random;
 
@@ -60,7 +59,7 @@ public class Board
 
 	boolean isInCheck()
 	{
-		int enemyColor = colorToMove ^ PieceHelper.BLACK_PIECE;
+		int enemyColor = colorToMove ^ PieceHelper.BLACK;
 
 		int friendlyKingIndex = Bitboards.getLSB(bitBoards.pieceBoards[PieceHelper.KING | colorToMove]);
 
@@ -106,20 +105,20 @@ public class Board
 		final int capturedPiece = squares[captureIndex];
 		
 		int color = colorToMove;
-		int enemyColor = color ^ PieceHelper.BLACK_PIECE;
+		int enemyColor = color ^ PieceHelper.BLACK;
 		int friendlyMGPieceBonus = Board.getMaterial(color, false, material);
 		int friendlyEGPieceBonus = Board.getMaterial(color, true, material);
 		int enemyMGPieceBonus = Board.getMaterial(enemyColor, false, material);
 		int enemyEGPieceBonus = Board.getMaterial(enemyColor, true, material);
 
 		// update boardInfo information
-		colorToMove ^= PieceHelper.BLACK_PIECE;
+		colorToMove ^= PieceHelper.BLACK;
 		zobristHash ^= zobristHashes[768]; // flip side to move
 		
 		halfMoves++;
 		if (PieceHelper.getPieceType(piece) == PieceHelper.PAWN)
 			halfMoves = 0; // reset half moves for 50 move rule
-		if (color == PieceHelper.BLACK_PIECE)
+		if (color == PieceHelper.BLACK)
 			moveNum++;
 
 		if (enPassantIndex != -1)
@@ -251,7 +250,7 @@ public class Board
 	public void moveBack(final short move, final int captured, long [] boardInfoOld)
 	{
 		unpackBoardInfo(boardInfoOld);
-		colorToMove ^= PieceHelper.BLACK_PIECE;
+		colorToMove ^= PieceHelper.BLACK;
 		positionList.removeLast(); // remove the most recent position
 
 		final int start = MoveHelper.getStartIndex(move);
@@ -342,7 +341,7 @@ public class Board
 			}
 		}
 
-		if (colorToMove == PieceHelper.BLACK_PIECE)
+		if (colorToMove == PieceHelper.BLACK)
 			zobristHash ^= zobristHashes[768];
 
 		if ((castlingRights & WHITE_KING_CASTLING) != 0)
@@ -415,9 +414,9 @@ public class Board
 				{
 					int piece = PieceHelper.NONE;
 
-					int color = PieceHelper.BLACK_PIECE;
+					int color = PieceHelper.BLACK;
 					if (((int) c) > 65 && ((int) c) < 90)
-						color = PieceHelper.WHITE_PIECE;
+						color = PieceHelper.WHITE;
 
 					if (c == 'k' || c == 'K')
 						piece = PieceHelper.KING | color;
@@ -445,7 +444,7 @@ public class Board
 		{
 			String string = fenInfo[i].trim();
 			if (i == 1)
-				colorToMove = string.equals("w") ? PieceHelper.WHITE_PIECE : PieceHelper.BLACK_PIECE; // sets color to
+				colorToMove = string.equals("w") ? PieceHelper.WHITE : PieceHelper.BLACK; // sets color to
 																										// move
 			else if (i == 2) // checks castling rights
 			{
@@ -497,7 +496,7 @@ public class Board
 			int piece = squares[i];
 			if (piece != PieceHelper.NONE)
 			{
-				if ((piece & PieceHelper.COLOR_MASK) == PieceHelper.WHITE_PIECE)
+				if ((piece & PieceHelper.COLOR_MASK) == PieceHelper.WHITE)
 				{
 					whiteMGBonus += PieceHelper.getPieceSquareValue(piece, i, false);
 					whiteEGBonus += PieceHelper.getPieceSquareValue(piece, i, true);
@@ -510,7 +509,7 @@ public class Board
 			}
 		}
 		
-		material = Board.createMaterial(whiteMGBonus, whiteEGBonus, blackMGBonus, blackEGBonus, PieceHelper.WHITE_PIECE);
+		material = Board.createMaterial(whiteMGBonus, whiteEGBonus, blackMGBonus, blackEGBonus, PieceHelper.WHITE);
 
 		if (bitBoards == null)
 			bitBoards = new Bitboards(this);
@@ -522,7 +521,7 @@ public class Board
 	
 	public static short getMaterial(int color, boolean endgame, long material)
 	{
-		if (color == PieceHelper.BLACK_PIECE) material = material >>> 32;
+		if (color == PieceHelper.BLACK) material = material >>> 32;
 		if (endgame) material = material >>> 16;
 		return (short) material;
 	}
@@ -530,7 +529,7 @@ public class Board
 	public static long createMaterial(int wMG, int wEG, int bMG, int bEG, int color)
 	{
 		// if color perspective is black, flip black and white to keep white as lower order bits
-		if (color == PieceHelper.WHITE_PIECE)
+		if (color == PieceHelper.WHITE)
 			return (wMG & 0xFFFFFFFFL) | (wEG & 0xFFFFFFFFL) << 16 | (bMG & 0xFFFFFFFFL) << 32 | (bEG & 0xFFFFFFFFL) << 48;
 		else
 			return (bMG & 0xFFFFFFFFL) | (bEG & 0xFFFFFFFFL) << 16 | (wMG & 0xFFFFFFFFL) << 32 | (wEG & 0xFFFFFFFFL) << 48;
@@ -586,7 +585,7 @@ public class Board
 		for (String string : rows)
 			newFEN += string;
 
-		newFEN += " " + (colorToMove == PieceHelper.WHITE_PIECE ? "w" : "b") + " "; // color to move
+		newFEN += " " + (colorToMove == PieceHelper.WHITE ? "w" : "b") + " "; // color to move
 		if ((castlingRights & WHITE_KING_CASTLING) != 0)
 			newFEN += "K";
 		if ((castlingRights & WHITE_QUEEN_CASTLING) != 0)

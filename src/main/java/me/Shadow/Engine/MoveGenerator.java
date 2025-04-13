@@ -66,7 +66,7 @@ public class MoveGenerator
 	private void analyzePosition()
 	{
 		friendlyColor = board.colorToMove;
-		enemyColor = friendlyColor ^ PieceHelper.BLACK_PIECE;
+		enemyColor = friendlyColor ^ PieceHelper.BLACK;
 		friendlyKingIndex = Bitboards.getLSB(bitBoards.pieceBoards[PieceHelper.KING + friendlyColor]);
 		
 		inCheck = doubleCheck = false;
@@ -94,7 +94,7 @@ public class MoveGenerator
 		// castling moves
 		if (!(capturesOnly || inCheck))
 		{
-			final boolean isWhite = friendlyColor == PieceHelper.WHITE_PIECE;
+			final boolean isWhite = friendlyColor == PieceHelper.WHITE;
 			
 			if ((board.castlingRights & (isWhite ? Board.WHITE_KING_CASTLING : Board.BLACK_KING_CASTLING)) != 0)
 			{
@@ -196,10 +196,10 @@ public class MoveGenerator
 	
 	private void generatePawnMoves()
 	{
-		final int direction = friendlyColor == PieceHelper.WHITE_PIECE ? 1 : -1;
+		final int direction = friendlyColor == PieceHelper.WHITE ? 1 : -1;
 		
-		final long promotionRank = (friendlyColor == PieceHelper.WHITE_PIECE) ? EIGHTH_RANK : FIRST_RANK;
-		final long doublePushTargetRank = (friendlyColor == PieceHelper.WHITE_PIECE) ? FOURTH_RANK : FIFTH_RANK;
+		final long promotionRank = (friendlyColor == PieceHelper.WHITE) ? EIGHTH_RANK : FIRST_RANK;
+		final long doublePushTargetRank = (friendlyColor == PieceHelper.WHITE) ? FOURTH_RANK : FIFTH_RANK;
 		
 		
 		final long pawnsBitboard = bitBoards.pieceBoards[PieceHelper.PAWN + friendlyColor];
@@ -213,8 +213,8 @@ public class MoveGenerator
 		long singlePushAndPromoting = singlePushSquares & promotionRank & checkRaysMask;
 		singlePushSquares &= ~promotionRank & checkRaysMask;
 		
-		final long captureLeftMask = (friendlyColor == PieceHelper.WHITE_PIECE) ? ~A_FILE : ~H_FILE;
-		final long captureRightMask = (friendlyColor == PieceHelper.WHITE_PIECE) ? ~H_FILE : ~A_FILE;
+		final long captureLeftMask = (friendlyColor == PieceHelper.WHITE) ? ~A_FILE : ~H_FILE;
+		final long captureRightMask = (friendlyColor == PieceHelper.WHITE) ? ~H_FILE : ~A_FILE;
 		
 		long captureLeftSquares = Bitboards.shift(pawnsBitboard & captureLeftMask, direction * 7) & enemyPiecesBitboard & checkRaysMask;
 		long captureRightSquares = Bitboards.shift(pawnsBitboard & captureRightMask, direction * 9) & enemyPiecesBitboard & checkRaysMask;
@@ -443,7 +443,7 @@ public class MoveGenerator
 		enemyPawnAttackMap = 0;
 		
 		// mask out edge files and shift pawns according to color along the board
-		if (enemyColor == PieceHelper.WHITE_PIECE)
+		if (enemyColor == PieceHelper.WHITE)
 		{
 			enemyPawnAttackMap = ((enemyPawnsBitboard & (~A_FILE)) << 7) | ((enemyPawnsBitboard & (~H_FILE)) << 9);
 		}

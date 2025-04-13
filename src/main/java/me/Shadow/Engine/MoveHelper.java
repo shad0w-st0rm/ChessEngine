@@ -93,7 +93,7 @@ public class MoveHelper
 		notation += Utils.getSquareName(getTargetIndex(move));
 		if (getPromotedPiece(move) != 0)
 		{
-			notation += PieceHelper.getPieceSymbol(getPromotedPiece(move) | PieceHelper.BLACK_PIECE);
+			notation += PieceHelper.getPieceSymbol(getPromotedPiece(move) | PieceHelper.BLACK);
 		}
 		return notation;
 	}

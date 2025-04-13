@@ -122,8 +122,8 @@ public class Player
 	
 	public int chooseTimeToThink(int whiteTimeMS, int blackTimeMS, int whiteIncrementMS, int blackIncrementMS)
 	{
-		int engineTime = board.colorToMove == PieceHelper.WHITE_PIECE ? whiteTimeMS : blackTimeMS;
-		int engineIncrement = board.colorToMove == PieceHelper.WHITE_PIECE ? whiteIncrementMS : blackIncrementMS;
+		int engineTime = board.colorToMove == PieceHelper.WHITE ? whiteTimeMS : blackTimeMS;
+		int engineIncrement = board.colorToMove == PieceHelper.WHITE ? whiteIncrementMS : blackIncrementMS;
 		float thinkTime = engineTime / 40.0f;
 		if (engineTime > (engineIncrement * 4))	// at least 4x increment time to add increment time in search time (otherwise save the increment time)
 		{

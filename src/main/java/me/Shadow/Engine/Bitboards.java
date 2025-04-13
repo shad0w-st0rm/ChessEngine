@@ -67,8 +67,8 @@ public class Bitboards
 		orthoSliders &= PrecomputedMagicNumbers.getRookMoves(index, allPieces);
 
 		return (knights | kings | diagSliders | orthoSliders
-				| (PrecomputedData.getPawnCaptures(index, PieceHelper.WHITE_PIECE) & pieceBoards[PieceHelper.BLACK_PAWN])
-				| (PrecomputedData.getPawnCaptures(index, PieceHelper.BLACK_PIECE) & pieceBoards[PieceHelper.WHITE_PAWN]));
+				| (PrecomputedData.getPawnCaptures(index, PieceHelper.WHITE) & pieceBoards[PieceHelper.BLACK_PAWN])
+				| (PrecomputedData.getPawnCaptures(index, PieceHelper.BLACK) & pieceBoards[PieceHelper.WHITE_PAWN]));
 	}
 
 	public long getAttacksFrom(int index, int piece, long allPieces)

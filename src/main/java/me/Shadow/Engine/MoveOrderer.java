@@ -29,8 +29,7 @@ public class MoveOrderer
 		historyHeuristic = new int[2 * 64 * 64];
 	}
 
-	public void guessMoveEvals(final short firstMove, final boolean inQuietSearch, final int ply, int startIndex,
-			int numMoves)
+	public void guessMoveEvals(short firstMove, final boolean inQSearch, final int ply, int startIndex, int numMoves)
 	{
 		float gamePhase = getGamePhase(board);
 		for (int i = startIndex; i < (startIndex + numMoves); i++)
@@ -87,7 +86,7 @@ public class MoveOrderer
 
 			// not a capture move, killers rank below winning captures and killer move
 			// unlikely to be losing capture
-			final boolean isKillerMove = !inQuietSearch && ply < maxKillerDepth && isKiller(move, ply);
+			final boolean isKillerMove = !inQSearch && ply < maxKillerDepth && isKiller(move, ply);
 			if (isKillerMove)
 				evalGuess += killerMoveBias;
 			else
@@ -106,8 +105,8 @@ public class MoveOrderer
 		int[] gain = new int[32];
 		long xrayPieces = board.bitBoards.getXrayPieces();
 		long fromBitboard = 1L << start;
-		long allPieces = board.bitBoards.colorBoards[PieceHelper.WHITE_PIECE]
-				| board.bitBoards.colorBoards[PieceHelper.BLACK_PIECE];
+		long allPieces = board.bitBoards.colorBoards[PieceHelper.WHITE]
+				| board.bitBoards.colorBoards[PieceHelper.BLACK];
 		long squareAtksDefs = board.bitBoards.getAttacksTo(target, allPieces);
 		int depth = 0;
 		int color = piece & PieceHelper.COLOR_MASK;
@@ -126,7 +125,7 @@ public class MoveOrderer
 			{
 				squareAtksDefs |= considerXrays(board, allPieces, target);
 			}
-			color ^= PieceHelper.BLACK_PIECE;
+			color ^= PieceHelper.BLACK;
 			fromBitboard = getLeastValuablePiece(board, squareAtksDefs, color);
 			if (fromBitboard != 0)
 				piece = board.squares[Bitboards.getLSB(fromBitboard)];
@@ -203,13 +202,14 @@ public class MoveOrderer
 
 	public boolean isKiller(short move, int ply)
 	{
-		//return isKiller(killers[ply], move);
+		// return isKiller(killers[ply], move);
 		return isKiller(killers[ply], move) || (ply > 2 && isKiller(killers[ply - 2], move));
 	}
 
 	public static boolean isKiller(long killerPair, short move)
 	{
-		return ((killerPair & 0xFFFF) == move || ((killerPair >>> 16) & 0xFFFF) == move || ((killerPair >>> 32) & 0xFFFF) == move || ((killerPair >>> 48) & 0xFFFF) == move);
+		return ((killerPair & 0xFFFF) == move || ((killerPair >>> 16) & 0xFFFF) == move
+				|| ((killerPair >>> 32) & 0xFFFF) == move || ((killerPair >>> 48) & 0xFFFF) == move);
 	}
 
 	public void addKiller(short move, int ply)

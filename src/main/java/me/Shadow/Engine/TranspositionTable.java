@@ -70,8 +70,6 @@ public class TranspositionTable
 	public int lookupSuccesses;
 	public int typeTwoReplacements;
 	public int selfReplacements;
-
-	int currentObsoleteFlag = OBSOLETE_MASK;
 	
 	public TranspositionTable()
 	{
@@ -105,20 +103,6 @@ public class TranspositionTable
 		lookups = 1;
 		typeOneCollisions = 0;
 	}
-
-	
-	public int setObsoleteFlag(int numWhitePawns, int numBlackPawns, byte castlingRights)
-	{
-		currentObsoleteFlag = createObsoleteFlag(numWhitePawns, numBlackPawns, castlingRights);
-		return currentObsoleteFlag;
-	}
-	
-	public int createObsoleteFlag(int numWhitePawns, int numBlackPawns, byte castlingRights)
-	{
-		numWhitePawns = (short) (Math.max(1, numWhitePawns) - 1);
-		numBlackPawns = (short) (Math.max(1, numBlackPawns) - 1);
-		return (numBlackPawns << BPAWNS_SHIFT) | (numWhitePawns << WPAWNS_SHIFT) | (castlingRights << CASTLING_SHIFT);
-	}
 	
 	public short [] getEntry(long zobristKey)
 	{
@@ -151,38 +135,10 @@ public class TranspositionTable
 		return LOOKUP_FAILED;
 	}
 	
-	public void storeEvaluation(long zobristKey, int evaluation, int depth, int bound, short move, int obsoleteFlag)
+	public void storeEvaluation(long zobristKey, int evaluation, int depth, int bound, short move)
 	{
 		int index = (int)(zobristKey & indexBitMask);
-		long storedEntry = positionTable[index];
-		boolean notObsolete = false;
-		if (storedEntry != 0 && (storedEntry & PARTIAL_KEY_MASK) != (zobristKey >>> ZOBRIST_SHIFT))
-		{
-			// Entry exists and is of a different zobrist key
-			int moveEntry = moveTable[index];
-			if ((((moveEntry & CASTLING_MASK) & ~(currentObsoleteFlag & CASTLING_MASK)) == 0) && ((moveEntry & WPAWNS_MASK) <= (currentObsoleteFlag & WPAWNS_MASK)) && ((moveEntry & BPAWNS_MASK) <= (currentObsoleteFlag & BPAWNS_MASK)))
-			{
-				// Stored transposition is not clearly obsolete so compare further
-				notObsolete = true;
-				//selfReplacements--;
-			}
-			//typeTwoReplacements++;
-		}
-		else if (storedEntry != 0 || notObsolete)
-		{
-			// entry exists and is of the same key (still perhaps a different position, rare type 1 error)
-			int storedEntryDepth = (int)((storedEntry >>> DEPTH_SHIFT) & DEPTH_MASK);
-			int storedEntryBound = (int)((storedEntry >>> BOUND_SHIFT) & BOUND_MASK);
-			if (storedEntryDepth > depth || (storedEntryDepth == depth && storedEntryBound < bound))
-			{
-				return; // favor higher depth entries or better bounded equal depth entries
-			}
-			//selfReplacements++;
-		}
-		else	// no entry exists yet
-		{
-			//positionsStored++;
-		}
+		if (positionTable[index] == 0) positionsStored++;
 
 		long posEntry = ((long)evaluation) << EVAL_SHIFT;
 		posEntry |= ((long)bound) << BOUND_SHIFT;
@@ -190,7 +146,6 @@ public class TranspositionTable
 		posEntry |= (zobristKey >>> ZOBRIST_SHIFT);
 
 		int moveEntry = move << MOVE_SHIFT;
-		moveEntry |= obsoleteFlag;
 
 		positionTable[index] = posEntry;
 		moveTable[index] = moveEntry;

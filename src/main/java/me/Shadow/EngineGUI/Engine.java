@@ -32,7 +32,7 @@ public class Engine
 		// originalFEN = "3r4/8/3k4/8/8/3K4/8/8 w - - 0 1"; //white king vs black king + rook
 		// originalFEN = "8/7k/4p3/2p1P2p/2P1P2P/8/8/7K w - - 0 1"; // king and pawns vs king and pawns
 		
-		engineColor = PieceHelper.BLACK_PIECE;
+		engineColor = PieceHelper.BLACK;
 		searchTime = 1000;
 	}
 
@@ -141,7 +141,7 @@ public class Engine
 	public void makeMove(short move)
 	{
 		System.out.print(board.moveNum + ". ");
-		if(board.colorToMove == PieceHelper.BLACK_PIECE) System.out.print("...");
+		if(board.colorToMove == PieceHelper.BLACK) System.out.print("...");
 		System.out.println(MoveHelper.toString(move));
 				
 		board.movePiece(move);
@@ -179,7 +179,7 @@ public class Engine
 		if (moveGen.generateMoves(false, 0) == 0)
 		{
 			if (moveGen.inCheck)
-				gui.message.setText("Game Over! " + (board.colorToMove == PieceHelper.WHITE_PIECE ? "Black" : "White") + " wins by checkmate!");
+				gui.message.setText("Game Over! " + (board.colorToMove == PieceHelper.WHITE ? "Black" : "White") + " wins by checkmate!");
 			else
 				gui.message.setText("Game Over! " + "Draw by Stalemate!");
 			return true;

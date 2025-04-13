@@ -11,22 +11,22 @@ public class PieceHelper
 	public static final byte QUEEN = 10;	// 101X
 	public static final byte KING = 12;	// 110X
 	
-	public static final byte WHITE_PIECE = 0;
-	public static final byte BLACK_PIECE = 1;
+	public static final byte WHITE = 0;
+	public static final byte BLACK = 1;
 	
-	public static final byte WHITE_QUEEN = QUEEN | WHITE_PIECE;
-	public static final byte WHITE_ROOK = ROOK | WHITE_PIECE;
-	public static final byte WHITE_BISHOP = BISHOP | WHITE_PIECE;
-	public static final byte WHITE_KNIGHT = KNIGHT | WHITE_PIECE;
-	public static final byte WHITE_PAWN = PAWN | WHITE_PIECE;
-	public static final byte WHITE_KING = KING | WHITE_PIECE;
+	public static final byte WHITE_QUEEN = QUEEN | WHITE;
+	public static final byte WHITE_ROOK = ROOK | WHITE;
+	public static final byte WHITE_BISHOP = BISHOP | WHITE;
+	public static final byte WHITE_KNIGHT = KNIGHT | WHITE;
+	public static final byte WHITE_PAWN = PAWN | WHITE;
+	public static final byte WHITE_KING = KING | WHITE;
 	
-	public static final byte BLACK_QUEEN = QUEEN | BLACK_PIECE;
-	public static final byte BLACK_ROOK = ROOK | BLACK_PIECE;
-	public static final byte BLACK_BISHOP = BISHOP | BLACK_PIECE;
-	public static final byte BLACK_KNIGHT = KNIGHT | BLACK_PIECE;
-	public static final byte BLACK_PAWN = PAWN | BLACK_PIECE;
-	public static final byte BLACK_KING = KING | BLACK_PIECE;
+	public static final byte BLACK_QUEEN = QUEEN | BLACK;
+	public static final byte BLACK_ROOK = ROOK | BLACK;
+	public static final byte BLACK_BISHOP = BISHOP | BLACK;
+	public static final byte BLACK_KNIGHT = KNIGHT | BLACK;
+	public static final byte BLACK_PAWN = PAWN | BLACK;
+	public static final byte BLACK_KING = KING | BLACK;
 	
 	public static final byte TYPE_MASK = 0b1110;
 	public static final byte COLOR_MASK = 1;
@@ -197,8 +197,8 @@ public class PieceHelper
 	        for (int sq = 0; sq < 64; sq++) {
 	            mg_table[piece]  [sq] = (short) (mg_value[piece >>> 1] + mg_pesto_table[piece >>> 1][sq^56]);
 	            eg_table[piece]  [sq] = (short) (eg_value[piece >>> 1] + eg_pesto_table[piece >>> 1][sq^56]);
-	            mg_table[piece | BLACK_PIECE][sq] = (short) (mg_value[piece >>> 1] + mg_pesto_table[piece >>> 1][sq]);
-	            eg_table[piece | BLACK_PIECE][sq] = (short) (eg_value[piece >>> 1] + eg_pesto_table[piece >>> 1][sq]);
+	            mg_table[piece | BLACK][sq] = (short) (mg_value[piece >>> 1] + mg_pesto_table[piece >>> 1][sq]);
+	            eg_table[piece | BLACK][sq] = (short) (eg_value[piece >>> 1] + eg_pesto_table[piece >>> 1][sq]);
 	        }
 	    }
 	    
@@ -240,7 +240,7 @@ public class PieceHelper
 		else if (getPieceType(pieceInfo) == KNIGHT) symbol = 'N';
 		else if (getPieceType(pieceInfo) == PAWN) symbol = 'P';
 		
-		if ((pieceInfo & COLOR_MASK) == WHITE_PIECE) return symbol;
+		if ((pieceInfo & COLOR_MASK) == WHITE) return symbol;
 		else return (char) (symbol+32);
 	}
 	
