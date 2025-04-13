@@ -247,7 +247,7 @@ public class Board
 
 		return capturedPiece; // return the captured piece
 	}
-
+	
 	public void moveBack(final short move, final int captured, long [] boardInfoOld)
 	{
 		unpackBoardInfo(boardInfoOld);

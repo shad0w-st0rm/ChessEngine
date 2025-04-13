@@ -35,12 +35,14 @@ public class Utils
 	
 	public static short getMoveFromUCINotation(Board board, String uciMove)
 	{
-		MoveGenerator moveGen = new MoveGenerator(board);
-		short [] moves = moveGen.generateMoves(false);
+		short [] moves = new short[MoveGenerator.MAXIMUM_LEGAL_MOVES];
+		MoveGenerator moveGen = new MoveGenerator(board, moves);
+		int numMoves = moveGen.generateMoves(false, 0);
 		
 		uciMove = uciMove.replace("=", ""); // promotions sometimes have = (e.g. d7d8=q vs d7d8q)
-		for (short move : moves)
+		for (int i = 0; i < numMoves; i++)
 		{
+			short move = moves[i];
 			if (MoveHelper.toString(move).equals(uciMove)) return move;
 		}
 		return MoveHelper.NULL_MOVE;
@@ -48,12 +50,14 @@ public class Utils
 	
 	public static short getMoveFromAlgebraicNotation(Board board, String algebraicMove)
 	{
-		MoveGenerator moveGen = new MoveGenerator(board);
-		short [] moves = moveGen.generateMoves(false);
+		short [] moves = new short[MoveGenerator.MAXIMUM_LEGAL_MOVES];
+		MoveGenerator moveGen = new MoveGenerator(board, moves);
+		int numMoves = moveGen.generateMoves(false, 0);
 		
 		algebraicMove = algebraicMove.replace("-", "").replace("x", "").replace("+", "").replace("#", "");
-		for (short move : moves)
+		for (int i = 0; i < numMoves; i++)
 		{
+			short move = moves[i];
 			if (algebraicMove.equals("OO"))
 			{
 				if (MoveHelper.isCastleMove(move) && MoveHelper.getRookStartIndex(move) > MoveHelper.getStartIndex(move)) return move;

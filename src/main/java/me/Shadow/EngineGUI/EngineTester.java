@@ -197,7 +197,8 @@ public class EngineTester
 	{
 		// Set up a new game
 		Board board = new Board(fenPosition);
-		MoveGenerator moveGen = new MoveGenerator(board);
+		short [] movesArray = new short[MoveGenerator.MAXIMUM_LEGAL_MOVES];
+		MoveGenerator moveGen = new MoveGenerator(board, movesArray);
 
 		List<String> movesList = new ArrayList<String>();
 		int originalMoveNum = board.moveNum;
@@ -229,7 +230,7 @@ public class EngineTester
 
 		while (true)
 		{
-			reason = isGameOver(board, moveGen);
+			reason = isGameOver(board, moveGen, movesArray);
 			if (reason != null)
 			{
 				if (reason == GameOverReason.WHITE_CHECKMATED || reason == GameOverReason.BLACK_CHECKMATED)
@@ -321,10 +322,10 @@ public class EngineTester
 		return positions;
 	}
 
-	private GameOverReason isGameOver(Board board, MoveGenerator moveGen)
+	private GameOverReason isGameOver(Board board, MoveGenerator moveGen, short [] moves)
 	{
-		short[] moves = moveGen.generateMoves(false);
-		if (moves.length == 0)
+		int numMoves = moveGen.generateMoves(false, 0);
+		if (numMoves == 0)
 		{
 			return moveGen.inCheck
 					? (board.colorToMove == PieceHelper.WHITE_PIECE ? GameOverReason.WHITE_CHECKMATED

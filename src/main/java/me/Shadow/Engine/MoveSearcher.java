@@ -2,6 +2,12 @@ package me.Shadow.Engine;
 
 public class MoveSearcher
 {
+	static final int MAX_DEPTH = 64;
+
+	static final int positiveInfinity = 0x3FFF;
+	static final int negativeInfinity = -positiveInfinity;
+	
+	
 	short bestMove;
 
 	boolean searchCancelled;
@@ -10,10 +16,7 @@ public class MoveSearcher
 	private MoveGenerator moveGen;
 	private MoveOrderer moveOrderer;
 	private TranspositionTable transpositionTable;
-	static final int MAX_DEPTH = 64;
-
-	static final int positiveInfinity = 0x3FFF;
-	static final int negativeInfinity = -positiveInfinity;
+	private short [] moves;
 
 	//int nodes = 0;
 	//int qMoves = 0;
@@ -22,8 +25,9 @@ public class MoveSearcher
 	public MoveSearcher(Board board)
 	{
 		this.board = board;
-		moveGen = new MoveGenerator(board);
-		moveOrderer = new MoveOrderer();
+		moves = new short[1024];
+		moveGen = new MoveGenerator(board, moves);
+		moveOrderer = new MoveOrderer(board, moves);
 		transpositionTable = new TranspositionTable();
 	}
 
@@ -74,24 +78,23 @@ public class MoveSearcher
 
 	public int rootSearch(final int depth, int alpha, int beta, int obsoleteFlag)
 	{
-		final short[] moves = moveGen.generateMoves(false);
+		int numMoves = moveGen.generateMoves(false, 0);
 
 		// checkmate/stalemate
-		if (moves.length == 0)
+		if (numMoves == 0)
 			return moveGen.inCheck ? negativeInfinity : 0;
 
-		final int[] scores = moveOrderer.guessMoveEvals(board, moves, bestMove, false, 0);
+		moveOrderer.guessMoveEvals(bestMove, false, 0, 0, numMoves);
 
 		int bound = TranspositionTable.UPPER_BOUND;
 		long[] boardInfoOld = board.packBoardInfo();
-		final int length = moves.length;
-		for (int i = 0; i < length; i++)
+		for (int i = 0; i < numMoves; i++)
 		{
-			MoveOrderer.singleSelectionSort(moves, scores, i);
+			moveOrderer.singleSelectionSort(i, numMoves);
 
 			final short move = moves[i];
 
-			int evaluation = searchMove(move, alpha, beta, depth, 0, i, boardInfoOld);
+			int evaluation = searchMove(move, alpha, beta, depth, 0, i, boardInfoOld, numMoves);
 
 			if (searchCancelled)
 			{
@@ -123,7 +126,7 @@ public class MoveSearcher
 		return alpha;
 	}
 
-	public int search(final int depth, final int plyFromRoot, int alpha, int beta)
+	public int search(final int depth, final int plyFromRoot, int alpha, int beta, int moveIndex)
 	{
 		if (searchCancelled)
 			return 0;
@@ -176,7 +179,7 @@ public class MoveSearcher
 		//if (depth > 2) nodes++;
 
 		if (depth == 0)
-			return searchCaptures(alpha, beta);
+			return searchCaptures(alpha, beta, moveIndex);
 
 		int bound = TranspositionTable.UPPER_BOUND;
 		boolean searchedFirst = false;
@@ -186,7 +189,7 @@ public class MoveSearcher
 		{
 			searchedFirst = true;
 
-			int evaluation = searchMove(bestMoveInPosition, alpha, beta, depth, plyFromRoot, 0, boardInfoOld);
+			int evaluation = searchMove(bestMoveInPosition, alpha, beta, depth, plyFromRoot, 0, boardInfoOld, moveIndex);
 
 			if (searchCancelled)
 				return evaluation;
@@ -202,31 +205,33 @@ public class MoveSearcher
 				// move was too good so opponent will avoid this branch
 				transpositionTable.storeEvaluation(zobristHash, beta, depth, TranspositionTable.LOWER_BOUND,
 						bestMoveInPosition, obsoleteFlag);
+				
+				//if (depth > 2) qMoves += 1;
 				return beta;
 			}
 		}
 
-		final short[] moves = moveGen.generateMoves(false);
+		int numMoves = moveGen.generateMoves(false, moveIndex);
 
 		// checkmate/stalemate
-		if (moves.length == 0)
+		if (numMoves == 0)
 			return moveGen.inCheck ? negativeInfinity : 0;
 
 		// ensure the potentially first searched move gets boosted to top with highest
 		// score
-		final int[] scores = moveOrderer.guessMoveEvals(board, moves, bestMoveInPosition, false, plyFromRoot);
+		moveOrderer.guessMoveEvals(bestMoveInPosition, false, plyFromRoot, moveIndex, numMoves);
 		// push the first searched move to the top (guaranteed to be highest score)
 		if (searchedFirst)
-			MoveOrderer.singleSelectionSort(moves, scores, 0);
+			moveOrderer.singleSelectionSort(moveIndex, moveIndex + 1);
 
 		// ignore first move if we already searched it
-		for (int i = (searchedFirst ? 1 : 0); i < moves.length; i++)
+		for (int i = moveIndex + (searchedFirst ? 1 : 0); i < (moveIndex + numMoves); i++)
 		{
-			MoveOrderer.singleSelectionSort(moves, scores, i);
+			moveOrderer.singleSelectionSort(i, moveIndex + numMoves);
 
 			final short move = moves[i];
 
-			int evaluation = searchMove(move, alpha, beta, depth, plyFromRoot, i, boardInfoOld);
+			int evaluation = searchMove(move, alpha, beta, depth, plyFromRoot, i, boardInfoOld, moveIndex + numMoves);
 
 			if (searchCancelled)
 				return evaluation;
@@ -243,25 +248,28 @@ public class MoveSearcher
 				// move was too good so opponent will avoid this branch
 				transpositionTable.storeEvaluation(zobristHash, beta, depth, TranspositionTable.LOWER_BOUND, move,
 						obsoleteFlag);
+				
+				//if (depth > 2 && i == 0) qMoves += 1;
+				//if (depth > 2 && i != 0) captures += 1;
 				return beta;
 			}
 		}
 
 		transpositionTable.storeEvaluation(zobristHash, alpha, depth, bound, bestMoveInPosition, obsoleteFlag);
-
+		
+		//if (depth > 2) captures += 1;
+		
 		return alpha;
 	}
 
-	public int searchMove(short move, int alpha, int beta, int depth, int plyFromRoot, int moveNum, long[] boardInfoOld)
+	public int searchMove(short move, int alpha, int beta, int depth, int plyFromRoot, int moveNum, long[] boardInfoOld, int moveIndex)
 	{
 		final int captured = board.movePiece(move);
 
-		// if (depth > 2 && captured == PieceHelper.NONE) qMoves++;
-		// if (depth > 2 && captured != PieceHelper.NONE) captures++;
-
 		int searchDepth = calculateSearchDepth(move, captured, depth, moveNum);
+		
+		int evaluation = -(search(searchDepth, plyFromRoot + 1, -beta, -alpha, moveIndex));
 
-		int evaluation = -(search(searchDepth, plyFromRoot + 1, -beta, -alpha));
 		board.moveBack(move, captured, boardInfoOld);
 
 		if (evaluation > (positiveInfinity - depth) || evaluation < (negativeInfinity + depth))
@@ -276,15 +284,11 @@ public class MoveSearcher
 			{
 				if (plyFromRoot < MoveOrderer.maxKillerDepth)
 				{
-					moveOrderer.killers[plyFromRoot].addKiller(move);
+					moveOrderer.addKiller(move, plyFromRoot);
 				}
 
-				final int colorIndex = board.colorToMove;
-				// multiply the color index by 64*64 = 2^12
-				// then add start square multiplied by 64 = 2^6
-				// then add target square
-				int index = (colorIndex << 12) | (MoveHelper.getStartIndex(move) << 6)
-						| MoveHelper.getTargetIndex(move);
+				// keep start/target square and add color to move for index
+				int index = (move & 0xFFF) | (board.colorToMove << 12);
 				moveOrderer.historyHeuristic[index] += depth * depth;
 			}
 		}
@@ -311,17 +315,19 @@ public class MoveSearcher
 		return Math.max(((moveNum >= 3 && captured == PieceHelper.NONE && depth >= 3) ? (depth - 1) : depth), 0);
 	}
 
-	public int searchCaptures(int alpha, int beta)
+	public int searchCaptures(int alpha, int beta, int moveIndex)
 	{
 		if (searchCancelled)
 			return 0;
 
 		long zobristHash = board.zobristHash;
+		short bestMoveInPosition = MoveHelper.NULL_MOVE;
 		short[] transposition = transpositionTable.getEntry(zobristHash);
 
 		if (transposition != null)
 		{
 			// transposition depth is always greater than 0
+			bestMoveInPosition = transposition[TranspositionTable.MOVE_INDEX];
 			short bound = transposition[TranspositionTable.BOUND_INDEX];
 			short eval = transposition[TranspositionTable.EVAL_INDEX];
 			if (bound == TranspositionTable.EXACT_BOUND)
@@ -353,20 +359,19 @@ public class MoveSearcher
 		}
 		alpha = Math.max(alpha, evaluation);
 
-		final short[] moves = moveGen.generateMoves(true);
+		int numMoves = moveGen.generateMoves(true, moveIndex);
 
-		final int[] scores = moveOrderer.guessMoveEvals(board, moves, MoveHelper.NULL_MOVE, true, 0);
+		moveOrderer.guessMoveEvals(bestMoveInPosition, true, 0, moveIndex, numMoves);
 
-		final int length = moves.length;
-		for (int i = 0; i < length; i++)
+		for (int i = moveIndex; i < (moveIndex + numMoves); i++)
 		{
-			MoveOrderer.singleSelectionSort(moves, scores, i);
+			moveOrderer.singleSelectionSort(i, numMoves);
 
 			final short move = moves[i];
 
 			final long[] boardInfoOld = board.packBoardInfo();
 			final int captured = board.movePiece(move);
-			evaluation = -(searchCaptures(-beta, -alpha));
+			evaluation = -(searchCaptures(-beta, -alpha, moveIndex + numMoves));
 			board.moveBack(move, captured, boardInfoOld);
 
 			if (searchCancelled)

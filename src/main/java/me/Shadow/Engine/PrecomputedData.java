@@ -136,8 +136,11 @@ public class PrecomputedData
 		long [] singleDiagsMask = new long[64];
 		for (int kingIndex = 0; kingIndex < 64; kingIndex++)
 		{
-			long orthoMask = Bitboards.shift(MoveGenerator.FIRST_THREE_RANKS, (kingIndex & 56) - 8);
-			orthoMask |= Bitboards.shift(MoveGenerator.ABC_FILES, (kingIndex & 7) - 1);
+			//long orthoMask = Bitboards.shift(MoveGenerator.FIRST_THREE_RANKS, (kingIndex & 56) - 8);
+			//orthoMask |= Bitboards.shift(MoveGenerator.ABC_FILES, (kingIndex & 7) - 1);
+			
+			long orthoMask = MoveGenerator.FIRST_RANK << (kingIndex & 56);
+			orthoMask |= MoveGenerator.A_FILE << (kingIndex & 7);
 			orthoSlidersMask[kingIndex] = orthoMask;
 			
 			int rank = (kingIndex >>> 3);
@@ -166,10 +169,13 @@ public class PrecomputedData
 				negDiagonal |= 1L << (i * 8 + j);
 			}
 			
-			long diagonals = posDiagonal | negDiagonal;
-			singleDiagsMask[kingIndex] = diagonals;
+			//long diagonals = posDiagonal | negDiagonal;
+			//singleDiagsMask[kingIndex] = diagonals;
+			
+			diagSlidersMask[kingIndex] = posDiagonal | negDiagonal;
 		}
-				
+			
+		/*
 		for (int kingIndex = 0; kingIndex < 64; kingIndex++)
 		{
 			int rank = (kingIndex >>> 3);
@@ -188,6 +194,7 @@ public class PrecomputedData
 			
 			diagSlidersMask[kingIndex] = combinedDiagonals;
 		}
+		*/
 		
 		// printRayDirectionMask(4);
 		// printRayAlignMask(8);

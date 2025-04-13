@@ -1,20 +1,16 @@
 package me.Shadow.Engine;
 
-import java.util.Arrays;
-
 public class MoveGenerator
 {
-	private static final int MAXIMUM_LEGAL_MOVES = 218;
+	public static final int MAXIMUM_LEGAL_MOVES = 218;
 	public static final long ALL_ONE_BITS = ~0L;
 	
 	public static final long FIRST_RANK = 0xFFL;
-	public static final long FIRST_THREE_RANKS = 0xFFFFFFl;
 	public static final long EIGHTH_RANK = FIRST_RANK << 56;
 	public static final long FOURTH_RANK = FIRST_RANK << 24;
 	public static final long FIFTH_RANK = FIRST_RANK << 32;
 	public static final long A_FILE = 0x0101010101010101L;
 	public static final long H_FILE = A_FILE << 7;
-	public static final long ABC_FILES = A_FILE | A_FILE << 1 | A_FILE << 2;
 	
 	private Board board;
 	private Bitboards bitBoards;
@@ -37,16 +33,17 @@ public class MoveGenerator
 	long filteredMovesMask;
 	boolean capturesOnly;
 	
-	final short [] moves = new short[MAXIMUM_LEGAL_MOVES];
+	short [] moves;
 	int currentIndex;
 	
-	public MoveGenerator(Board board)
+	public MoveGenerator(Board board, short [] movesList)
 	{
 		this.board = board;
 		bitBoards = board.bitBoards;
+		moves = movesList;
 	}
 	
-	public short[] generateMoves(boolean capturesOnly)
+	public int generateMoves(boolean capturesOnly, int startIndex)
 	{
 		analyzePosition();
 		
@@ -54,8 +51,7 @@ public class MoveGenerator
 		if (capturesOnly) filteredMovesMask = enemyPiecesBitboard;
 		else filteredMovesMask = ALL_ONE_BITS; // all bits set to 1
 		
-		//moves = new short[MAXIMUM_LEGAL_MOVES];
-		currentIndex = 0;
+		currentIndex = startIndex;
 		generateKingMoves();
 		if (!doubleCheck)
 		{
@@ -64,7 +60,7 @@ public class MoveGenerator
 			generatePawnMoves();
 		}
 	
-		return Arrays.copyOf(moves, currentIndex);	// number of moves generated
+		return currentIndex - startIndex;	// number of moves generated
 	}
 	
 	private void analyzePosition()
@@ -435,19 +431,11 @@ public class MoveGenerator
 			inCheck = true;
 		}
 		
-		// get pregenerated knight moves if 2 or fewer knights
-		if (enemyKnightsBitboard != 0 && Long.bitCount(enemyKnightsBitboard) <= 2)
+		while (enemyKnightsBitboard != 0)
 		{
-			enemyKnightAttacks |= PrecomputedMagicNumbers.getKnightMoves(enemyKnightsBitboard);
-		}
-		else
-		{
-			while (enemyKnightsBitboard != 0)
-			{
-				final int knightIndex = Bitboards.getLSB(enemyKnightsBitboard);
-				enemyKnightsBitboard = Bitboards.toggleBit(enemyKnightsBitboard, knightIndex);
-				enemyKnightAttacks |= PrecomputedData.KNIGHT_MOVES[knightIndex];
-			}
+			final int knightIndex = Bitboards.getLSB(enemyKnightsBitboard);
+			enemyKnightsBitboard = Bitboards.toggleBit(enemyKnightsBitboard, knightIndex);
+			enemyKnightAttacks |= PrecomputedData.KNIGHT_MOVES[knightIndex];
 		}
 		
 		// pawn attacks next
@@ -488,8 +476,8 @@ public class MoveGenerator
 	
 	private long calculateSliderAttacks()
 	{
-		final long orthoSliders = bitBoards.getOrthogonalSliders(enemyColor) & PrecomputedData.orthoSlidersMask[friendlyKingIndex];
-		final long diagSliders = bitBoards.getDiagonalSliders(enemyColor) & PrecomputedData.diagSlidersMask[friendlyKingIndex];
+		final long orthoSliders = bitBoards.getOrthogonalSliders(enemyColor);
+		final long diagSliders = bitBoards.getDiagonalSliders(enemyColor);
 		long enemySlidingAttackMap = 0;
 		enemySlidingAttackMap |= sliderAttacks(orthoSliders, enemyColor, true);
 		enemySlidingAttackMap |= sliderAttacks(diagSliders, enemyColor, false);

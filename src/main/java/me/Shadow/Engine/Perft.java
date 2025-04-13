@@ -173,12 +173,15 @@ public class Perft
 	};
 	
 	static long moveGenTime;
+	static long analyzeTime;
+	static long generatingTime;
 	static long boardInfoTime;
 	static long movePieceTime;
 	static long moveBackTime;
 	
 	static Board board;
 	static MoveGenerator moveGen;
+	static short [] movesList;
 		
 	public static void runPerftSuite(int runCount)
 	{
@@ -211,7 +214,9 @@ public class Perft
 		System.out.println("\n\nTest " + (allTestsPassed ? "passed" : "failed"));
 		System.out.println("Total Time Taken: " + (System.currentTimeMillis() - time) + " ms");
 		System.out.println("Total Tracked Time: " + (moveGenTime + movePieceTime + moveBackTime + boardInfoTime));
-		System.out.println("Move Generation Time: " + moveGenTime);
+		System.out.println("Move Generation Time: " + (moveGenTime - analyzeTime - generatingTime));
+		System.out.println("Position Analysis Time: " + analyzeTime);
+		System.out.println("Creating Moves Time: " + generatingTime);
 		System.out.println("BoardInfo Copy Time: " + boardInfoTime);
 		System.out.println("Move Piece Time: " + movePieceTime);
 		System.out.println("Move Back Time: " + moveBackTime);
@@ -224,7 +229,8 @@ public class Perft
 		String [] perftData = perft.split(";");
 		String fen = perftData[0].trim();
 		board = new Board(fen);
-		moveGen = new MoveGenerator(board);
+		movesList = new short[1024];
+		moveGen = new MoveGenerator(board, movesList);
 		boolean success = true;
 		
 		System.out.println("Running perft on position: " + fen);
@@ -238,7 +244,7 @@ public class Perft
 			int expectedCount = Integer.parseInt(countString);
 			
 			long startTime = System.currentTimeMillis();
-			int resultCount = countMoves(depth);
+			int resultCount = countMoves(depth, 0);
 			System.out.print("\tD" + depth + "\t");
 			System.out.print(expectedCount + "\t" + (expectedCount < 10_000_000 ? "\t" : ""));
 			System.out.print(resultCount + "\t" + (expectedCount < 10_000_000 ? "\t" : ""));
@@ -253,26 +259,31 @@ public class Perft
 		return success;
 	}
 	
-	public static int countMoves(int depth)
+	public static int countMoves(int depth, int moveIndex)
 	{
 		//if (depth == 0) return 1;
-		short [] moves = moveGen.generateMoves(false);
+		//long time = System.currentTimeMillis();
+		int numMoves = moveGen.generateMoves(false, moveIndex);
+		//moveGenTime += System.currentTimeMillis() - time;
 		
-		if (depth == 1) return moves.length;
+		if (depth == 1) return numMoves;
 		
 		int num = 0;
-		int length = moves.length;
-		for (int i = 0; i < length; i++)
+		long[] boardInfoOld = board.packBoardInfo();
+		for (int i = moveIndex; i < (moveIndex + numMoves); i++)
 		{
-			short move = moves[i];
-									
-			long[] boardInfoOld = board.packBoardInfo();
-			int captured = board.movePiece(move);
+			short move = movesList[i];
 			
-			int add = countMoves(depth - 1);
+			//time = System.currentTimeMillis();
+			int captured = board.movePiece(move);
+			//movePieceTime += System.currentTimeMillis() - time;
+			
+			int add = countMoves(depth - 1, moveIndex + numMoves);
 			num += add;
 			
+			//time = System.currentTimeMillis();
 			board.moveBack(move, captured, boardInfoOld);
+			//moveBackTime += System.currentTimeMillis() - time;
 		}
 		
 		return num;

@@ -5,8 +5,6 @@ public class Bitboards
 	public long[] pieceBoards;
 	long[] colorBoards;
 
-	private long[] attacksFrom;
-
 	public Bitboards(Board board)
 	{
 		createBitboards(board);
@@ -23,16 +21,6 @@ public class Bitboards
 			{
 				pieceBoards[piece] |= (1L << i);
 				colorBoards[piece & PieceHelper.COLOR_MASK] |= (1L << i);
-			}
-		}
-
-		attacksFrom = new long[64];
-		for (int i = 0; i < 64; i++)
-		{
-			int piece = board.squares[i];
-			if (piece != PieceHelper.NONE)
-			{
-				createAttacksFrom(i, piece);
 			}
 		}
 	}
@@ -83,17 +71,7 @@ public class Bitboards
 				| (PrecomputedData.getPawnCaptures(index, PieceHelper.BLACK_PIECE) & pieceBoards[PieceHelper.WHITE_PAWN]));
 	}
 
-	public long getAttacksFrom(int index)
-	{
-		return attacksFrom[index];
-	}
-
-	public void setAttacksFrom(int index, long attacks)
-	{
-		attacksFrom[index] = attacks;
-	}
-
-	public void createAttacksFrom(int index, int piece)
+	public long getAttacksFrom(int index, int piece, long allPieces)
 	{
 		long attacks = 0;
 		int type = piece & PieceHelper.TYPE_MASK;
@@ -102,13 +80,13 @@ public class Bitboards
 		if (type == PieceHelper.KING)
 			attacks = PrecomputedData.KING_MOVES[index];
 		if (type == PieceHelper.ROOK || type == PieceHelper.QUEEN)
-			attacks |= PrecomputedMagicNumbers.getRookMoves(index, getAllPieces());
+			attacks |= PrecomputedMagicNumbers.getRookMoves(index, allPieces);
 		if (type == PieceHelper.BISHOP || type == PieceHelper.QUEEN)
-			attacks |= PrecomputedMagicNumbers.getBishopMoves(index, getAllPieces());
+			attacks |= PrecomputedMagicNumbers.getBishopMoves(index, allPieces);
 		if (type == PieceHelper.PAWN)
 			attacks = PrecomputedData.getPawnCaptures(index, piece & PieceHelper.COLOR_MASK);
 
-		attacksFrom[index] = attacks;
+		return attacks;
 	}
 
 	public void toggleSquare(int pieceInfo, int square)

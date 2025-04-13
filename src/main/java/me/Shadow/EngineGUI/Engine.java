@@ -48,7 +48,7 @@ public class Engine
 		PrecomputedMagicNumbers.precomputeMagics();
 		PrecomputedMagicNumbers.printMagicsTableSize();
 		
-		Perft.runPerftSuite();
+		//Perft.runPerftSuite(5);
 		
 		try
 		{
@@ -175,8 +175,8 @@ public class Engine
 			return true;
 		}
 		
-		MoveGenerator moveGen = new MoveGenerator(board);
-		if (moveGen.generateMoves(false).length == 0)
+		MoveGenerator moveGen = new MoveGenerator(board, new short[MoveGenerator.MAXIMUM_LEGAL_MOVES]);
+		if (moveGen.generateMoves(false, 0) == 0)
 		{
 			if (moveGen.inCheck)
 				gui.message.setText("Game Over! " + (board.colorToMove == PieceHelper.WHITE_PIECE ? "Black" : "White") + " wins by checkmate!");

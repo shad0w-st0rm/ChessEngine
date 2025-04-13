@@ -1,7 +1,5 @@
 package me.Shadow.Engine;
 
-import java.util.Arrays;
-
 public class MoveOrderer
 {
 	public static final int million = 1000000;
@@ -14,31 +12,34 @@ public class MoveOrderer
 	public static final int noBias = 0;
 
 	public static final int maxKillerDepth = 32;
-	KillerMove[] killers;
+
+	Board board;
+	private int[] scores;
+	private short[] moves;
+	long[] killers;
 	int[] historyHeuristic;
 
-	public MoveOrderer()
+	public MoveOrderer(Board boardIn, short[] movesIn)
 	{
-		killers = new KillerMove[maxKillerDepth];
-		for (int i = 0; i < maxKillerDepth; i++)
-		{
-			killers[i] = new KillerMove();
-		}
+		board = boardIn;
+		moves = movesIn;
+		scores = new int[movesIn.length];
+
+		killers = new long[maxKillerDepth];
 		historyHeuristic = new int[2 * 64 * 64];
 	}
 
-	public int[] guessMoveEvals(final Board board, final short[] moves, final short firstMove,
-			final boolean inQuietSearch, final int ply)
+	public void guessMoveEvals(final short firstMove, final boolean inQuietSearch, final int ply, int startIndex,
+			int numMoves)
 	{
 		float gamePhase = getGamePhase(board);
-		final int[] moveEvals = new int[moves.length];
-		for (int i = 0; i < moves.length; i++)
+		for (int i = startIndex; i < (startIndex + numMoves); i++)
 		{
 			final short move = moves[i];
 
 			if (move == firstMove)
 			{
-				moveEvals[i] = firstMoveBias;
+				scores[i] = firstMoveBias;
 				continue;
 			}
 			final int start = MoveHelper.getStartIndex(move);
@@ -53,25 +54,25 @@ public class MoveOrderer
 				// capture best possible piece, with worst possible piece first
 				int MVV = PieceHelper.getValue(capturedPiece, gamePhase);
 				int LVA = PieceHelper.getValue(piece, gamePhase);
-				
+
 				if (MVV >= LVA)
 				{
-					evalGuess = goodCaptureBias + MVV*100 - LVA;
+					evalGuess = goodCaptureBias + MVV * 100 - LVA;
 				}
 				else
 				{
 					int captureSEE = SEE(board, start, target, piece, capturedPiece, gamePhase);
 					if (captureSEE >= 0)
 					{
-						evalGuess = goodCaptureBias + MVV*100 - LVA;
+						evalGuess = goodCaptureBias + MVV * 100 - LVA;
 					}
 					else
 					{
 						evalGuess += badCaptureBias + captureSEE;
 					}
 				}
-				
-				moveEvals[i] = evalGuess;
+
+				scores[i] = evalGuess;
 				continue;
 			}
 
@@ -81,29 +82,23 @@ public class MoveOrderer
 						- PieceHelper.getValue(piece, gamePhase);
 			}
 
-			//evalGuess -= PieceHelper.getPieceSquareValue(piece, start, gamePhase);
-			//evalGuess += PieceHelper.getPieceSquareValue(piece, target, gamePhase);
+			evalGuess -= PieceHelper.getPieceSquareValue(piece, start, gamePhase);
+			evalGuess += PieceHelper.getPieceSquareValue(piece, target, gamePhase);
 
 			// not a capture move, killers rank below winning captures and killer move
 			// unlikely to be losing capture
-			final boolean isKillerMove = !inQuietSearch && ply < maxKillerDepth && killers[ply].isKiller(move);
+			final boolean isKillerMove = !inQuietSearch && ply < maxKillerDepth && isKiller(move, ply);
 			if (isKillerMove)
 				evalGuess += killerMoveBias;
 			else
 				evalGuess += noBias;
 
-			// multiply the color index by 64*64 = 2^12
-			// then add start square multiplied by 64 = 2^6
-			// then add target square
-			final int index = (PieceHelper.getColor(piece) << 12) | (start << 6) | target;
+			// keep start/target square and add color to move for index
+			int index = (move & 0xFFF) | (PieceHelper.getColor(piece) << 12);
 			evalGuess += 100 * historyHeuristic[index];
 
-			moveEvals[i] = evalGuess;
+			scores[i] = evalGuess;
 		}
-		// quickSort(moves, moveEvals, 0, moveCount - 1);
-		// insertionSort(moves, moveEvals);
-		// binaryInsertionSort(moves, moveEvals);
-		return moveEvals;
 	}
 
 	public int SEE(Board board, int start, int target, int piece, int captured, float mgWeight)
@@ -111,7 +106,8 @@ public class MoveOrderer
 		int[] gain = new int[32];
 		long xrayPieces = board.bitBoards.getXrayPieces();
 		long fromBitboard = 1L << start;
-		long allPieces = board.bitBoards.colorBoards[PieceHelper.WHITE_PIECE] | board.bitBoards.colorBoards[PieceHelper.BLACK_PIECE];
+		long allPieces = board.bitBoards.colorBoards[PieceHelper.WHITE_PIECE]
+				| board.bitBoards.colorBoards[PieceHelper.BLACK_PIECE];
 		long squareAtksDefs = board.bitBoards.getAttacksTo(target, allPieces);
 		int depth = 0;
 		int color = piece & PieceHelper.COLOR_MASK;
@@ -197,11 +193,7 @@ public class MoveOrderer
 
 	public void clearKillers()
 	{
-		killers = new KillerMove[maxKillerDepth];
-		for (int i = 0; i < maxKillerDepth; i++)
-		{
-			killers[i] = new KillerMove();
-		}
+		killers = new long[maxKillerDepth];
 	}
 
 	public void clearHistoryHeuristic()
@@ -209,12 +201,30 @@ public class MoveOrderer
 		historyHeuristic = new int[2 * 64 * 64];
 	}
 
-	public static void singleSelectionSort(final short[] moves, final int[] scores, final int startIndex)
+	public boolean isKiller(short move, int ply)
 	{
-		final int length = moves.length;
+		//return isKiller(killers[ply], move);
+		return isKiller(killers[ply], move) || (ply > 2 && isKiller(killers[ply - 2], move));
+	}
+
+	public static boolean isKiller(long killerPair, short move)
+	{
+		return ((killerPair & 0xFFFF) == move || ((killerPair >>> 16) & 0xFFFF) == move || ((killerPair >>> 32) & 0xFFFF) == move || ((killerPair >>> 48) & 0xFFFF) == move);
+	}
+
+	public void addKiller(short move, int ply)
+	{
+		if (!isKiller(killers[ply], move))
+		{
+			killers[ply] = (killers[ply] << 16) | move;
+		}
+	}
+
+	public void singleSelectionSort(final int startIndex, int lastIndexExclusive)
+	{
 		int bestMoveIndex = startIndex;
 		int bestScore = scores[startIndex];
-		for (int i = startIndex; i < length; i++)
+		for (int i = startIndex; i < lastIndexExclusive; i++)
 		{
 			if (scores[i] > bestScore)
 			{
@@ -230,106 +240,5 @@ public class MoveOrderer
 		final int tempScore = scores[bestMoveIndex];
 		scores[bestMoveIndex] = scores[startIndex];
 		scores[startIndex] = tempScore;
-	}
-
-	public static void binaryInsertionSort(short[] moves, int[] scores)
-	{
-		for (int i = 1; i < scores.length; i++)
-		{
-			int key = scores[i];
-			short moveKey = moves[i];
-
-			// find insert location using binary search
-			int j = Math.abs(Arrays.binarySearch(scores, 0, i, key) + 1);
-
-			// shift array one location over to the right
-			System.arraycopy(scores, j, scores, j + 1, i - j);
-			System.arraycopy(moves, j, moves, j + 1, i - j);
-
-			// place element in emptied spot
-			scores[j] = key;
-			moves[j] = moveKey;
-		}
-	}
-
-	public static void insertionSort(short[] moves, int[] scores)
-	{
-		int n = scores.length;
-		for (int j = 1; j < n; j++)
-		{
-			short moveKey = moves[j];
-			int key = scores[j];
-			int i = j - 1;
-			while (i > -1 && scores[i] < key)
-			{
-				moves[i + 1] = moves[i];
-				scores[i + 1] = scores[i];
-				i--;
-			}
-			scores[i + 1] = key;
-			moves[i + 1] = moveKey;
-		}
-	}
-
-	public static void quickSort(short[] moves, int[] scores, int low, int high)
-	{
-		if (low < high)
-		{
-			int pivotIndex = partition(moves, scores, low, high);
-			quickSort(moves, scores, low, pivotIndex - 1);
-			quickSort(moves, scores, pivotIndex + 1, high);
-		}
-	}
-
-	public static int partition(short[] moves, int[] scores, int low, int high)
-	{
-		int pivotScore = scores[high];
-		int i = low - 1;
-
-		for (int j = low; j <= high - 1; j++)
-		{
-			if (scores[j] > pivotScore)
-			{
-				i++;
-				short moveTemp = moves[i];
-				moves[i] = moves[j];
-				moves[j] = moveTemp;
-
-				int scoreTemp = scores[i];
-				scores[i] = scores[j];
-				scores[j] = scoreTemp;
-			}
-		}
-		short moveTemp = moves[i + 1];
-		moves[i + 1] = moves[high];
-		moves[high] = moveTemp;
-
-		int scoreTemp = scores[i + 1];
-		scores[i + 1] = scores[high];
-		scores[high] = scoreTemp;
-
-		return i + 1;
-	}
-
-	class KillerMove
-	{
-		short firstKiller = MoveHelper.NULL_MOVE;
-		short secondKiller = MoveHelper.NULL_MOVE;
-		short thirdKiller = MoveHelper.NULL_MOVE;
-
-		public void addKiller(short move)
-		{
-			if (move != firstKiller && move != secondKiller)
-			{
-				thirdKiller = secondKiller;
-				secondKiller = firstKiller;
-				firstKiller = move;
-			}
-		}
-
-		public boolean isKiller(short move)
-		{
-			return (move == firstKiller || move == secondKiller || move == thirdKiller);
-		}
 	}
 }
