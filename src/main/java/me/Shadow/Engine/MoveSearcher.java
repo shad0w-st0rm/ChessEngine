@@ -61,8 +61,6 @@ public class MoveSearcher
 		}
 		while (!searchCancelled && depth < MAX_DEPTH);
 
-		System.out.println(transpositionTable.positionsStored);
-
 		/*
 		 * System.out.println("Nodes visited (depth > 2): " + nodes);
 		 * System.out.println("Captures visited (depth > 2): " + captures);
