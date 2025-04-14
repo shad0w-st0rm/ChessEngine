@@ -30,17 +30,17 @@ public class Bitboards
 		return colorBoards[0] | colorBoards[1];
 	}
 
-	public long getAllFriendlyPieces(int pieceColor)
+	public long getAllFriendlyPieces(byte pieceColor)
 	{
 		return colorBoards[pieceColor];
 	}
 
-	public long getOrthogonalSliders(int pieceColor)
+	public long getOrthogonalSliders(byte pieceColor)
 	{
 		return pieceBoards[PieceHelper.ROOK | pieceColor] | pieceBoards[PieceHelper.QUEEN | pieceColor];
 	}
 
-	public long getDiagonalSliders(int pieceColor)
+	public long getDiagonalSliders(byte pieceColor)
 	{
 		return pieceBoards[PieceHelper.BISHOP | pieceColor] | pieceBoards[PieceHelper.QUEEN | pieceColor];
 	}
@@ -71,7 +71,7 @@ public class Bitboards
 				| (PrecomputedData.getPawnCaptures(index, PieceHelper.BLACK) & pieceBoards[PieceHelper.WHITE_PAWN]));
 	}
 
-	public long getAttacksFrom(int index, int piece, long allPieces)
+	public long getAttacksFrom(int index, byte piece, long allPieces)
 	{
 		long attacks = 0;
 		int type = piece & PieceHelper.TYPE_MASK;
@@ -89,13 +89,13 @@ public class Bitboards
 		return attacks;
 	}
 
-	public void toggleSquare(int pieceInfo, int square)
+	public void toggleSquare(byte pieceInfo, int square)
 	{
 		pieceBoards[pieceInfo] ^= (1L << square);
 		colorBoards[pieceInfo & PieceHelper.COLOR_MASK] ^= (1L << square);
 	}
 
-	public int getNumPawns(int pieceColor)
+	public int getNumPawns(byte pieceColor)
 	{
 		return Long.bitCount(pieceBoards[PieceHelper.PAWN | pieceColor]);
 	}

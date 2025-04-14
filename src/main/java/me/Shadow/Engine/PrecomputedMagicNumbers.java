@@ -134,49 +134,59 @@ public class PrecomputedMagicNumbers
 		
 		while (System.currentTimeMillis() < endTime)
 		{
-			long [] magicArray = new long[1 << (64 - shiftAmount)];
-			boolean failed = false;
-			for (long blockers : blockerCombinations)
+			int count = 0;
+			while (count < 1000)
 			{
-				int arrayIndex = (int) ((blockers * bestNumber) >>> shiftAmount);
-				if (magicArray[arrayIndex] != 0)
+				count++;
+				long [] magicArray = new long[1 << (64 - shiftAmount)];
+				boolean failed = false;
+				for (long blockers : blockerCombinations)
 				{
-					if (getSliderMoves(square, blockers, orthogonal) != magicArray[arrayIndex])
+					int arrayIndex = (int) ((blockers * bestNumber) >>> shiftAmount);
+					if (magicArray[arrayIndex] != 0)
 					{
-						failed = true;
-						break;
+						if (getSliderMoves(square, blockers, orthogonal) != magicArray[arrayIndex])
+						{
+							failed = true;
+							break;
+						}
 					}
+					else
+					{
+						magicArray[arrayIndex] = getSliderMoves(square, blockers, orthogonal);
+					}
+				}
+				
+				if (failed)
+				{
+					bestNumber = randomLong() & randomLong() & randomLong();
+					/*
+					while (Long.bitCount(bestNumber) < 6)
+					{
+						bestNumber = randomLong() & randomLong() & randomLong();
+					}
+					*/
 				}
 				else
 				{
-					magicArray[arrayIndex] = getSliderMoves(square, blockers, orthogonal);
+					if (orthogonal)
+					{
+						System.out.println("New Magic Rook Number found for Square: " + square);
+						ROOK_MAGICS[square] = bestNumber;
+						ROOK_SHIFTS[square] = shiftAmount;
+					}
+					else
+					{
+						System.out.println("New Magic Bishop Number found for Square: " + square);
+						BISHOP_MAGICS[square] = bestNumber;
+						BISHOP_SHIFTS[square] = shiftAmount;
+					}
+					
+					shiftAmount++;
+					return true;
 				}
 			}
 			
-			if (failed)
-			{
-				bestNumber = randomLong() & randomLong() & randomLong();
-				while (Long.bitCount(bestNumber) < 6)
-				{
-					bestNumber = randomLong() & randomLong() & randomLong();
-				}
-			}
-			else
-			{
-				if (orthogonal)
-				{
-					ROOK_MAGICS[square] = bestNumber;
-					ROOK_SHIFTS[square] = shiftAmount;
-				}
-				else
-				{
-					BISHOP_MAGICS[square] = bestNumber;
-					BISHOP_SHIFTS[square] = shiftAmount;
-				}
-				
-				shiftAmount++;
-				return true;
-			}
 		}
 		return false;
 	}

@@ -47,12 +47,12 @@ public class MoveHelper
 		return -1;
 	}
 
-	public static int getPromotedPiece(short move)
+	public static byte getPromotedPiece(short move)
 	{
 		int promotion = isolateFlags(move);
 		if (promotion >= PROMOTION_KNIGHT_FLAG && promotion <= PROMOTION_QUEEN_FLAG)
 		{
-			return ((promotion - 2) << 1);
+			return (byte) ((promotion - 2) << 1);
 		}
 		return 0;
 	}
@@ -82,7 +82,7 @@ public class MoveHelper
 			return (getTargetIndex(move) + 1);
 	}
 
-	private static int isolateFlags(short move)
+	public static int isolateFlags(short move)
 	{
 		return (move >>> 12) & 15;
 	}
@@ -93,7 +93,7 @@ public class MoveHelper
 		notation += Utils.getSquareName(getTargetIndex(move));
 		if (getPromotedPiece(move) != 0)
 		{
-			notation += PieceHelper.getPieceSymbol(getPromotedPiece(move) | PieceHelper.BLACK);
+			notation += PieceHelper.getPieceSymbol((byte) (getPromotedPiece(move) | PieceHelper.BLACK));
 		}
 		return notation;
 	}

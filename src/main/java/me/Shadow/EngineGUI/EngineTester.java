@@ -201,7 +201,7 @@ public class EngineTester
 		MoveGenerator moveGen = new MoveGenerator(board, movesArray);
 
 		List<String> movesList = new ArrayList<String>();
-		int originalMoveNum = board.moveNum;
+		int originalMoveNum = board.getMoveNum();
 
 		// boolean whiteToMove = board.boardInfo.isWhiteToMove();
 		int colorToMove = board.colorToMove;
@@ -214,9 +214,9 @@ public class EngineTester
 		engineBlack.sendCommand("ucinewgame");
 
 		engineWhite.sendCommand("isready");
-		boolean success = engineWhite.waitForResponse("readyok", 100);
+		boolean success = engineWhite.waitForResponse("readyok", 500);
 		engineBlack.sendCommand("isready");
-		success = success && engineBlack.waitForResponse("readyok", 100);
+		success = success && engineBlack.waitForResponse("readyok", 500);
 
 		if (!success)
 		{
@@ -256,7 +256,10 @@ public class EngineTester
 
 			short move = Utils.getMoveFromUCINotation(board, bestMove);
 			if (move != MoveHelper.NULL_MOVE)
+			{
 				board.movePiece(move);
+				board.repetitionIndex = board.halfMoves;
+			}
 			else
 			{
 				reason = GameOverReason.ERROR;
@@ -291,12 +294,12 @@ public class EngineTester
 		// Initialize UCI protocol for both engines
 		// System.out.println("Sent uci command to " + engineName);
 		engine.sendCommand("uci");
-		boolean success = engine.waitForResponse("uciok", 100);
+		boolean success = engine.waitForResponse("uciok", 2000);
 		// System.out.println("Received uciok command from " + engineName);
 
 		// Tell engines to be ready
 		engine.sendCommand("isready");
-		success = success && engine.waitForResponse("readyok", 100);
+		success = success && engine.waitForResponse("readyok", 2000);
 
 		if (!success)
 		{
@@ -350,21 +353,17 @@ public class EngineTester
 
 	public boolean isDuplicatePosition(Board board)
 	{
-		ArrayList<Long> positions = board.positionList;
-		if (positions.size() == 0)
-			return false;
-
-		long zobristHash = positions.removeLast();
-		if (positions.indexOf(zobristHash) != positions.lastIndexOf(zobristHash))
+		long zobristHash = board.repetitionHistory[board.repetitionIndex];
+		boolean duplicateFound = false;
+		for (int i = board.repetitionIndex - 2; i >= 0; i -= 2)
 		{
-			positions.add(zobristHash);
-			return true;
+			if (board.repetitionHistory[i] == zobristHash)
+			{
+				if (duplicateFound) return true;
+				else duplicateFound = true;
+			}
 		}
-		else
-		{
-			positions.add(zobristHash);
-			return false;
-		}
+		return false;
 	}
 
 	public boolean isInsufficientMaterial(Board board)
@@ -549,8 +548,12 @@ public class EngineTester
 		{
 			long startTime = System.currentTimeMillis();
 			String line;
-			while (((System.currentTimeMillis() - startTime) < timeout) && (line = engineIn.readLine()) != null)
+			while (((System.currentTimeMillis() - startTime) < timeout))
 			{
+				if (!engineIn.ready()) continue;
+				line = engineIn.readLine();
+				if (line == null) continue;
+				
 				// System.out.println("Received line [" + line + "] from " + name);
 				if (line.contains(expected))
 				{
@@ -567,8 +570,12 @@ public class EngineTester
 			String line;
 			String bestMove = MoveHelper.toString(MoveHelper.NULL_MOVE);
 
-			while (((System.currentTimeMillis() - startTime) < timeout) && (line = engineIn.readLine()) != null)
+			while (((System.currentTimeMillis() - startTime) < timeout))
 			{
+				if (!engineIn.ready()) continue;
+				line = engineIn.readLine();
+				if (line == null) continue;
+				
 				// System.out.println("Received line [" + line + "] from " + name);
 				if (line.startsWith("bestmove"))
 				{

@@ -84,14 +84,16 @@ public class MoveSearcher
 		moveOrderer.guessMoveEvals(bestMove, false, 0, 0, numMoves);
 
 		int bound = TranspositionTable.UPPER_BOUND;
-		long[] boardInfoOld = board.packBoardInfo();
+		long zobristHash = board.zobristHash;
+		long pawnsHash = board.pawnsHash;
+		short[] boardInfoOld = board.packBoardInfo();
 		for (int i = 0; i < numMoves; i++)
 		{
 			moveOrderer.singleSelectionSort(i, numMoves);
 
 			final short move = moves[i];
 
-			int evaluation = searchMove(move, alpha, beta, depth, 0, i, boardInfoOld, numMoves);
+			int evaluation = searchMove(move, alpha, beta, depth, 0, i, zobristHash, pawnsHash, boardInfoOld, numMoves);
 
 			if (searchCancelled)
 			{
@@ -176,14 +178,15 @@ public class MoveSearcher
 
 		int bound = TranspositionTable.UPPER_BOUND;
 		boolean searchedFirst = false;
-		long[] boardInfoOld = board.packBoardInfo();
+		long pawnsHash = board.pawnsHash;
+		short[] boardInfoOld = board.packBoardInfo();
 
 		if (bestMoveInPosition != MoveHelper.NULL_MOVE)
 		{
 			searchedFirst = true;
 
-			int evaluation = searchMove(bestMoveInPosition, alpha, beta, depth, plyFromRoot, 0, boardInfoOld,
-					moveIndex);
+			int evaluation = searchMove(bestMoveInPosition, alpha, beta, depth, plyFromRoot, 0, zobristHash, pawnsHash,
+					boardInfoOld, moveIndex);
 
 			if (searchCancelled)
 				return evaluation;
@@ -230,7 +233,8 @@ public class MoveSearcher
 
 			final short move = moves[i];
 
-			int evaluation = searchMove(move, alpha, beta, depth, plyFromRoot, i - moveIndex, boardInfoOld, moveIndex + numMoves);
+			int evaluation = searchMove(move, alpha, beta, depth, plyFromRoot, i - moveIndex, zobristHash, pawnsHash,
+					boardInfoOld, moveIndex + numMoves);
 
 			if (searchCancelled)
 				return evaluation;
@@ -260,16 +264,16 @@ public class MoveSearcher
 		return alpha;
 	}
 
-	public int searchMove(short move, int alpha, int beta, int depth, int plyFromRoot, int moveNum, long[] boardInfoOld,
-			int moveIndex)
+	public int searchMove(short move, int alpha, int beta, int depth, int plyFromRoot, int moveNum, long zobristHash,
+			long pawnsHash, short[] boardInfoOld, int moveIndex)
 	{
-		final int captured = board.movePiece(move);
+		final byte captured = board.movePiece(move);
 
 		int searchDepth = calculateSearchDepth(move, captured, depth, moveNum);
 
 		int evaluation = -(search(searchDepth, plyFromRoot + 1, -beta, -alpha, moveIndex));
 
-		board.moveBack(move, captured, boardInfoOld);
+		board.moveBack(move, captured, zobristHash, pawnsHash, boardInfoOld);
 
 		if (evaluation > (positiveInfinity - depth) || evaluation < (negativeInfinity + depth))
 			evaluation += ((evaluation > 0) ? -1 : 1);
@@ -362,16 +366,18 @@ public class MoveSearcher
 
 		moveOrderer.guessMoveEvals(bestMoveInPosition, true, 0, moveIndex, numMoves);
 
+		long pawnsHash = board.pawnsHash;
+		final short[] boardInfoOld = board.packBoardInfo();
+
 		for (int i = moveIndex; i < (moveIndex + numMoves); i++)
 		{
 			moveOrderer.singleSelectionSort(i, (moveIndex + numMoves));
 
 			final short move = moves[i];
 
-			final long[] boardInfoOld = board.packBoardInfo();
-			final int captured = board.movePiece(move);
+			final byte captured = board.movePiece(move);
 			evaluation = -(searchCaptures(-beta, -alpha, moveIndex + numMoves));
-			board.moveBack(move, captured, boardInfoOld);
+			board.moveBack(move, captured, zobristHash, pawnsHash, boardInfoOld);
 
 			if (searchCancelled)
 				return 0;
@@ -389,20 +395,13 @@ public class MoveSearcher
 
 	public boolean isDuplicatePosition()
 	{
-		if (board.halfMoves < 4)
-			return false;
-
-		final long zobristHash = board.zobristHash;
-
-		int index = board.positionList.size() - 5;
-		final int minIndex = Math.max(index - board.halfMoves + 1, 0);
-		while (index >= minIndex)
+		long zobristHash = board.repetitionHistory[board.repetitionIndex];
+		for (int i = board.repetitionIndex - 2; i >= 0; i -= 2)
 		{
-			if (board.positionList.get(index) == zobristHash)
+			if (board.repetitionHistory[i] == zobristHash)
 			{
 				return true;
 			}
-			index -= 2;
 		}
 		return false;
 	}
@@ -429,10 +428,8 @@ public class MoveSearcher
 
 	public float evaluateMaterial(float gamePhase)
 	{
-		int mgScore = Board.getMaterial(PieceHelper.WHITE, false, board.material)
-				- Board.getMaterial(PieceHelper.BLACK, false, board.material);
-		int egScore = Board.getMaterial(PieceHelper.WHITE, true, board.material)
-				- Board.getMaterial(PieceHelper.BLACK, true, board.material);
+		int mgScore = board.material[PieceHelper.WHITE * 2] - board.material[PieceHelper.BLACK * 2];
+		int egScore = board.material[PieceHelper.WHITE * 2 + 1] - board.material[PieceHelper.BLACK * 2 + 1];
 		return mgScore * gamePhase + egScore * (1 - gamePhase);
 	}
 
@@ -491,11 +488,10 @@ public class MoveSearcher
 			int pawnIndex = Bitboards.getLSB(pawnsBitboard);
 			pawnsBitboard = Bitboards.toggleBit(pawnsBitboard, pawnIndex);
 
+			int rank = pawnIndex & 56;
 			long ranksAheadMask = -1; // All 1 bits
-			ranksAheadMask = whitePieces ? (ranksAheadMask << (((pawnIndex / 8) + 1) * 8))
-					: (ranksAheadMask >>> ((8 - (pawnIndex / 8)) * 8));
-			// long ranksAheadMask = MoveGenerator.ALL_ONE_BITS << ((pawnIndex & ~8) + 8);
-			// // shift all 1s mask up by this many ranks
+			ranksAheadMask = whitePieces ? (ranksAheadMask << (rank + 8)) : (ranksAheadMask >>> (rank ^ 56 + 8));
+
 			int file = pawnIndex & 0x7;
 			long fileMask = MoveGenerator.A_FILE << (file); // mask last 3 bits, aka mod 8
 			long tripleFileMask = fileMask;
@@ -539,6 +535,17 @@ public class MoveSearcher
 				+ (PrecomputedData.orthoSquaresDist[(friendlyKingIndex << 6) | enemyKingIndex] * 8);
 
 		return evaluation * endgameWeight;
+	}
+
+	public boolean makeMove(short move)
+	{
+		if (move != MoveHelper.NULL_MOVE)
+		{
+			board.movePiece(move);
+			board.repetitionIndex = board.halfMoves;
+			return true;
+		}
+		return false;
 	}
 
 	public void stopSearch()

@@ -262,28 +262,22 @@ public class Perft
 	public static int countMoves(int depth, int moveIndex)
 	{
 		//if (depth == 0) return 1;
-		//long time = System.currentTimeMillis();
 		int numMoves = moveGen.generateMoves(false, moveIndex);
-		//moveGenTime += System.currentTimeMillis() - time;
 		
 		if (depth == 1) return numMoves;
 		
 		int num = 0;
-		long[] boardInfoOld = board.packBoardInfo();
+		short[] boardInfoOld = board.packBoardInfo();
+		long zobristHash = board.zobristHash;
+		long pawnsHash = board.pawnsHash;
 		for (int i = moveIndex; i < (moveIndex + numMoves); i++)
 		{
 			short move = movesList[i];
 			
-			//time = System.currentTimeMillis();
-			int captured = board.movePiece(move);
-			//movePieceTime += System.currentTimeMillis() - time;
-			
-			int add = countMoves(depth - 1, moveIndex + numMoves);
-			num += add;
-			
-			//time = System.currentTimeMillis();
-			board.moveBack(move, captured, boardInfoOld);
-			//moveBackTime += System.currentTimeMillis() - time;
+			byte captured = board.movePiece(move);
+			num += countMoves(depth - 1, moveIndex + numMoves);
+						
+			board.moveBack(move, captured, zobristHash, pawnsHash, boardInfoOld);
 		}
 		
 		return num;

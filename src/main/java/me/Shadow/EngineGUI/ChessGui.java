@@ -344,7 +344,7 @@ public class ChessGui
 
 			if (!moveMade && !engine.engineSearching)
 			{
-				int piece = engine.board.squares[index];
+				byte piece = engine.board.squares[index];
 				if (piece != PieceHelper.NONE && PieceHelper.getColor(piece) != engine.engineColor)
 				{
 					short [] movesArray = new short[MoveGenerator.MAXIMUM_LEGAL_MOVES];

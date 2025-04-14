@@ -15,8 +15,8 @@ public class MoveGenerator
 	private Board board;
 	private Bitboards bitBoards;
 	
-	int friendlyColor;
-	int enemyColor;
+	byte friendlyColor;
+	byte enemyColor;
 	int friendlyKingIndex;
 	
 	public boolean inCheck;
@@ -30,9 +30,10 @@ public class MoveGenerator
 	
 	long checkRaysMask;
 	long pinRaysMask;
+	long [] pinTable;
 	long filteredMovesMask;
 	boolean capturesOnly;
-	
+		
 	short [] moves;
 	int currentIndex;
 	
@@ -41,6 +42,7 @@ public class MoveGenerator
 		this.board = board;
 		bitBoards = board.bitBoards;
 		moves = movesList;
+		pinTable = new long[64];
 	}
 	
 	public int generateMoves(boolean capturesOnly, int startIndex)
@@ -66,7 +68,7 @@ public class MoveGenerator
 	private void analyzePosition()
 	{
 		friendlyColor = board.colorToMove;
-		enemyColor = friendlyColor ^ PieceHelper.BLACK;
+		enemyColor = (byte) (friendlyColor ^ PieceHelper.BLACK);
 		friendlyKingIndex = Bitboards.getLSB(bitBoards.pieceBoards[PieceHelper.KING + friendlyColor]);
 		
 		inCheck = doubleCheck = false;
@@ -100,7 +102,6 @@ public class MoveGenerator
 			{
 				long castleLegalMask = enemyAttackMap | allPiecesBitboard;
 				castleLegalMask &= isWhite ? PrecomputedData.WHITE_KINGSIDE_CASTLING_CLEAR_MASK : PrecomputedData.BLACK_KINGSIDE_CASTLING_CLEAR_MASK;
-				castleLegalMask |= bitBoards.getAttacksTo(friendlyKingIndex + 2, allPiecesBitboard) & enemyPiecesBitboard;
 				if (castleLegalMask == 0)
 				{
 					addMove(MoveHelper.createMove(friendlyKingIndex, friendlyKingIndex + 2, MoveHelper.CASTLING_FLAG));
@@ -112,7 +113,6 @@ public class MoveGenerator
 				long castleLegalMask = 0;
 				castleLegalMask |= allPiecesBitboard & (isWhite ? PrecomputedData.WHITE_QUEENSIDE_CASTLING_CLEAR_MASK : PrecomputedData.BLACK_QUEENSIDE_CASTLING_CLEAR_MASK);
 				castleLegalMask |= enemyAttackMap & (isWhite ? PrecomputedData.WHITE_QUEENSIDE_CASTLING_SAFE_MASK : PrecomputedData.BLACK_QUEENSIDE_CASTLING_SAFE_MASK);
-				castleLegalMask |= bitBoards.getAttacksTo(friendlyKingIndex - 2, allPiecesBitboard) & enemyPiecesBitboard;
 				if (castleLegalMask == 0)
 				{
 					addMove(MoveHelper.createMove(friendlyKingIndex, friendlyKingIndex - 2, MoveHelper.CASTLING_FLAG));
@@ -140,9 +140,10 @@ public class MoveGenerator
 			orthoSlidersBitboard = Bitboards.toggleBit(orthoSlidersBitboard, sliderSquare);
 			
 			long rookMoves = PrecomputedMagicNumbers.getRookMoves(sliderSquare, allPiecesBitboard) & allPossibleMoves;
+			
 			if (isPiecePinned(sliderSquare))
 			{
-				rookMoves &= PrecomputedData.rayAlignMask[(sliderSquare << 6) + friendlyKingIndex];
+				rookMoves &= pinTable[sliderSquare];
 			}
 			
 			while (rookMoves != 0)
@@ -159,9 +160,10 @@ public class MoveGenerator
 			diagSlidersBitboard = Bitboards.toggleBit(diagSlidersBitboard, sliderSquare);
 			
 			long bishopMoves = PrecomputedMagicNumbers.getBishopMoves(sliderSquare, allPiecesBitboard) & allPossibleMoves;
+			
 			if (isPiecePinned(sliderSquare))
 			{
-				bishopMoves &= PrecomputedData.rayAlignMask[(sliderSquare << 6) + friendlyKingIndex];
+				bishopMoves &= pinTable[sliderSquare];
 			}
 			
 			while (bishopMoves != 0)
@@ -228,11 +230,12 @@ public class MoveGenerator
 		{
 			while (singlePushSquares != 0)
 			{
+				long targetBoard = singlePushSquares & -singlePushSquares;
 				final int targetSquare = Bitboards.getLSB(singlePushSquares);
 				singlePushSquares = Bitboards.toggleBit(singlePushSquares, targetSquare);
 				final int startSquare = targetSquare - (direction * 8);
 				
-				if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[(startSquare << 6) + friendlyKingIndex] == PrecomputedData.rayAlignMask[(targetSquare << 6) + friendlyKingIndex])
+				if (!isPiecePinned(startSquare) || (pinTable[startSquare] & targetBoard) != 0)
 				{
 					addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.NO_FLAG));
 				}
@@ -240,11 +243,12 @@ public class MoveGenerator
 			
 			while (doublePushSquares != 0)
 			{
+				long targetBoard = doublePushSquares & -doublePushSquares;
 				final int targetSquare = Bitboards.getLSB(doublePushSquares);
 				doublePushSquares = Bitboards.toggleBit(doublePushSquares, targetSquare);
 				final int startSquare = targetSquare - (direction * 16);
 				
-				if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[(startSquare << 6) + friendlyKingIndex] == PrecomputedData.rayAlignMask[(targetSquare << 6) + friendlyKingIndex])
+				if (!isPiecePinned(startSquare) || (pinTable[startSquare] & targetBoard) != 0)
 				{
 					addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.PAWN_DOUBLE_PUSH_FLAG));
 				}
@@ -253,11 +257,12 @@ public class MoveGenerator
 		
 		while (captureLeftSquares != 0)
 		{
+			long targetBoard = captureLeftSquares & -captureLeftSquares;
 			final int targetSquare = Bitboards.getLSB(captureLeftSquares);
 			captureLeftSquares = Bitboards.toggleBit(captureLeftSquares, targetSquare);
 			final int startSquare = targetSquare - (direction * 7);
 			
-			if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[(startSquare << 6) + friendlyKingIndex] == PrecomputedData.rayAlignMask[(targetSquare << 6) + friendlyKingIndex])
+			if (!isPiecePinned(startSquare) || (pinTable[startSquare] & targetBoard) != 0)
 			{
 				addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.NO_FLAG));
 			}
@@ -265,11 +270,12 @@ public class MoveGenerator
 		
 		while (captureRightSquares != 0)
 		{
+			long targetBoard = captureRightSquares & -captureRightSquares;
 			final int targetSquare = Bitboards.getLSB(captureRightSquares);
 			captureRightSquares = Bitboards.toggleBit(captureRightSquares, targetSquare);
 			final int startSquare = targetSquare - (direction * 9);
 			
-			if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[(startSquare << 6) + friendlyKingIndex] == PrecomputedData.rayAlignMask[(targetSquare << 6) + friendlyKingIndex])
+			if (!isPiecePinned(startSquare) || (pinTable[startSquare] & targetBoard) != 0)
 			{
 				addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.NO_FLAG));
 			}
@@ -289,11 +295,12 @@ public class MoveGenerator
 		
 		while (captureLeftPromoting != 0)
 		{
+			long targetBoard = captureLeftPromoting & -captureLeftPromoting;
 			final int targetSquare = Bitboards.getLSB(captureLeftPromoting);
 			captureLeftPromoting = Bitboards.toggleBit(captureLeftPromoting, targetSquare);
 			final int startSquare = targetSquare - (direction * 7);
 			
-			if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[(startSquare << 6) + friendlyKingIndex] == PrecomputedData.rayAlignMask[(targetSquare << 6) + friendlyKingIndex])
+			if (!isPiecePinned(startSquare) || (pinTable[startSquare] & targetBoard) != 0)
 			{
 				addPromotionMoves(startSquare, targetSquare);
 			}
@@ -301,11 +308,12 @@ public class MoveGenerator
 		
 		while (captureRightPromoting != 0)
 		{
+			long targetBoard = captureRightPromoting & -captureRightPromoting;
 			final int targetSquare = Bitboards.getLSB(captureRightPromoting);
 			captureRightPromoting = Bitboards.toggleBit(captureRightPromoting, targetSquare);
 			final int startSquare = targetSquare - (direction * 9);
 			
-			if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[(startSquare << 6) + friendlyKingIndex] == PrecomputedData.rayAlignMask[(targetSquare << 6) + friendlyKingIndex])
+			if (!isPiecePinned(startSquare) || (pinTable[startSquare] & targetBoard) != 0)
 			{
 				addPromotionMoves(startSquare, targetSquare);
 			}
@@ -327,7 +335,7 @@ public class MoveGenerator
 				{
 					final int startSquare = Bitboards.getLSB(enPassantPawns);
 					enPassantPawns = Bitboards.toggleBit(enPassantPawns, startSquare);
-					if (!isPiecePinned(startSquare) || PrecomputedData.rayAlignMask[(startSquare << 6) + friendlyKingIndex] == PrecomputedData.rayAlignMask[(targetSquare << 6) + friendlyKingIndex])
+					if (!isPiecePinned(startSquare) || (pinTable[startSquare] & (1L << targetSquare)) != 0)
 					{
 						if (isEnPassantLegal(startSquare, captureSquare))
 						{
@@ -374,51 +382,83 @@ public class MoveGenerator
 	
 	private boolean isPiecePinned(final int square)
 	{
+		//return pinTable[square] != 0;
 		return (pinRaysMask & (1L << square)) != 0;
 	}
 	
 	private void calculateAllAttacks()
 	{
-		final long enemySlidingAttackMap = calculateSliderAttacks();
-		long kingRays = PrecomputedMagicNumbers.getRookMoves(friendlyKingIndex, allPiecesBitboard) | PrecomputedMagicNumbers.getBishopMoves(friendlyKingIndex, allPiecesBitboard);
-		
-		for (int direction = 0; direction < 8; direction++)
+		final long orthoSliders = bitBoards.getOrthogonalSliders(enemyColor);
+		final long diagSliders = bitBoards.getDiagonalSliders(enemyColor);
+		long orthoSlidersBoard = orthoSliders;
+		long diagSlidersBoard = diagSliders;
+		long enemySlidingAttackMap = 0;
+		final long notKingBoard = allPiecesBitboard ^ (1L << friendlyKingIndex);
+		while (orthoSlidersBoard != 0)
 		{
-			final boolean diagonal = direction >= 4;
-			final long sliders = diagonal ? bitBoards.getDiagonalSliders(enemyColor) : bitBoards.getOrthogonalSliders(enemyColor);
+			final int sliderSquare = Bitboards.getLSB(orthoSlidersBoard);
+			orthoSlidersBoard = Bitboards.toggleBit(orthoSlidersBoard, sliderSquare);
+			enemySlidingAttackMap |= PrecomputedMagicNumbers.getRookMoves(sliderSquare, notKingBoard);
+		}
+		while (diagSlidersBoard != 0)
+		{
+			// get the square of the slider
+			final int sliderSquare = Bitboards.getLSB(diagSlidersBoard);
+			diagSlidersBoard = Bitboards.toggleBit(diagSlidersBoard, sliderSquare);
 			
-			long rayDirMask = PrecomputedData.rayDirectionMask[friendlyKingIndex*8 + direction];
-			if ((rayDirMask & sliders) == 0)
-			{
-				// no enemy sliders of relevant type along this ray on this specific direction from the friendly king
-				continue;
-			}
+			enemySlidingAttackMap |= PrecomputedMagicNumbers.getBishopMoves(sliderSquare, notKingBoard);
+		}
+		
+		final long kingBitboard = 1L << friendlyKingIndex;
+		long orthoRays = PrecomputedMagicNumbers.getRookMoves(friendlyKingIndex, enemyPiecesBitboard);
+		long diagRays = PrecomputedMagicNumbers.getBishopMoves(friendlyKingIndex, enemyPiecesBitboard);
+		long checkSliders = orthoRays & orthoSliders;
+		while (checkSliders != 0)
+		{
+			final long sliderBoard = checkSliders & -checkSliders;
+			final int sliderSquare = Bitboards.getLSB(checkSliders);
+			checkSliders = Bitboards.toggleBit(checkSliders, sliderSquare);
 			
-			long rayFromKing = kingRays & rayDirMask;
-			if ((rayFromKing & sliders) != 0)
+			long returnRay = PrecomputedMagicNumbers.getRookMoves(sliderSquare, enemyPiecesBitboard | kingBitboard) & orthoRays;
+			int friendlies = Long.bitCount(returnRay & friendlyPiecesBitboard);
+			if (friendlies == 0)
 			{
-				// first piece between relevant sliders and the king is a relevant checking slider
-				// found a check
-				checkRaysMask |= rayFromKing;
+				checkRaysMask |= returnRay | sliderBoard;
 				doubleCheck = inCheck;
 				inCheck = true;
-				
-				if (doubleCheck) break;
 			}
-			else if ((rayFromKing & friendlyPiecesBitboard) != 0)
+			else if (friendlies == 1)
 			{
-				// first piece between relevant sliders and the king is a friendly piece, potential pin
-				long rayExcludingPin = PrecomputedMagicNumbers.getSliderMoves(friendlyKingIndex, allPiecesBitboard & ~(rayFromKing & friendlyPiecesBitboard), !diagonal) & rayDirMask;
-				if ((rayExcludingPin & sliders) != 0)
-				{
-					pinRaysMask |= rayExcludingPin;
-				}
+				int index = Bitboards.getLSB(returnRay & friendlyPiecesBitboard);
+				pinTable[index] = returnRay | sliderBoard;
+				pinRaysMask |= returnRay | sliderBoard;
 			}
-			// else: first piece between relevant sliders and the king is an enemy piece (by elimination), move on
+		}
+		checkSliders = diagRays & diagSliders;
+		while (checkSliders != 0)
+		{
+			final long sliderBoard = checkSliders & -checkSliders;
+			final int sliderSquare = Bitboards.getLSB(checkSliders);
+			checkSliders = Bitboards.toggleBit(checkSliders, sliderSquare);
+			
+			long returnRay = PrecomputedMagicNumbers.getBishopMoves(sliderSquare, enemyPiecesBitboard | kingBitboard) & diagRays;
+			returnRay |= sliderBoard;
+			int friendlies = Long.bitCount(returnRay & friendlyPiecesBitboard);
+			if (friendlies == 0)
+			{
+				checkRaysMask |= returnRay | sliderBoard;
+				doubleCheck = inCheck;
+				inCheck = true;
+			}
+			else if (friendlies == 1)
+			{
+				int index = Bitboards.getLSB(returnRay & friendlyPiecesBitboard);
+				pinTable[index] = returnRay | sliderBoard;
+				pinRaysMask |= returnRay | sliderBoard;
+			}
 		}
 				
 		long enemyKnightAttacks = 0;
-		final long kingBitboard = 1L << friendlyKingIndex;
 		long enemyKnightsBitboard = bitBoards.pieceBoards[PieceHelper.KNIGHT | enemyColor];
 		
 		// only possible for one knight to be checking the king
@@ -472,32 +512,5 @@ public class MoveGenerator
 			// set all bits to 1
 			checkRaysMask = ALL_ONE_BITS;
 		}
-	}
-	
-	private long calculateSliderAttacks()
-	{
-		final long orthoSliders = bitBoards.getOrthogonalSliders(enemyColor);
-		final long diagSliders = bitBoards.getDiagonalSliders(enemyColor);
-		long enemySlidingAttackMap = 0;
-		enemySlidingAttackMap |= sliderAttacks(orthoSliders, enemyColor, true);
-		enemySlidingAttackMap |= sliderAttacks(diagSliders, enemyColor, false);
-		return enemySlidingAttackMap;
-	}
-	
-	private long sliderAttacks(long pieceBoard, final int sliderColor, final boolean orthogonal)
-	{
-		long slidingAttacks = 0;
-		final long notKingBoard = allPiecesBitboard ^ (1L << friendlyKingIndex);
-		
-		while (pieceBoard != 0)
-		{
-			// get the square of the slider
-			final int sliderSquare = Bitboards.getLSB(pieceBoard);
-			pieceBoard = Bitboards.toggleBit(pieceBoard, sliderSquare);
-			
-			slidingAttacks |= PrecomputedMagicNumbers.getSliderMoves(sliderSquare, notKingBoard, orthogonal);
-		}
-		
-		return slidingAttacks;
 	}
 }

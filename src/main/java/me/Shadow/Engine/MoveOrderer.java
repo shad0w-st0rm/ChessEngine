@@ -43,8 +43,8 @@ public class MoveOrderer
 			}
 			final int start = MoveHelper.getStartIndex(move);
 			final int target = MoveHelper.getTargetIndex(move);
-			final int piece = board.squares[start];
-			final int capturedPiece = board.squares[target];
+			final byte piece = board.squares[start];
+			final byte capturedPiece = board.squares[target];
 			int evalGuess = 0;
 
 			if (capturedPiece != PieceHelper.NONE)
@@ -100,7 +100,7 @@ public class MoveOrderer
 		}
 	}
 
-	public int SEE(Board board, int start, int target, int piece, int captured, float mgWeight)
+	public int SEE(Board board, int start, int target, byte piece, byte captured, float mgWeight)
 	{
 		int[] gain = new int[32];
 		long xrayPieces = board.bitBoards.getXrayPieces();

@@ -6,26 +6,35 @@ import java.util.Random;
 
 public class Board
 {
-	final static long[] zobristHashes = new Random(8108415243282079581L).longs(781).toArray();
+	final static long[] zobristHashes = new Random(8108415243282079581L).longs(793).toArray();
 	public final static String defaultFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+	
+	static final int ZOBRIST_COLOR_INDEX = 768;
+	static final int ZOBRIST_EP_INDEX = 769;
+	static final int ZOBRIST_CASTLING_INDEX = 777;
 	
 	static final long WHITE_KING_CASTLING = 0b1;
 	static final long WHITE_QUEEN_CASTLING = 0b10;
+	static final long WHITE_CASTLING = WHITE_KING_CASTLING | WHITE_QUEEN_CASTLING;
 	static final long BLACK_KING_CASTLING = 0b100;
 	static final long BLACK_QUEEN_CASTLING = 0b1000;
+	static final long BLACK_CASTLING = BLACK_KING_CASTLING | BLACK_QUEEN_CASTLING;
 
 	public Bitboards bitBoards;
-	public int[] squares = new int[64];
-	public int colorToMove;
+	public byte[] squares = new byte[64];
+	public byte colorToMove;
 	
 	public long zobristHash;
 	long pawnsHash;
-	long material;
+	short [] material = new short[4];
 	public short halfMoves;
-	public short moveNum;
-	byte castlingRights;
+	private short moveNum;
+	short castlingRights;
 	short enPassantIndex;
-	public ArrayList<Long> positionList = new ArrayList<Long>();
+	
+	// ~100 positions for 50 move rule + about 28 depth deep search
+	public long [] repetitionHistory = new long[128];
+	public int repetitionIndex;
 
 	boolean cachedCheckValue = false;
 	boolean isCachedCheckValid = false;
@@ -57,9 +66,9 @@ public class Board
 		}
 	}
 
-	boolean isInCheck()
+	private boolean isInCheck()
 	{
-		int enemyColor = colorToMove ^ PieceHelper.BLACK;
+		byte enemyColor = (byte) (colorToMove ^ PieceHelper.BLACK);
 
 		int friendlyKingIndex = Bitboards.getLSB(bitBoards.pieceBoards[PieceHelper.KING | colorToMove]);
 
@@ -92,82 +101,40 @@ public class Board
 		return false;
 	}
 
-	public int movePiece(final short move)
+	public byte movePiece(final short move)
 	{
 		final int start = MoveHelper.getStartIndex(move);
 		final int target = MoveHelper.getTargetIndex(move);
 
+		byte piece = squares[start];
+
+		byte enemyColor = (byte) (colorToMove ^ PieceHelper.BLACK);
+
 		int captureIndex = target;
 		if (MoveHelper.getEnPassantCaptureIndex(move) != -1)
 			captureIndex = MoveHelper.getEnPassantCaptureIndex(move); // if en passant, change capture square
-
-		int piece = squares[start];
-		final int capturedPiece = squares[captureIndex];
-		
-		int color = colorToMove;
-		int enemyColor = color ^ PieceHelper.BLACK;
-		int friendlyMGPieceBonus = Board.getMaterial(color, false, material);
-		int friendlyEGPieceBonus = Board.getMaterial(color, true, material);
-		int enemyMGPieceBonus = Board.getMaterial(enemyColor, false, material);
-		int enemyEGPieceBonus = Board.getMaterial(enemyColor, true, material);
-
-		// update boardInfo information
-		colorToMove ^= PieceHelper.BLACK;
-		zobristHash ^= zobristHashes[768]; // flip side to move
-		
-		halfMoves++;
-		if (PieceHelper.getPieceType(piece) == PieceHelper.PAWN)
-			halfMoves = 0; // reset half moves for 50 move rule
-		if (color == PieceHelper.BLACK)
-			moveNum++;
-
-		if (enPassantIndex != -1)
-			zobristHash ^= zobristHashes[773 + (enPassantIndex % 8)]; // remove old enpassant index
-		if (MoveHelper.getEnPassantNewIndex(move) != -1)
-			zobristHash ^= zobristHashes[773 + (MoveHelper.getEnPassantNewIndex(move) % 8)]; // add new enpassant index
-
-		// set or reset en passant index
-		enPassantIndex = (short) MoveHelper.getEnPassantNewIndex(move);
-
-		if (capturedPiece != PieceHelper.NONE) // if move is a capture
-		{
-			halfMoves = 0; // reset half moves for 50 move rule
-			// remove captured piece from the board
-			squares[captureIndex] = PieceHelper.NONE;
-			bitBoards.toggleSquare(capturedPiece, captureIndex);
-			// bitBoards.setAttacksFrom(captureIndex, 0);
-
-			// remove captured piece
-			zobristHash ^= zobristHashes[(captureIndex * 12 + PieceHelper.getZobristOffset(capturedPiece))];
-			if (PieceHelper.getPieceType(capturedPiece) == PieceHelper.PAWN)
-				pawnsHash ^= zobristHashes[(captureIndex * 12 + PieceHelper.getZobristOffset(capturedPiece))];
-
-			enemyMGPieceBonus -= PieceHelper.getPieceSquareValue(capturedPiece, captureIndex, false);
-			enemyEGPieceBonus -= PieceHelper.getPieceSquareValue(capturedPiece, captureIndex, true);
-		}
-
-		if (MoveHelper.isCastleMove(move)) // if move is castling
+		else if (MoveHelper.getEnPassantNewIndex(move) != -1)
+			zobristHash ^= zobristHashes[ZOBRIST_EP_INDEX + (MoveHelper.getEnPassantNewIndex(move) % 8)]; // add new enpassant index
+		else if (MoveHelper.isCastleMove(move)) // if move is castling
 		{
 			final int rookStart = MoveHelper.getRookStartIndex(move);
 			final int rookTarget = MoveHelper.getRookTargetIndex(move);
 
 			// move the rook
-			final int rook = squares[rookStart];
+			final byte rook = squares[rookStart];
 			squares[rookStart] = PieceHelper.NONE;
 			squares[rookTarget] = rook;
 
 			bitBoards.toggleSquare(rook, rookStart);
 			bitBoards.toggleSquare(rook, rookTarget);
-			// bitBoards.setAttacksFrom(rookStart, 0);
-			// bitBoards.createAttacksFrom(rookTarget, rook);
 
 			// remove rook from start square, add rook to target square
 			zobristHash ^= zobristHashes[(rookStart * 12 + PieceHelper.getZobristOffset(rook))];
 			zobristHash ^= zobristHashes[(rookTarget * 12 + PieceHelper.getZobristOffset(rook))];
 
-			friendlyMGPieceBonus += PieceHelper.getPieceSquareValue(rook, rookTarget, false)
+			material[colorToMove*2] += PieceHelper.getPieceSquareValue(rook, rookTarget, false)
 					- PieceHelper.getPieceSquareValue(rook, rookStart, false);
-			friendlyEGPieceBonus += PieceHelper.getPieceSquareValue(rook, rookTarget, true)
+			material[colorToMove*2 + 1] += PieceHelper.getPieceSquareValue(rook, rookTarget, true)
 					- PieceHelper.getPieceSquareValue(rook, rookStart, true);
 
 			// castling rights get updated below
@@ -179,49 +146,66 @@ public class Board
 			zobristHash ^= zobristHashes[(start * 12 + PieceHelper.getZobristOffset(piece))];
 			pawnsHash ^= zobristHashes[(start * 12 + PieceHelper.getZobristOffset(piece))]; // always pawn promoting
 
-			friendlyMGPieceBonus -= PieceHelper.getPieceSquareValue(piece, start, false);
-			friendlyEGPieceBonus -= PieceHelper.getPieceSquareValue(piece, start, true);
+			material[colorToMove*2] -= PieceHelper.getPieceSquareValue(piece, start, false);
+			material[colorToMove*2 + 1] -= PieceHelper.getPieceSquareValue(piece, start, true);
 
-			piece = (MoveHelper.getPromotedPiece(move) | PieceHelper.getColor(piece));
+			piece = (byte) (MoveHelper.getPromotedPiece(move) | PieceHelper.getColor(piece));
 
 			// add promoted piece to target square
 			bitBoards.toggleSquare(piece, start);
 			zobristHash ^= zobristHashes[(start * 12 + PieceHelper.getZobristOffset(piece))];
 
-			friendlyMGPieceBonus += PieceHelper.getPieceSquareValue(piece, start, false);
-			friendlyEGPieceBonus += PieceHelper.getPieceSquareValue(piece, start, true);
+			material[colorToMove*2] += PieceHelper.getPieceSquareValue(piece, start, false);
+			material[colorToMove*2 + 1] += PieceHelper.getPieceSquareValue(piece, start, true);
 		}
-
-		final byte oldCastlingRights = castlingRights;
-		if (start == 4 || start == 7 || target == 7)
-			castlingRights &= ~WHITE_KING_CASTLING;
-		if (start == 4 || start == 0 || target == 0)
-			castlingRights &= ~WHITE_QUEEN_CASTLING;
-		if (start == 60 || start == 63 || target == 63)
-			castlingRights &= ~BLACK_KING_CASTLING;
-		if (start == 60 || start == 56 || target == 56)
-			castlingRights &= ~BLACK_QUEEN_CASTLING;
-
-		final int changedCastlingRights = oldCastlingRights ^ castlingRights;
-		if (changedCastlingRights != 0)
+		
+		
+		if (enPassantIndex != -1)
+			zobristHash ^= zobristHashes[ZOBRIST_EP_INDEX + (enPassantIndex % 8)]; // remove old enpassant index
+		// set or reset en passant index
+		enPassantIndex = (short) MoveHelper.getEnPassantNewIndex(move);
+		
+		zobristHash ^= zobristHashes[ZOBRIST_CASTLING_INDEX + castlingRights];
+		
+		if (start == 4) castlingRights &= ~WHITE_CASTLING;
+		else if (start == 60) castlingRights &= ~BLACK_CASTLING;
+		else if (start == 7) castlingRights &= ~WHITE_KING_CASTLING;
+		else if (start == 0) castlingRights &= ~WHITE_QUEEN_CASTLING;
+		else if (start == 63) castlingRights &= ~BLACK_KING_CASTLING;
+		else if (start == 56) castlingRights &= ~BLACK_QUEEN_CASTLING;
+				
+		final byte capturedPiece = squares[captureIndex];
+		if (capturedPiece != PieceHelper.NONE) // if move is a capture
 		{
-			if ((changedCastlingRights & WHITE_KING_CASTLING) != 0)
-				zobristHash ^= zobristHashes[769];
-			if ((changedCastlingRights & WHITE_QUEEN_CASTLING) != 0)
-				zobristHash ^= zobristHashes[770];
-			if ((changedCastlingRights & BLACK_KING_CASTLING) != 0)
-				zobristHash ^= zobristHashes[771];
-			if ((changedCastlingRights & BLACK_QUEEN_CASTLING) != 0)
-				zobristHash ^= zobristHashes[772];
+			halfMoves = 0; // reset half moves for 50 move rule
+			// remove captured piece from the board
+			squares[captureIndex] = PieceHelper.NONE;
+			bitBoards.toggleSquare(capturedPiece, captureIndex);
+
+			// remove captured piece
+			zobristHash ^= zobristHashes[(captureIndex * 12 + PieceHelper.getZobristOffset(capturedPiece))];
+			if (PieceHelper.getPieceType(capturedPiece) == PieceHelper.PAWN)
+				pawnsHash ^= zobristHashes[(captureIndex * 12 + PieceHelper.getZobristOffset(capturedPiece))];
+			
+			material[enemyColor*2] -= PieceHelper.getPieceSquareValue(capturedPiece, captureIndex, false);
+			material[enemyColor*2 + 1] -= PieceHelper.getPieceSquareValue(capturedPiece, captureIndex, true);
+			
+			if (captureIndex == 7) castlingRights &= ~WHITE_KING_CASTLING;
+			else if (captureIndex == 0) castlingRights &= ~WHITE_QUEEN_CASTLING;
+			else if (captureIndex == 63) castlingRights &= ~BLACK_KING_CASTLING;
+			else if (captureIndex == 56) castlingRights &= ~BLACK_QUEEN_CASTLING;
 		}
+		
+		zobristHash ^= zobristHashes[ZOBRIST_CASTLING_INDEX + castlingRights];
 
 		// move the piece to the new square
 		squares[start] = PieceHelper.NONE;
 		squares[target] = piece;
 		bitBoards.toggleSquare(piece, start);
 		bitBoards.toggleSquare(piece, target);
-		// bitBoards.setAttacksFrom(start, 0);
-		// bitBoards.createAttacksFrom(target, piece);
+		
+		halfMoves++;			
+		moveNum++;
 
 		// remove piece from start square, add piece to target square
 		zobristHash ^= zobristHashes[(start * 12 + PieceHelper.getZobristOffset(piece))];
@@ -229,29 +213,35 @@ public class Board
 		
 		if (PieceHelper.getPieceType(piece) == PieceHelper.PAWN)
 		{
+			halfMoves = 0; // reset half moves for 50 move rule
 			pawnsHash ^= zobristHashes[(start * 12 + PieceHelper.getZobristOffset(piece))];
 			pawnsHash ^= zobristHashes[(target * 12 + PieceHelper.getZobristOffset(piece))];
 		}
 
-		friendlyMGPieceBonus += PieceHelper.getPieceSquareValue(piece, target, false)
+		material[colorToMove*2] += PieceHelper.getPieceSquareValue(piece, target, false)
 				- PieceHelper.getPieceSquareValue(piece, start, false);
-		friendlyEGPieceBonus += PieceHelper.getPieceSquareValue(piece, target, true)
+		material[colorToMove*2 + 1] += PieceHelper.getPieceSquareValue(piece, target, true)
 				- PieceHelper.getPieceSquareValue(piece, start, true);
-
-		positionList.add(zobristHash);
 		
-		material = Board.createMaterial(friendlyMGPieceBonus, friendlyEGPieceBonus, enemyMGPieceBonus, enemyEGPieceBonus, color);
+		// update side to move information
+		colorToMove ^= PieceHelper.BLACK;
+		zobristHash ^= zobristHashes[ZOBRIST_COLOR_INDEX]; // flip side to move
 
+		repetitionHistory[++repetitionIndex] = zobristHash;
+		
 		isCachedCheckValid = false;
 
 		return capturedPiece; // return the captured piece
 	}
 	
-	public void moveBack(final short move, final int captured, long [] boardInfoOld)
+	public void moveBack(final short move, final byte captured, long zobristHash, long pawnsHash, short [] boardInfoOld)
 	{
+		this.zobristHash = zobristHash;
+		this.pawnsHash = pawnsHash;
 		unpackBoardInfo(boardInfoOld);
 		colorToMove ^= PieceHelper.BLACK;
-		positionList.removeLast(); // remove the most recent position
+		moveNum--;
+		repetitionIndex--; // remove the most recent position
 
 		final int start = MoveHelper.getStartIndex(move);
 		final int target = MoveHelper.getTargetIndex(move);
@@ -259,14 +249,11 @@ public class Board
 		// move the piece back to its original square
 		squares[start] = squares[target];
 		squares[target] = PieceHelper.NONE;
-		int piece = squares[start];
+		byte piece = squares[start];
 		int captureSquare = target;
 
 		bitBoards.toggleSquare(piece, start);
 		bitBoards.toggleSquare(piece, target);
-
-		// bitBoards.setAttacksFrom(target, 0);
-		// bitBoards.createAttacksFrom(start, piece);
 
 		if (MoveHelper.isCastleMove(move)) // if it was a castle move
 		{
@@ -279,14 +266,11 @@ public class Board
 
 			bitBoards.toggleSquare(squares[rookStart], rookStart);
 			bitBoards.toggleSquare(squares[rookStart], rookTarget);
-
-			// bitBoards.setAttacksFrom(rookTarget, 0);
-			// bitBoards.createAttacksFrom(rookStart, squares[rookStart]);
 		}
 		else if (MoveHelper.getPromotedPiece(move) != 0) // if it was a promotion
 		{
 			bitBoards.toggleSquare(piece, start);
-			piece = (PieceHelper.PAWN | PieceHelper.getColor(piece));
+			piece = (byte) (PieceHelper.PAWN | PieceHelper.getColor(piece));
 			squares[start] = piece;
 			bitBoards.toggleSquare(piece, start);
 		}
@@ -301,32 +285,44 @@ public class Board
 			// put captured piece back on the board
 			squares[captureSquare] = captured;
 			bitBoards.toggleSquare(captured, captureSquare);
-			// bitBoards.createAttacksFrom(captureSquare, captured);
 		}
 
 		isCachedCheckValid = false;
 	}
 	
-	public long[] packBoardInfo()
+	public short[] packBoardInfo()
 	{
-		long info = (long)enPassantIndex << 48;
-		info |= (long)castlingRights << 32;
-		info |= moveNum << 16L;
-		info |= halfMoves;
-		
-		return new long[] {zobristHash, pawnsHash, material, info};
+		return new short[] {material[0], material[1], material[2], material[3], enPassantIndex, castlingRights, halfMoves};
 	}
 	
+	public void unpackBoardInfo(short [] boardInfo)
+	{
+		material[0] = boardInfo[0];
+		material[1] = boardInfo[1];
+		material[2] = boardInfo[2];
+		material[3] = boardInfo[3];
+		enPassantIndex = boardInfo[4];
+		castlingRights = boardInfo[5];
+		halfMoves = boardInfo[6];
+	}
+	
+	/*
 	public void unpackBoardInfo(long [] boardInfo)
 	{
 		zobristHash = boardInfo[0];
 		pawnsHash = boardInfo[1];
-		material = boardInfo[2];
+		long packedMaterial = boardInfo[2];
+		material[0] = (short) (packedMaterial >>> 48);
+		material[1] = (short) ((packedMaterial >>> 32) & 0xFFFF);
+		material[2] = (short) ((packedMaterial >>> 16) & 0xFFFF);
+		material[3] = (short) ((packedMaterial) & 0xFFFF);
+		
 		enPassantIndex = (short) (boardInfo[3] >> 48);	// take advantage of sign extending
 		castlingRights = (byte) ((boardInfo[3] >>> 32) & 0xFFFF);
 		moveNum = (short) ((boardInfo[3] >>> 16) & 0xFFFF);
 		halfMoves = (short) (boardInfo[3] & 0xFFFF);
 	}
+	*/
 
 	public long createZobristHash()
 	{
@@ -334,7 +330,7 @@ public class Board
 
 		for (int i = 0; i < 64; i++)
 		{
-			int piece = squares[i];
+			byte piece = squares[i];
 			if (piece != PieceHelper.NONE)
 			{
 				zobristHash ^= zobristHashes[(i * 12 + PieceHelper.getZobristOffset(piece))];
@@ -342,8 +338,11 @@ public class Board
 		}
 
 		if (colorToMove == PieceHelper.BLACK)
-			zobristHash ^= zobristHashes[768];
+			zobristHash ^= zobristHashes[ZOBRIST_COLOR_INDEX];
+		
+		zobristHash ^= zobristHashes[ZOBRIST_CASTLING_INDEX + castlingRights];
 
+		/*
 		if ((castlingRights & WHITE_KING_CASTLING) != 0)
 			zobristHash ^= zobristHashes[769];
 		if ((castlingRights & WHITE_QUEEN_CASTLING) != 0)
@@ -352,9 +351,10 @@ public class Board
 			zobristHash ^= zobristHashes[771];
 		if ((castlingRights & BLACK_QUEEN_CASTLING) != 0)
 			zobristHash ^= zobristHashes[772];
+		*/
 
 		if (enPassantIndex != -1)
-			zobristHash ^= zobristHashes[773 + (enPassantIndex % 8)];
+			zobristHash ^= zobristHashes[ZOBRIST_EP_INDEX + (enPassantIndex % 8)];
 
 		return zobristHash;
 	}
@@ -364,7 +364,7 @@ public class Board
 		long pawnsHash = 0;
 		for (int i = 0; i < 64; i++)
 		{
-			int piece = squares[i];
+			byte piece = squares[i];
 			if (piece != PieceHelper.NONE && PieceHelper.getPieceType(piece) == PieceHelper.PAWN)
 			{
 				pawnsHash ^= zobristHashes[(i * 12 + PieceHelper.getZobristOffset(piece))];
@@ -372,6 +372,11 @@ public class Board
 		}
 		
 		return pawnsHash;
+	}
+	
+	public int getMoveNum()
+	{
+		return moveNum / 2;
 	}
 
 	/**
@@ -389,7 +394,7 @@ public class Board
 		fenOther.trim();
 		int file = 1;
 		int rank = 1;
-		squares = new int[64];
+		squares = new byte[64];
 		halfMoves = moveNum = castlingRights = 0;
 		enPassantIndex = -1;
 		String[] rows = fenPieces.split("/"); // split the string into each rank
@@ -412,24 +417,24 @@ public class Board
 				}
 				else // not a number so a piece
 				{
-					int piece = PieceHelper.NONE;
+					byte piece = PieceHelper.NONE;
 
 					int color = PieceHelper.BLACK;
 					if (((int) c) > 65 && ((int) c) < 90)
 						color = PieceHelper.WHITE;
 
 					if (c == 'k' || c == 'K')
-						piece = PieceHelper.KING | color;
+						piece = (byte) (PieceHelper.KING | color);
 					else if (c == 'q' || c == 'Q')
-						piece = PieceHelper.QUEEN | color;
+						piece = (byte) (PieceHelper.QUEEN | color);
 					else if (c == 'r' || c == 'R')
-						piece = PieceHelper.ROOK | color;
+						piece = (byte) (PieceHelper.ROOK | color);
 					else if (c == 'b' || c == 'B')
-						piece = PieceHelper.BISHOP | color;
+						piece = (byte) (PieceHelper.BISHOP | color);
 					else if (c == 'n' || c == 'N')
-						piece = PieceHelper.KNIGHT | color;
+						piece = (byte) (PieceHelper.KNIGHT | color);
 					else if (c == 'p' || c == 'P')
-						piece = PieceHelper.PAWN | color;
+						piece = (byte) (PieceHelper.PAWN | color);
 
 					squares[Utils.getSquareIndexFromRankFile(rank, file)] = piece;
 					file++; // increment file to move onto next square
@@ -478,61 +483,32 @@ public class Board
 			else if (i == 5) // checks and sets move number
 			{
 				if (!string.equals("-"))
-					moveNum = Short.parseShort(string);
+					moveNum = (short) (2 * Short.parseShort(string));
 			}
 		}
 
 		zobristHash = createZobristHash();
 		pawnsHash = createPawnsHash();
-		positionList.clear();
-		positionList.add(zobristHash);
+		repetitionIndex = 0;
+		repetitionHistory[repetitionIndex] = zobristHash;
 
-		int whiteMGBonus = 0;
-		int whiteEGBonus = 0;
-		int blackMGBonus = 0;
-		int blackEGBonus = 0;
 		for (int i = 0; i < 64; i++)
 		{
-			int piece = squares[i];
+			byte piece = squares[i];
 			if (piece != PieceHelper.NONE)
 			{
-				if ((piece & PieceHelper.COLOR_MASK) == PieceHelper.WHITE)
-				{
-					whiteMGBonus += PieceHelper.getPieceSquareValue(piece, i, false);
-					whiteEGBonus += PieceHelper.getPieceSquareValue(piece, i, true);
-				}
-				else
-				{
-					blackMGBonus += PieceHelper.getPieceSquareValue(piece, i, false);
-					blackEGBonus += PieceHelper.getPieceSquareValue(piece, i, true);
-				}
+				byte color = PieceHelper.getColor(piece);
+				material[color*2] += PieceHelper.getPieceSquareValue(piece, i, false);
+				material[color*2 + 1] += PieceHelper.getPieceSquareValue(piece, i, true);
 			}
 		}
 		
-		material = Board.createMaterial(whiteMGBonus, whiteEGBonus, blackMGBonus, blackEGBonus, PieceHelper.WHITE);
-
 		if (bitBoards == null)
 			bitBoards = new Bitboards(this);
 		else
 			bitBoards.createBitboards(this);
 
 		isCachedCheckValid = false;
-	}
-	
-	public static short getMaterial(int color, boolean endgame, long material)
-	{
-		if (color == PieceHelper.BLACK) material = material >>> 32;
-		if (endgame) material = material >>> 16;
-		return (short) material;
-	}
-	
-	public static long createMaterial(int wMG, int wEG, int bMG, int bEG, int color)
-	{
-		// if color perspective is black, flip black and white to keep white as lower order bits
-		if (color == PieceHelper.WHITE)
-			return (wMG & 0xFFFFFFFFL) | (wEG & 0xFFFFFFFFL) << 16 | (bMG & 0xFFFFFFFFL) << 32 | (bEG & 0xFFFFFFFFL) << 48;
-		else
-			return (bMG & 0xFFFFFFFFL) | (bEG & 0xFFFFFFFFL) << 16 | (wMG & 0xFFFFFFFFL) << 32 | (wEG & 0xFFFFFFFFL) << 48;
 	}
 
 	/**
@@ -603,7 +579,7 @@ public class Board
 			newFEN += Utils.getSquareName(index);
 		}
 		if (includeMoveNums)
-			newFEN += halfMoves + " " + moveNum; // add moves numbers if includeMoveNums
+			newFEN += halfMoves + " " + getMoveNum(); // add moves numbers if includeMoveNums
 																				// is true
 
 		newFEN.trim();

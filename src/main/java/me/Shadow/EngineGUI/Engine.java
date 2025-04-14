@@ -46,9 +46,9 @@ public class Engine
 	{
 		PrecomputedData.generateData();
 		PrecomputedMagicNumbers.precomputeMagics();
-		PrecomputedMagicNumbers.printMagicsTableSize();
+		//PrecomputedMagicNumbers.printMagicsTableSize();
 		
-		//Perft.runPerftSuite(5);
+		Perft.runPerftSuite(5);
 		
 		try
 		{
@@ -140,7 +140,7 @@ public class Engine
 	
 	public void makeMove(short move)
 	{
-		System.out.print(board.moveNum + ". ");
+		System.out.print(board.getMoveNum() + ". ");
 		if(board.colorToMove == PieceHelper.BLACK) System.out.print("...");
 		System.out.println(MoveHelper.toString(move));
 				
@@ -150,15 +150,17 @@ public class Engine
 	
 	public boolean isThreeFoldRepetition(Board board)
 	{
-		long zobristHash = board.zobristHash;
-		ArrayList<Long> positions = board.positionList;
-		int duplicateCount = 0;
-		for (long position : positions)
+		long zobristHash = board.repetitionHistory[board.repetitionIndex];
+		boolean duplicateFound = false;
+		for (int i = board.repetitionIndex - 2; i >= 0; i -= 2)
 		{
-			if (position == zobristHash) duplicateCount++;
+			if (board.repetitionHistory[i] == zobristHash)
+			{
+				if (duplicateFound) return true;
+				else duplicateFound = true;
+			}
 		}
-		
-		return duplicateCount >= 3;
+		return false;
 	}
 	
 	public boolean isGameOver(Board board)

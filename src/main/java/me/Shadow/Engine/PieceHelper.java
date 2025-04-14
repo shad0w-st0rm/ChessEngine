@@ -167,7 +167,7 @@ public class PieceHelper
 	};
 	
 	private static final short[][] mg_pesto_table = {
-		{},
+		new short [64],
 		mg_pawn_table,
 		mg_knight_table,
 		mg_bishop_table,
@@ -177,7 +177,7 @@ public class PieceHelper
 	};
 	
 	private static final short [][] eg_pesto_table = {
-		{},
+		new short [64],
 		eg_pawn_table,
 		eg_knight_table,
 		eg_bishop_table,
@@ -193,7 +193,7 @@ public class PieceHelper
 	
 	public static void initPieceSquareTables()
 	{
-	    for (int piece = PAWN; piece <= KING; piece += 2) {
+	    for (int piece = NONE; piece <= KING; piece += 2) {
 	        for (int sq = 0; sq < 64; sq++) {
 	            mg_table[piece]  [sq] = (short) (mg_value[piece >>> 1] + mg_pesto_table[piece >>> 1][sq^56]);
 	            eg_table[piece]  [sq] = (short) (eg_value[piece >>> 1] + eg_pesto_table[piece >>> 1][sq^56]);
@@ -205,32 +205,32 @@ public class PieceHelper
 	    mg_value[KING >>> 1] = eg_value[KING >>> 1] = 10000;
 	}
 	
-	public static int getPieceType(int pieceInfo)
+	public static byte getPieceType(byte pieceInfo)
 	{
-		return pieceInfo & TYPE_MASK;
+		return (byte) (pieceInfo & TYPE_MASK);
 	}
 	
-	public static int getColor(int pieceInfo)
+	public static byte getColor(byte pieceInfo)
 	{
-		return (pieceInfo & COLOR_MASK);
+		return (byte) (pieceInfo & COLOR_MASK);
 	}
 	
-	public static boolean isColor(int pieceInfo, int color)
+	public static boolean isColor(byte pieceInfo, int color)
 	{
 		return (getColor(pieceInfo) == color);
 	}
 	
-	public static int getValue(int pieceInfo, float mgWeight)
+	public static int getValue(byte pieceInfo, float mgWeight)
 	{
 		return (int) (mg_value[(pieceInfo & TYPE_MASK) >>> 1] * mgWeight + eg_value[(pieceInfo & TYPE_MASK) >>> 1] * (1 - mgWeight));
 	}
 	
-	public static int getZobristOffset(int pieceInfo)
+	public static int getZobristOffset(byte pieceInfo)
 	{
 		return (pieceInfo - 2);
 	}
 	
-	public static char getPieceSymbol(int pieceInfo)
+	public static char getPieceSymbol(byte pieceInfo)
 	{
 		char symbol = 0;
 		if (getPieceType(pieceInfo) == KING) symbol = 'K';
@@ -244,19 +244,18 @@ public class PieceHelper
 		else return (char) (symbol+32);
 	}
 	
-	public static int getPieceSquareValue(int pieceInfo, int squareIndex, float mgWeight)
+	public static int getPieceSquareValue(byte pieceInfo, int squareIndex, float mgWeight)
 	{
 		return (int) (mg_table[pieceInfo][squareIndex] * mgWeight + eg_table[pieceInfo][squareIndex] * (1 - mgWeight));
 	}
 	
-	public static int getPieceSquareValue(int pieceInfo, int squareIndex, boolean endgame)
+	public static short getPieceSquareValue(byte pieceInfo, int squareIndex, boolean endgame)
 	{
-		
 		if (!endgame) return mg_table[pieceInfo][squareIndex];
 		else return eg_table[pieceInfo][squareIndex];
 	}
 	
-	public static int getGamePhaseValue(int pieceInfo)
+	public static int getGamePhaseValue(byte pieceInfo)
 	{
 		return gamephaseValue[pieceInfo];
 	}

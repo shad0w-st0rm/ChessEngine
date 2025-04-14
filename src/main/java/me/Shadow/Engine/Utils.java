@@ -70,7 +70,7 @@ public class Utils
 			{
 				int start = MoveHelper.getStartIndex(move);
 				int target = MoveHelper.getTargetIndex(move);
-				int piece = PieceHelper.getPieceType(board.squares[start]); // treat all pieces as white pieces
+				byte piece = PieceHelper.getPieceType(board.squares[start]); // treat all pieces as white pieces
 				
 				char firstCharacter = algebraicMove.charAt(0);
 				if (firstCharacter >= 97 && firstCharacter <= 104) // pawn move because first character is a file name
