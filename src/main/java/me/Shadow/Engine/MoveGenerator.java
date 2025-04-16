@@ -14,6 +14,7 @@ public class MoveGenerator
 	
 	public static final boolean CAPTURES_ONLY = true;
 	public static final boolean ALL_MOVES = false;
+	static final long VALID_MOVE_FLAG = 1L;
 	
 	private final Board board;
 	private final Bitboards bitBoards;
@@ -23,7 +24,7 @@ public class MoveGenerator
 	int friendlyKingIndex;
 	long friendlyKingBoard;
 	
-	int numChecks;
+	long numChecks;
 	
 	long friendlyPiecesBitboard;
 	long enemyPiecesBitboard;
@@ -95,7 +96,7 @@ public class MoveGenerator
 		{
 			final int targetSquare = Bitboards.getLSB(legalMoves);
 			legalMoves = Bitboards.toggleBit(legalMoves, targetSquare);
-			addMove(MoveHelper.createMove(friendlyKingIndex, targetSquare, MoveHelper.NO_FLAG));
+			addMove(MoveHelper.createMove(friendlyKingIndex, targetSquare, MoveHelper.NO_FLAG), VALID_MOVE_FLAG);
 		}
 		
 		// castling moves
@@ -105,21 +106,15 @@ public class MoveGenerator
 			{
 				long castleLegalMask = enemyAttackMap | allPiecesBitboard;
 				castleLegalMask &= PrecomputedData.WHITE_KINGSIDE_CASTLING_CLEAR_MASK << 56*friendlyColor;
-				if (castleLegalMask == 0)
-				{
-					addMove(MoveHelper.createMove(friendlyKingIndex, friendlyKingIndex + 2, MoveHelper.CASTLING_FLAG));
-				}
+				addMove(MoveHelper.createMove(friendlyKingIndex, friendlyKingIndex + 2, MoveHelper.CASTLING_FLAG), ((castleLegalMask | -castleLegalMask) >>> 63) ^ 1);
 			}
 			
 			if ((board.castlingRights & (Board.WHITE_QUEEN_CASTLING << friendlyColor)) != 0)
 			{
 				long castleLegalMask = 0;
 				castleLegalMask |= allPiecesBitboard & (PrecomputedData.WHITE_QUEENSIDE_CASTLING_CLEAR_MASK << 56*friendlyColor);
-				castleLegalMask |= enemyAttackMap & (PrecomputedData.WHITE_QUEENSIDE_CASTLING_SAFE_MASK << 56*friendlyColor);				
-				if (castleLegalMask == 0)
-				{
-					addMove(MoveHelper.createMove(friendlyKingIndex, friendlyKingIndex - 2, MoveHelper.CASTLING_FLAG));
-				}
+				castleLegalMask |= enemyAttackMap & (PrecomputedData.WHITE_QUEENSIDE_CASTLING_SAFE_MASK << 56*friendlyColor);		
+				addMove(MoveHelper.createMove(friendlyKingIndex, friendlyKingIndex - 2, MoveHelper.CASTLING_FLAG), ((castleLegalMask | -castleLegalMask) >>> 63) ^ 1);
 			}
 		}
 	}
@@ -130,13 +125,7 @@ public class MoveGenerator
 		long orthoSlidersBitboard = bitBoards.getOrthogonalSliders(friendlyColor);
 		long diagSlidersBitboard = bitBoards.getDiagonalSliders(friendlyColor);
 		final long allPossibleMoves = (~friendlyPiecesBitboard) & checkRaysMask & filteredMovesMask;
-		
-		if (numChecks != 0)
-		{
-			orthoSlidersBitboard &= ~pinRaysMask;
-			diagSlidersBitboard &= ~pinRaysMask;
-		}
-		
+				
 		while (orthoSlidersBitboard != 0)
 		{
 			final int sliderSquare = Bitboards.getLSB(orthoSlidersBitboard);
@@ -151,7 +140,7 @@ public class MoveGenerator
 			{
 				final int targetSquare = Bitboards.getLSB(rookMoves);
 				rookMoves = Bitboards.toggleBit(rookMoves, targetSquare);
-				addMove(MoveHelper.createMove(sliderSquare, targetSquare, MoveHelper.NO_FLAG));
+				addMove(MoveHelper.createMove(sliderSquare, targetSquare, MoveHelper.NO_FLAG), VALID_MOVE_FLAG);
 			}
 		}
 		
@@ -169,7 +158,7 @@ public class MoveGenerator
 			{
 				final int targetSquare = Bitboards.getLSB(bishopMoves);
 				bishopMoves = Bitboards.toggleBit(bishopMoves, targetSquare);
-				addMove(MoveHelper.createMove(sliderSquare, targetSquare, MoveHelper.NO_FLAG));
+				addMove(MoveHelper.createMove(sliderSquare, targetSquare, MoveHelper.NO_FLAG), VALID_MOVE_FLAG);
 			}
 		}
 	}
@@ -190,7 +179,7 @@ public class MoveGenerator
 			{
 				final int targetSquare = Bitboards.getLSB(legalMoves);
 				legalMoves = Bitboards.toggleBit(legalMoves, targetSquare);
-				addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.NO_FLAG));
+				addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.NO_FLAG), VALID_MOVE_FLAG);
 			}
 		}
 	}
@@ -235,54 +224,38 @@ public class MoveGenerator
 		
 		while (singlePushSquares != 0)
 		{
-			long targetBoard = singlePushSquares & -singlePushSquares;
 			final int targetSquare = Bitboards.getLSB(singlePushSquares);
 			singlePushSquares = Bitboards.toggleBit(singlePushSquares, targetSquare);
 			final int startSquare = targetSquare - 8 + 16 * friendlyColor;
 			
-			if (!isPiecePinned(startSquare) || (pinTable[startSquare] & targetBoard) != 0)
-			{
-				addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.NO_FLAG));
-			}
+			addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.NO_FLAG), isValidPinnedMove(startSquare, targetSquare));
 		}
 		
 		while (doublePushSquares != 0)
 		{
-			long targetBoard = doublePushSquares & -doublePushSquares;
 			final int targetSquare = Bitboards.getLSB(doublePushSquares);
 			doublePushSquares = Bitboards.toggleBit(doublePushSquares, targetSquare);
 			final int startSquare = targetSquare - 16 + 32 * friendlyColor;
 			
-			if (!isPiecePinned(startSquare) || (pinTable[startSquare] & targetBoard) != 0)
-			{
-				addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.PAWN_DOUBLE_PUSH_FLAG));
-			}
+			addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.PAWN_DOUBLE_PUSH_FLAG), isValidPinnedMove(startSquare, targetSquare));
 		}
 		
 		while (captureLeftSquares != 0)
 		{
-			long targetBoard = captureLeftSquares & -captureLeftSquares;
 			final int targetSquare = Bitboards.getLSB(captureLeftSquares);
 			captureLeftSquares = Bitboards.toggleBit(captureLeftSquares, targetSquare);
 			final int startSquare = targetSquare - 7 + 14 * friendlyColor;
 			
-			if (!isPiecePinned(startSquare) || (pinTable[startSquare] & targetBoard) != 0)
-			{
-				addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.NO_FLAG));
-			}
+			addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.NO_FLAG), isValidPinnedMove(startSquare, targetSquare));
 		}
 		
 		while (captureRightSquares != 0)
 		{
-			long targetBoard = captureRightSquares & -captureRightSquares;
 			final int targetSquare = Bitboards.getLSB(captureRightSquares);
 			captureRightSquares = Bitboards.toggleBit(captureRightSquares, targetSquare);
 			final int startSquare = targetSquare - 9 + 18 * friendlyColor;
 			
-			if (!isPiecePinned(startSquare) || (pinTable[startSquare] & targetBoard) != 0)
-			{
-				addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.NO_FLAG));
-			}
+			addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.NO_FLAG), isValidPinnedMove(startSquare, targetSquare));
 		}
 		
 		while (singlePushAndPromoting != 0)
@@ -293,34 +266,26 @@ public class MoveGenerator
 			
 			if (!isPiecePinned(startSquare)) // if promoting straight forward, can only be absolutely pinned
 			{
-				addPromotionMoves(startSquare, targetSquare);
+				addPromotionMoves(startSquare, targetSquare, VALID_MOVE_FLAG);
 			}
 		}
 		
 		while (captureLeftPromoting != 0)
 		{
-			long targetBoard = captureLeftPromoting & -captureLeftPromoting;
 			final int targetSquare = Bitboards.getLSB(captureLeftPromoting);
 			captureLeftPromoting = Bitboards.toggleBit(captureLeftPromoting, targetSquare);
 			final int startSquare = targetSquare - 7 + 14 * friendlyColor;
 			
-			if (!isPiecePinned(startSquare) || (pinTable[startSquare] & targetBoard) != 0)
-			{
-				addPromotionMoves(startSquare, targetSquare);
-			}
+			addPromotionMoves(startSquare, targetSquare, isValidPinnedMove(startSquare, targetSquare));
 		}
 		
 		while (captureRightPromoting != 0)
 		{
-			long targetBoard = captureRightPromoting & -captureRightPromoting;
 			final int targetSquare = Bitboards.getLSB(captureRightPromoting);
 			captureRightPromoting = Bitboards.toggleBit(captureRightPromoting, targetSquare);
 			final int startSquare = targetSquare - 9 + 18 * friendlyColor;
 			
-			if (!isPiecePinned(startSquare) || (pinTable[startSquare] & targetBoard) != 0)
-			{
-				addPromotionMoves(startSquare, targetSquare);
-			}
+			addPromotionMoves(startSquare, targetSquare, isValidPinnedMove(startSquare, targetSquare));
 		}
 		
 		if (board.enPassantIndex != -1)
@@ -343,7 +308,7 @@ public class MoveGenerator
 					{
 						if (isEnPassantLegal(startSquare, captureSquare))
 						{
-							addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.EN_PASSANT_CAPTURE_FLAG));
+							addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.EN_PASSANT_CAPTURE_FLAG), VALID_MOVE_FLAG);
 						}
 					}
 				}
@@ -351,15 +316,15 @@ public class MoveGenerator
 		}
 	}
 	
-	private void addPromotionMoves(final int startSquare, final int targetSquare)
+	private void addPromotionMoves(final int startSquare, final int targetSquare, long validityFlags)
 	{
-		addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.PROMOTION_QUEEN_FLAG));
+		addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.PROMOTION_QUEEN_FLAG), validityFlags);
 		
 		if (!capturesOnly)
 		{
-			addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.PROMOTION_ROOK_FLAG));
-			addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.PROMOTION_BISHOP_FLAG));
-			addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.PROMOTION_KNIGHT_FLAG));
+			addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.PROMOTION_ROOK_FLAG), validityFlags);
+			addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.PROMOTION_BISHOP_FLAG), validityFlags);
+			addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.PROMOTION_KNIGHT_FLAG), validityFlags);
 		}
 	}
 	
@@ -384,15 +349,24 @@ public class MoveGenerator
 		return (((firstRightBlocker | firstLeftBlocker) & orthoSliders) == 0);
 	}
 	
-	public void addMove(final short move)
+	public void addMove(final short move, long validityFlags)
 	{
-		moves[currentIndex++] = move;
+		moves[currentIndex] = move;
+		validityFlags = (validityFlags | -validityFlags) >>> 63;
+		//validityFlags = (validityFlags != 0 ? 1 : 0);
+		currentIndex += validityFlags;
 	}
 	
 	private boolean isPiecePinned(final int square)
 	{
 		//return pinTable[square] != 0;
 		return (pinRaysMask & (1L << square)) != 0;
+	}
+	
+	private long isValidPinnedMove(int startSquare, int targetSquare)
+	{
+	    long isPinned = (pinRaysMask >>> startSquare) & 1L;
+	    return ((isPinned ^ 1L) | (((pinTable[startSquare] >>> targetSquare) & 1L) & isPinned));
 	}
 	
 	private void calculateAllAttacks()
@@ -444,11 +418,9 @@ public class MoveGenerator
 		enemyAttackMap = enemySlidingAttackMap | enemyKnightAttacks | enemyPawnAttackMap | enemyKingMoves;
 		
 		numChecks = Long.bitCount(checkRaysMask & enemyPiecesBitboard);
-		if (numChecks == 0)
-		{
-			// set all bits to 1
-			checkRaysMask = ALL_ONE_BITS;
-		}
+		
+		// numChecks == 0 -> -1 (all 1s), numChecks != 0 -> 0
+		checkRaysMask |= (((numChecks | -numChecks) >>> 63) - 1);
 	}
 	
 	public long createSlidingAttackMap(long sliders, long notKingBoard, boolean orthogonal)
