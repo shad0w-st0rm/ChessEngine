@@ -12,8 +12,8 @@ public class MoveGenerator
 	public static final long A_FILE = 0x0101010101010101L;
 	public static final long H_FILE = A_FILE << 7;
 	
-	public static final boolean CAPTURES_ONLY = true;
-	public static final boolean ALL_MOVES = false;
+	public static final long CAPTURES_ONLY = 0;
+	public static final long ALL_MOVES = ALL_ONE_BITS;
 	static final long VALID_MOVE_FLAG = 1L;
 	
 	private final Board board;
@@ -36,8 +36,8 @@ public class MoveGenerator
 	long pinRaysMask;
 	final long [] pinTable;
 	long filteredMovesMask;
-	boolean capturesOnly;
-			
+	long capturesOnly;
+	
 	final short [] moves;
 	int currentIndex;
 	
@@ -49,14 +49,13 @@ public class MoveGenerator
 		pinTable = new long[64];
 	}
 	
-	public int generateMoves(boolean capturesOnly, int startIndex)
+	public int generateMoves(long capturesOnly, int startIndex)
 	{
 		analyzePosition();
 		
 		this.capturesOnly = capturesOnly;
 		
-		if (capturesOnly) filteredMovesMask = enemyPiecesBitboard;
-		else filteredMovesMask = ALL_ONE_BITS; // all bits set to 1
+		filteredMovesMask = enemyPiecesBitboard | capturesOnly;
 		
 		currentIndex = startIndex;
 		generateKingMoves();
@@ -100,7 +99,7 @@ public class MoveGenerator
 		}
 		
 		// castling moves
-		if ((board.castlingRights & (Board.WHITE_CASTLING << friendlyColor)) != 0 && !(capturesOnly || numChecks != 0))
+		if ((board.castlingRights & (Board.WHITE_CASTLING << friendlyColor)) != 0 && !(capturesOnly == 0 || numChecks != 0))
 		{			
 			if ((board.castlingRights & (Board.WHITE_KING_CASTLING << friendlyColor)) != 0)
 			{
@@ -186,22 +185,16 @@ public class MoveGenerator
 	
 	private void generatePawnMoves()
 	{
-		//final int direction = friendlyColor == PieceHelper.WHITE ? 1 : -1;
-		
 		final long promotionRank = EIGHTH_RANK >>> 56*friendlyColor;
 		final long doublePushTargetRank = FOURTH_RANK << 8*friendlyColor;
-		//final long promotionRank = (friendlyColor == PieceHelper.WHITE) ? EIGHTH_RANK : FIRST_RANK;
-		//final long doublePushTargetRank = (friendlyColor == PieceHelper.WHITE) ? FOURTH_RANK : FIFTH_RANK;
 		
 		final long pawnsBitboard = bitBoards.pieceBoards[PieceHelper.PAWN + friendlyColor];
 		
 		// dont AND with check mask yet because perhaps a double push is legal
 		long singlePushSquares = Long.rotateLeft(pawnsBitboard, 8 - 16*friendlyColor) & (~allPiecesBitboard);
-		//long singlePushSquares = Bitboards.shift(pawnsBitboard, (direction * 8)) & (~allPiecesBitboard);
 		
 		// single push square needs to be a move as well to ensure that pawn does not hop over a piece
 		long doublePushSquares = Long.rotateLeft(singlePushSquares, 8 - 16*friendlyColor) & doublePushTargetRank & (~allPiecesBitboard) & checkRaysMask & filteredMovesMask;
-		//long doublePushSquares = Bitboards.shift(singlePushSquares, (direction * 8)) & doublePushTargetRank & (~allPiecesBitboard) & checkRaysMask & filteredMovesMask;
 		
 		// replace single push promoting moves with promotions, and now AND with check mask
 		long singlePushAndPromoting = singlePushSquares & promotionRank & checkRaysMask;
@@ -209,13 +202,9 @@ public class MoveGenerator
 		
 		final long captureLeftMask = ~(A_FILE << friendlyColor * 7);
 		final long captureRightMask = ~(H_FILE >>> friendlyColor * 7);
-		//final long captureLeftMask = (friendlyColor == PieceHelper.WHITE) ? ~A_FILE : ~H_FILE;
-		//final long captureRightMask = (friendlyColor == PieceHelper.WHITE) ? ~H_FILE : ~A_FILE;
 		
 		long captureLeftSquares = Long.rotateLeft(pawnsBitboard & captureLeftMask, 7 - 14*friendlyColor) & enemyPiecesBitboard & checkRaysMask;
 		long captureRightSquares = Long.rotateLeft(pawnsBitboard & captureRightMask, 9 - 18*friendlyColor) & enemyPiecesBitboard & checkRaysMask;
-		//long captureLeftSquares = Bitboards.shift(pawnsBitboard & captureLeftMask, direction * 7) & enemyPiecesBitboard & checkRaysMask;
-		//long captureRightSquares = Bitboards.shift(pawnsBitboard & captureRightMask, direction * 9) & enemyPiecesBitboard & checkRaysMask;
 		
 		long captureLeftPromoting = captureLeftSquares & promotionRank;
 		long captureRightPromoting = captureRightSquares & promotionRank;
@@ -264,10 +253,8 @@ public class MoveGenerator
 			singlePushAndPromoting = Bitboards.toggleBit(singlePushAndPromoting, targetSquare);
 			final int startSquare = targetSquare - 8 + 16 * friendlyColor;
 			
-			if (!isPiecePinned(startSquare)) // if promoting straight forward, can only be absolutely pinned
-			{
-				addPromotionMoves(startSquare, targetSquare, VALID_MOVE_FLAG);
-			}
+			// if promoting straight forward, can only be absolutely pinned
+			addPromotionMoves(startSquare, targetSquare, ((pinRaysMask >>> startSquare) & 1) - 1);
 		}
 		
 		while (captureLeftPromoting != 0)
@@ -304,12 +291,10 @@ public class MoveGenerator
 				{
 					final int startSquare = Bitboards.getLSB(enPassantPawns);
 					enPassantPawns = Bitboards.toggleBit(enPassantPawns, startSquare);
-					if (!isPiecePinned(startSquare) || (pinTable[startSquare] & (1L << targetSquare)) != 0)
+					
+					if (isValidPinnedMove(startSquare, targetSquare) != 0 && isEnPassantLegal(startSquare, captureSquare))
 					{
-						if (isEnPassantLegal(startSquare, captureSquare))
-						{
-							addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.EN_PASSANT_CAPTURE_FLAG), VALID_MOVE_FLAG);
-						}
+						addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.EN_PASSANT_CAPTURE_FLAG), VALID_MOVE_FLAG);
 					}
 				}
 			}
@@ -320,12 +305,9 @@ public class MoveGenerator
 	{
 		addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.PROMOTION_QUEEN_FLAG), validityFlags);
 		
-		if (!capturesOnly)
-		{
-			addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.PROMOTION_ROOK_FLAG), validityFlags);
-			addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.PROMOTION_BISHOP_FLAG), validityFlags);
-			addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.PROMOTION_KNIGHT_FLAG), validityFlags);
-		}
+		addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.PROMOTION_ROOK_FLAG), validityFlags & capturesOnly);
+		addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.PROMOTION_BISHOP_FLAG), validityFlags & capturesOnly);
+		addMove(MoveHelper.createMove(startSquare, targetSquare, MoveHelper.PROMOTION_KNIGHT_FLAG), validityFlags & capturesOnly);
 	}
 	
 	private boolean isEnPassantLegal(final int startSquare, final int captureSquare)
@@ -355,12 +337,6 @@ public class MoveGenerator
 		validityFlags = (validityFlags | -validityFlags) >>> 63;
 		//validityFlags = (validityFlags != 0 ? 1 : 0);
 		currentIndex += validityFlags;
-	}
-	
-	private boolean isPiecePinned(final int square)
-	{
-		//return pinTable[square] != 0;
-		return (pinRaysMask & (1L << square)) != 0;
 	}
 	
 	private long isValidPinnedMove(int startSquare, int targetSquare)
