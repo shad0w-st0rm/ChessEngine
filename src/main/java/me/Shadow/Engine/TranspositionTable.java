@@ -45,12 +45,12 @@ public class TranspositionTable
 
 	// first 17 bits are unused
 	// last 15 bits represent the move
-	int[] moveTable;
+	long[] moveTable;
 
 	long[] pawnsTable;
 
 	long indexBitMask = 0;
-
+	
 	public TranspositionTable()
 	{
 		this(DEFAULT_TABLE_SIZE_MB);
@@ -60,9 +60,9 @@ public class TranspositionTable
 	{
 		int totalTableBytes = sizeMB * 1024 * 1024;
 		int numEntries = (totalTableBytes / BYTES_PER_ENTRY);
-		positionTable = new long[numEntries];
-		moveTable = new int[numEntries];
 		numEntries = Integer.highestOneBit(numEntries); // essentially floor of base 2 log
+		positionTable = new long[numEntries];
+		moveTable = new long[numEntries];
 		indexBitMask = numEntries - 1; // sets all lower bits to 1 for mask (10...00 -> 011...11)
 		pawnsTable = new long[1 << 12];
 	}
@@ -70,7 +70,8 @@ public class TranspositionTable
 	public void clearTable()
 	{
 		positionTable = new long[moveTable.length];
-		moveTable = new int[positionTable.length];
+		moveTable = new long[positionTable.length];
+		pawnsTable = new long[1 << 12];
 	}
 
 	public short[] getEntry(long zobristKey)
@@ -83,7 +84,7 @@ public class TranspositionTable
 			short depth = (short) ((entry >>> DEPTH_SHIFT) & DEPTH_MASK);
 			short evaluation = (short) (entry >> EVAL_SHIFT); // take advantage of sign extending here
 			short bound = (short) ((entry >>> BOUND_SHIFT) & BOUND_MASK); // shift 41 times and then isolate last 2 bits
-			int moveEntry = moveTable[(int) (zobristKey & indexBitMask)];
+			long moveEntry = moveTable[(int) (zobristKey & indexBitMask)];
 			short move = (short) ((moveEntry >>> MOVE_SHIFT) & MOVE_MASK);
 
 			return new short[] { evaluation, depth, bound, move };
@@ -125,5 +126,32 @@ public class TranspositionTable
 		long pawnsEntry = ((long) evaluation) << PAWNS_EVAL_SHIFT;
 		pawnsEntry |= (pawnsKey >>> PAWNS_ZOBRIST_SHIFT);
 		pawnsTable[index] = pawnsEntry;
+	}
+	
+	// transposition table test using perft
+	// use positionTable to store full zobrist key (just for ease of use, only non key bits are required)
+	// use moveTable to stores movesCount
+	public void perftStore(long zobristKey, int depth, long movesCount)
+	{
+		int index = (int) (zobristKey & indexBitMask);
+		long posEntry = ((long) depth) << DEPTH_SHIFT;
+		posEntry |= (zobristKey >>> ZOBRIST_SHIFT);
+		positionTable[index] = posEntry;
+		moveTable[index] = movesCount;
+	}
+	
+	public long perftLookup(long zobristKey, int depth)
+	{
+		int index = (int) (zobristKey & indexBitMask);
+		long entry = positionTable[index];
+		if ((entry & PARTIAL_KEY_MASK) == (zobristKey >>> ZOBRIST_SHIFT))
+		{
+			int depthStored = (int) ((entry >>> DEPTH_SHIFT) & DEPTH_MASK);
+			if (depthStored == depth)
+			{
+				return moveTable[index];
+			}
+		}
+		return LOOKUP_FAILED;
 	}
 }

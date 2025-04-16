@@ -144,10 +144,8 @@ public class MoveGenerator
 			
 			long rookMoves = PrecomputedMagicNumbers.getRookMoves(sliderSquare, allPiecesBitboard) & allPossibleMoves;
 			
-			if (isPiecePinned(sliderSquare))
-			{
-				rookMoves &= pinTable[sliderSquare];
-			}
+			// check if pinned, and AND with pinTable if so in one go
+			rookMoves &= (~(~((pinRaysMask >>> sliderSquare) & 1L) + 1) | pinTable[sliderSquare]);
 			
 			while (rookMoves != 0)
 			{
@@ -164,10 +162,8 @@ public class MoveGenerator
 			
 			long bishopMoves = PrecomputedMagicNumbers.getBishopMoves(sliderSquare, allPiecesBitboard) & allPossibleMoves;
 			
-			if (isPiecePinned(sliderSquare))
-			{
-				bishopMoves &= pinTable[sliderSquare];
-			}
+			// check if pinned, and AND with pinTable if so in one go
+			bishopMoves &= (~(~((pinRaysMask >>> sliderSquare) & 1L) + 1) | pinTable[sliderSquare]);
 			
 			while (bishopMoves != 0)
 			{
@@ -201,28 +197,36 @@ public class MoveGenerator
 	
 	private void generatePawnMoves()
 	{
-		final int direction = friendlyColor == PieceHelper.WHITE ? 1 : -1;
+		//final int direction = friendlyColor == PieceHelper.WHITE ? 1 : -1;
 		
-		final long promotionRank = (friendlyColor == PieceHelper.WHITE) ? EIGHTH_RANK : FIRST_RANK;
-		final long doublePushTargetRank = (friendlyColor == PieceHelper.WHITE) ? FOURTH_RANK : FIFTH_RANK;
-		
+		final long promotionRank = EIGHTH_RANK >>> 56*friendlyColor;
+		final long doublePushTargetRank = FOURTH_RANK << 8*friendlyColor;
+		//final long promotionRank = (friendlyColor == PieceHelper.WHITE) ? EIGHTH_RANK : FIRST_RANK;
+		//final long doublePushTargetRank = (friendlyColor == PieceHelper.WHITE) ? FOURTH_RANK : FIFTH_RANK;
 		
 		final long pawnsBitboard = bitBoards.pieceBoards[PieceHelper.PAWN + friendlyColor];
+		
 		// dont AND with check mask yet because perhaps a double push is legal
-		long singlePushSquares = Bitboards.shift(pawnsBitboard, (direction * 8)) & (~allPiecesBitboard);
+		long singlePushSquares = Long.rotateLeft(pawnsBitboard, 8 - 16*friendlyColor) & (~allPiecesBitboard);
+		//long singlePushSquares = Bitboards.shift(pawnsBitboard, (direction * 8)) & (~allPiecesBitboard);
 		
 		// single push square needs to be a move as well to ensure that pawn does not hop over a piece
-		long doublePushSquares = Bitboards.shift(singlePushSquares, (direction * 8)) & doublePushTargetRank & (~allPiecesBitboard) & checkRaysMask & filteredMovesMask;
+		long doublePushSquares = Long.rotateLeft(singlePushSquares, 8 - 16*friendlyColor) & doublePushTargetRank & (~allPiecesBitboard) & checkRaysMask & filteredMovesMask;
+		//long doublePushSquares = Bitboards.shift(singlePushSquares, (direction * 8)) & doublePushTargetRank & (~allPiecesBitboard) & checkRaysMask & filteredMovesMask;
 		
 		// replace single push promoting moves with promotions, and now AND with check mask
 		long singlePushAndPromoting = singlePushSquares & promotionRank & checkRaysMask;
 		singlePushSquares &= ~promotionRank & checkRaysMask & filteredMovesMask;
 		
-		final long captureLeftMask = (friendlyColor == PieceHelper.WHITE) ? ~A_FILE : ~H_FILE;
-		final long captureRightMask = (friendlyColor == PieceHelper.WHITE) ? ~H_FILE : ~A_FILE;
+		final long captureLeftMask = ~(A_FILE << friendlyColor * 7);
+		final long captureRightMask = ~(H_FILE >>> friendlyColor * 7);
+		//final long captureLeftMask = (friendlyColor == PieceHelper.WHITE) ? ~A_FILE : ~H_FILE;
+		//final long captureRightMask = (friendlyColor == PieceHelper.WHITE) ? ~H_FILE : ~A_FILE;
 		
-		long captureLeftSquares = Bitboards.shift(pawnsBitboard & captureLeftMask, direction * 7) & enemyPiecesBitboard & checkRaysMask;
-		long captureRightSquares = Bitboards.shift(pawnsBitboard & captureRightMask, direction * 9) & enemyPiecesBitboard & checkRaysMask;
+		long captureLeftSquares = Long.rotateLeft(pawnsBitboard & captureLeftMask, 7 - 14*friendlyColor) & enemyPiecesBitboard & checkRaysMask;
+		long captureRightSquares = Long.rotateLeft(pawnsBitboard & captureRightMask, 9 - 18*friendlyColor) & enemyPiecesBitboard & checkRaysMask;
+		//long captureLeftSquares = Bitboards.shift(pawnsBitboard & captureLeftMask, direction * 7) & enemyPiecesBitboard & checkRaysMask;
+		//long captureRightSquares = Bitboards.shift(pawnsBitboard & captureRightMask, direction * 9) & enemyPiecesBitboard & checkRaysMask;
 		
 		long captureLeftPromoting = captureLeftSquares & promotionRank;
 		long captureRightPromoting = captureRightSquares & promotionRank;
@@ -234,7 +238,7 @@ public class MoveGenerator
 			long targetBoard = singlePushSquares & -singlePushSquares;
 			final int targetSquare = Bitboards.getLSB(singlePushSquares);
 			singlePushSquares = Bitboards.toggleBit(singlePushSquares, targetSquare);
-			final int startSquare = targetSquare - (direction * 8);
+			final int startSquare = targetSquare - 8 + 16 * friendlyColor;
 			
 			if (!isPiecePinned(startSquare) || (pinTable[startSquare] & targetBoard) != 0)
 			{
@@ -247,7 +251,7 @@ public class MoveGenerator
 			long targetBoard = doublePushSquares & -doublePushSquares;
 			final int targetSquare = Bitboards.getLSB(doublePushSquares);
 			doublePushSquares = Bitboards.toggleBit(doublePushSquares, targetSquare);
-			final int startSquare = targetSquare - (direction * 16);
+			final int startSquare = targetSquare - 16 + 32 * friendlyColor;
 			
 			if (!isPiecePinned(startSquare) || (pinTable[startSquare] & targetBoard) != 0)
 			{
@@ -260,7 +264,7 @@ public class MoveGenerator
 			long targetBoard = captureLeftSquares & -captureLeftSquares;
 			final int targetSquare = Bitboards.getLSB(captureLeftSquares);
 			captureLeftSquares = Bitboards.toggleBit(captureLeftSquares, targetSquare);
-			final int startSquare = targetSquare - (direction * 7);
+			final int startSquare = targetSquare - 7 + 14 * friendlyColor;
 			
 			if (!isPiecePinned(startSquare) || (pinTable[startSquare] & targetBoard) != 0)
 			{
@@ -273,7 +277,7 @@ public class MoveGenerator
 			long targetBoard = captureRightSquares & -captureRightSquares;
 			final int targetSquare = Bitboards.getLSB(captureRightSquares);
 			captureRightSquares = Bitboards.toggleBit(captureRightSquares, targetSquare);
-			final int startSquare = targetSquare - (direction * 9);
+			final int startSquare = targetSquare - 9 + 18 * friendlyColor;
 			
 			if (!isPiecePinned(startSquare) || (pinTable[startSquare] & targetBoard) != 0)
 			{
@@ -285,7 +289,7 @@ public class MoveGenerator
 		{
 			final int targetSquare = Bitboards.getLSB(singlePushAndPromoting);
 			singlePushAndPromoting = Bitboards.toggleBit(singlePushAndPromoting, targetSquare);
-			final int startSquare = targetSquare - (direction * 8);
+			final int startSquare = targetSquare - 8 + 16 * friendlyColor;
 			
 			if (!isPiecePinned(startSquare)) // if promoting straight forward, can only be absolutely pinned
 			{
@@ -298,7 +302,7 @@ public class MoveGenerator
 			long targetBoard = captureLeftPromoting & -captureLeftPromoting;
 			final int targetSquare = Bitboards.getLSB(captureLeftPromoting);
 			captureLeftPromoting = Bitboards.toggleBit(captureLeftPromoting, targetSquare);
-			final int startSquare = targetSquare - (direction * 7);
+			final int startSquare = targetSquare - 7 + 14 * friendlyColor;
 			
 			if (!isPiecePinned(startSquare) || (pinTable[startSquare] & targetBoard) != 0)
 			{
@@ -311,7 +315,7 @@ public class MoveGenerator
 			long targetBoard = captureRightPromoting & -captureRightPromoting;
 			final int targetSquare = Bitboards.getLSB(captureRightPromoting);
 			captureRightPromoting = Bitboards.toggleBit(captureRightPromoting, targetSquare);
-			final int startSquare = targetSquare - (direction * 9);
+			final int startSquare = targetSquare - 9 + 18 * friendlyColor;
 			
 			if (!isPiecePinned(startSquare) || (pinTable[startSquare] & targetBoard) != 0)
 			{
@@ -323,13 +327,13 @@ public class MoveGenerator
 		{
 			final int targetSquare = board.enPassantIndex;
 			final long enPassantSquareBitboard = 1L << targetSquare;
-			final int captureSquare = board.enPassantIndex - (direction * 8);
+			final int captureSquare = board.enPassantIndex - 8 + 16 * friendlyColor;
 			
 			// if the enemy pawn is part of checkraysmask, either king is not in check, or this pawn is a checker
 			if (((1L << captureSquare) & checkRaysMask) != 0)
 			{
-				long enPassantPawns = Bitboards.shift(enPassantSquareBitboard & captureRightMask, (-direction) * 7) & pawnsBitboard;
-				enPassantPawns = enPassantPawns | (Bitboards.shift(enPassantSquareBitboard & captureLeftMask, (-direction) * 9) & pawnsBitboard);
+				long enPassantPawns = Bitboards.shift(enPassantSquareBitboard & captureRightMask, -7 + 14*friendlyColor) & pawnsBitboard;
+				enPassantPawns = enPassantPawns | (Bitboards.shift(enPassantSquareBitboard & captureLeftMask, -9 + 18*friendlyColor) & pawnsBitboard);
 				
 				while (enPassantPawns != 0)
 				{
@@ -395,88 +399,25 @@ public class MoveGenerator
 	{
 		final long orthoSliders = bitBoards.getOrthogonalSliders(enemyColor);
 		final long diagSliders = bitBoards.getDiagonalSliders(enemyColor);
-		long orthoSlidersBoard = orthoSliders;
-		long diagSlidersBoard = diagSliders;
-		long enemySlidingAttackMap = 0;
 		final long notKingBoard = allPiecesBitboard ^ friendlyKingBoard;
+		
+		long enemySlidingAttackMap = createSlidingAttackMap(orthoSliders, notKingBoard, true);
+		enemySlidingAttackMap |= createSlidingAttackMap(diagSliders, notKingBoard, false);
+		
 		long orthoRays = PrecomputedMagicNumbers.getRookMoves(friendlyKingIndex, enemyPiecesBitboard);
 		long diagRays = PrecomputedMagicNumbers.getBishopMoves(friendlyKingIndex, enemyPiecesBitboard);
-		int checkCount = 0;
 		
-		while (orthoSlidersBoard != 0)
-		{
-			final int sliderSquare = Bitboards.getLSB(orthoSlidersBoard);
-			orthoSlidersBoard = Bitboards.toggleBit(orthoSlidersBoard, sliderSquare);
-			long moves = PrecomputedMagicNumbers.getRookMoves(sliderSquare, notKingBoard);
-			
-			enemySlidingAttackMap |= moves;
-		}
-		
-		while (diagSlidersBoard != 0)
-		{
-			final int sliderSquare = Bitboards.getLSB(diagSlidersBoard);
-			diagSlidersBoard = Bitboards.toggleBit(diagSlidersBoard, sliderSquare);
-			long moves = PrecomputedMagicNumbers.getBishopMoves(sliderSquare, notKingBoard);
-			
-			enemySlidingAttackMap |= moves;
-		}
-		
-		long checkSliders = orthoRays & orthoSliders;
-		while (checkSliders != 0)
-		{
-			final long sliderBoard = Long.lowestOneBit(checkSliders);
-			final int sliderSquare = Bitboards.getLSB(checkSliders);
-			checkSliders = Bitboards.toggleBit(checkSliders, sliderSquare);
-			
-			long returnRay = PrecomputedMagicNumbers.getRookMoves(sliderSquare, enemyPiecesBitboard | friendlyKingBoard) & orthoRays;
-			
-			int friendlies = Long.bitCount(returnRay & friendlyPiecesBitboard);
-			if (friendlies == 0)
-			{
-				checkRaysMask |= returnRay | sliderBoard;
-				checkCount++;
-			}
-			else if (friendlies == 1)
-			{
-				int index = Bitboards.getLSB(returnRay & friendlyPiecesBitboard);
-				pinTable[index] = returnRay | sliderBoard;
-				pinRaysMask |= returnRay | sliderBoard;
-			}
-		}
-		checkSliders = diagRays & diagSliders;
-		while (checkSliders != 0)
-		{
-			final long sliderBoard = Long.lowestOneBit(checkSliders);
-			final int sliderSquare = Bitboards.getLSB(checkSliders);
-			checkSliders = Bitboards.toggleBit(checkSliders, sliderSquare);
-			
-			long returnRay = PrecomputedMagicNumbers.getBishopMoves(sliderSquare, enemyPiecesBitboard | friendlyKingBoard) & diagRays;
-			returnRay |= sliderBoard;
-			int friendlies = Long.bitCount(returnRay & friendlyPiecesBitboard);
-			if (friendlies == 0)
-			{
-				checkRaysMask |= returnRay | sliderBoard;
-				checkCount++;
-			}
-			else if (friendlies == 1)
-			{
-				int index = Bitboards.getLSB(returnRay & friendlyPiecesBitboard);
-				pinTable[index] = returnRay | sliderBoard;
-				pinRaysMask |= returnRay | sliderBoard;
-			}
-		}
+		createChecksPins(orthoRays & orthoSliders, orthoRays, true);
+		createChecksPins(diagRays & diagSliders, diagRays, false);
 				
 		long enemyKnightAttacks = 0;
 		long enemyKnightsBitboard = bitBoards.pieceBoards[PieceHelper.KNIGHT | enemyColor];
 		
 		// only possible for one knight to be checking the king
 		long knightAttackingKing = PrecomputedData.KNIGHT_MOVES[friendlyKingIndex] & enemyKnightsBitboard;
-		if (knightAttackingKing != 0)
-		{
-			// set the checking square if this piece is giving a check
-			checkRaysMask |= 1L << Bitboards.getLSB(knightAttackingKing);
-			checkCount++;
-		}
+		
+		// set the checking square if this piece is giving a check
+		checkRaysMask |= knightAttackingKing;
 		
 		while (enemyKnightsBitboard != 0)
 		{
@@ -490,34 +431,61 @@ public class MoveGenerator
 		enemyPawnAttackMap = 0;
 		
 		// mask out edge files and shift pawns according to color along the board
-		if (enemyColor == PieceHelper.WHITE)
-		{
-			enemyPawnAttackMap = ((enemyPawnsBitboard & (~A_FILE)) << 7) | ((enemyPawnsBitboard & (~H_FILE)) << 9);
-		}
-		else
-		{
-			enemyPawnAttackMap = ((enemyPawnsBitboard & (~A_FILE)) >>> 9) | ((enemyPawnsBitboard & (~H_FILE)) >>> 7);
-		}
-				
-		if ((enemyPawnAttackMap & friendlyKingBoard) != 0)
-		{
-			// figure out where the attack is coming from
-			long potentialPawnLocations = PrecomputedData.getPawnCaptures(friendlyKingIndex, friendlyColor);
-			checkRaysMask |= potentialPawnLocations & enemyPawnsBitboard;
-			checkCount++;
-		}
+		enemyPawnAttackMap = Long.rotateLeft(enemyPawnsBitboard & (~A_FILE), 7 - 16*enemyColor);
+		enemyPawnAttackMap |= Long.rotateLeft(enemyPawnsBitboard & (~H_FILE), 9 - 16*enemyColor);
+		
+		// figure out where the attack is coming from
+		long potentialPawnLocations = PrecomputedData.getPawnCaptures(friendlyKingIndex, friendlyColor);
+		checkRaysMask |= potentialPawnLocations & enemyPawnsBitboard;
 		
 		final int enemyKingIndex = Bitboards.getLSB(bitBoards.pieceBoards[PieceHelper.KING | enemyColor]);
 		final long enemyKingMoves = PrecomputedData.KING_MOVES[enemyKingIndex];
 		
 		enemyAttackMap = enemySlidingAttackMap | enemyKnightAttacks | enemyPawnAttackMap | enemyKingMoves;
 		
-		numChecks = checkCount;
-		
+		numChecks = Long.bitCount(checkRaysMask & enemyPiecesBitboard);
 		if (numChecks == 0)
 		{
 			// set all bits to 1
 			checkRaysMask = ALL_ONE_BITS;
+		}
+	}
+	
+	public long createSlidingAttackMap(long sliders, long notKingBoard, boolean orthogonal)
+	{
+		long enemySlidingAttackMap = 0;
+		while (sliders != 0)
+		{
+			final int sliderSquare = Bitboards.getLSB(sliders);
+			sliders = Bitboards.toggleBit(sliders, sliderSquare);
+			long moves = PrecomputedMagicNumbers.getSliderMoves(sliderSquare, notKingBoard, orthogonal);
+			
+			enemySlidingAttackMap |= moves;
+		}
+		return enemySlidingAttackMap;
+	}
+	
+	public void createChecksPins(long sliders, long kingRays, boolean orthogonal)
+	{
+		while (sliders != 0)
+		{
+			final long sliderBoard = Long.lowestOneBit(sliders);
+			final int sliderSquare = Bitboards.getLSB(sliders);
+			sliders = Bitboards.toggleBit(sliders, sliderSquare);
+			
+			long returnRay = PrecomputedMagicNumbers.getSliderMoves(sliderSquare, enemyPiecesBitboard | friendlyKingBoard, orthogonal) & kingRays;
+			
+			int friendlies = Long.bitCount(returnRay & friendlyPiecesBitboard);
+			if (friendlies == 0)
+			{
+				checkRaysMask |= returnRay | sliderBoard;
+			}
+			else if (friendlies == 1)
+			{
+				int index = Bitboards.getLSB(returnRay & friendlyPiecesBitboard);
+				pinTable[index] = returnRay | sliderBoard;
+				pinRaysMask |= returnRay | sliderBoard;
+			}
 		}
 	}
 	

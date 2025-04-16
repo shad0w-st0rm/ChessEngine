@@ -47,7 +47,8 @@ public class Engine
 		PrecomputedData.generateData();
 		PrecomputedMagicNumbers.precomputeMagics();
 		
-		Perft.runPerftSuite();
+		Perft.runPerftSuite(5);
+		//Perft.runPerft("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 ;D5 4865609 ;D6 119060324 ;D7 3195901860 ;D8 84998978956");
 		
 		try
 		{

@@ -387,6 +387,8 @@ public class Perft
 	static Board board;
 	static MoveGenerator moveGen;
 	static short [] movesList;
+	
+	static TranspositionTable tt = new TranspositionTable(64);
 		
 	public static void runPerftSuite(int runCount)
 	{
@@ -433,12 +435,15 @@ public class Perft
 		board = new Board(fen);
 		movesList = new short[1024];
 		moveGen = new MoveGenerator(board, movesList);
+		
 		boolean success = true;
 		
 		System.out.println("Running perft on position: " + fen);
 		
 		for (int i = 1; i < perftData.length; i++)
 		{
+			//tt.clearTable();
+			
 			String [] perftInfo = (perftData[i].trim()).split(" ");
 			String depthString = perftInfo[0].trim();
 			String countString = perftInfo[1].trim();
@@ -451,7 +456,7 @@ public class Perft
 			System.out.print(expectedCount + "\t" + (expectedCount < 10_000_000 ? "\t" : ""));
 			System.out.print(resultCount + "\t" + (expectedCount < 10_000_000 ? "\t" : ""));
 			System.out.println((System.currentTimeMillis() - startTime) + " ms");
-			
+						
 			success = success && (resultCount == expectedCount);
 		}
 		
@@ -463,14 +468,22 @@ public class Perft
 	
 	public static long countMoves(int depth, int moveIndex)
 	{
+		long zobristHash = board.zobristHash;
+		
+		//long storedCount = tt.perftLookup(zobristHash, depth);
+		//if (storedCount != TranspositionTable.LOOKUP_FAILED) return storedCount;
+		
 		//if (depth == 0) return 1;
 		int numMoves = moveGen.generateMoves(MoveGenerator.ALL_MOVES, moveIndex);
 		
-		if (depth == 1) return numMoves;
+		if (depth == 1)
+		{
+			//tt.perftStore(zobristHash, depth, numMoves);
+			return numMoves;
+		}
 		
 		long num = 0;
 		short[] boardInfoOld = board.packBoardInfo();
-		long zobristHash = board.zobristHash;
 		long pawnsHash = board.pawnsHash;
 		for (int i = moveIndex; i < (moveIndex + numMoves); i++)
 		{
@@ -481,6 +494,8 @@ public class Perft
 						
 			board.moveBack(move, captured, zobristHash, pawnsHash, boardInfoOld);
 		}
+		
+		//tt.perftStore(zobristHash, depth, num);
 		
 		return num;
 	}
