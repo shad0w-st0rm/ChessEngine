@@ -327,10 +327,10 @@ public class EngineTester
 
 	private GameOverReason isGameOver(Board board, MoveGenerator moveGen, short [] moves)
 	{
-		int numMoves = moveGen.generateMoves(false, 0);
+		int numMoves = moveGen.generateMoves(MoveGenerator.ALL_MOVES, 0);
 		if (numMoves == 0)
 		{
-			return moveGen.inCheck
+			return moveGen.inCheck()
 					? (board.colorToMove == PieceHelper.WHITE ? GameOverReason.WHITE_CHECKMATED
 							: GameOverReason.BLACK_CHECKMATED)
 					: GameOverReason.STALEMATE;

@@ -4,14 +4,13 @@ public class PrecomputedData
 {
 	public static final long [] KNIGHT_MOVES = new long[64];
 	public static final long [] KING_MOVES = new long[64];
-	public static final long [] PAWN_MOVES = new long[64*2];
 	public static final long [] PAWN_CAPTURES = new long[64*2];
 	
 	public static final int[] directionOffsets = {8, -8, -1, 1, 7, -7, 9, -9};
 	
 	public static final int [] numSquaresToEdge = new int[64*8];
 	
-	public static final long [] rayAlignMask = new long[64*64];
+	//public static final long [] rayAlignMask = new long[64*64];
 	public static final long [] rayDirectionMask = new long[64*8];
 	
 	public static final byte [] distToCenter = new byte[64];
@@ -78,12 +77,8 @@ public class PrecomputedData
 			}
 			
 			long pawnBitboard = 1L << index;
-			long pawnMovesWhite = pawnBitboard << 8;
-			long pawnMovesBlack = pawnBitboard >>> 8;
 			long pawnAttacksWhite = ((pawnBitboard & (~MoveGenerator.A_FILE)) << 7) | ((pawnBitboard & (~MoveGenerator.H_FILE)) << 9);
 			long pawnAttacksBlack = ((pawnBitboard & (~MoveGenerator.A_FILE)) >>> 9) | ((pawnBitboard & (~MoveGenerator.H_FILE)) >>> 7);
-			PAWN_MOVES[index * 2] = pawnMovesWhite;
-			PAWN_MOVES[index * 2 + PieceHelper.BLACK] = pawnMovesBlack;
 			PAWN_CAPTURES[index * 2] = pawnAttacksWhite;
 			PAWN_CAPTURES[index * 2 + PieceHelper.BLACK] = pawnAttacksBlack;
 			
@@ -125,6 +120,7 @@ public class PrecomputedData
 			}
 		}
 		
+		/*
 		// ray align mask
 		for (int first = 0; first < 64; first++)
 		{
@@ -145,14 +141,10 @@ public class PrecomputedData
 				}
 			}
 		}
+		*/
 		
 		// printRayDirectionMask(4);
 		// printRayAlignMask(8);
-	}
-	
-	public static long getPawnMoves(int index, int color)
-	{
-		return PAWN_MOVES[index * 2 + color];
 	}
 	
 	public static long getPawnCaptures(int index, int color)
@@ -176,6 +168,7 @@ public class PrecomputedData
 		}
 	}
 	
+	/*
 	public static void printRayAlignMask(int first)
 	{
 		System.out.println("Starting at square " + Utils.getSquareName(first));
@@ -192,4 +185,5 @@ public class PrecomputedData
 			}
 		}
 	}
+	*/
 }

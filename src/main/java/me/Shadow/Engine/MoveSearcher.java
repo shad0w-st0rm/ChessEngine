@@ -17,9 +17,9 @@ public class MoveSearcher
 	private TranspositionTable transpositionTable;
 	private short[] moves;
 
-	// int nodes = 0;
-	// int qMoves = 0;
-	// int captures = 0;
+	//int nodes = 0;
+	//int qMoves = 0;
+	//int captures = 0;
 
 	public MoveSearcher(Board board)
 	{
@@ -39,47 +39,50 @@ public class MoveSearcher
 		moveOrderer.clearHistoryHeuristic();
 		moveOrderer.clearKillers();
 		int depth = 0;
+		int eval = 0;
 
 		do
 		{
-			// nodes = qMoves = captures = 0;
-			// nodes++;
+			//nodes = qMoves = captures = 0;
+			//nodes++;
 			depth++;
-			final int evaluation = rootSearch(depth, negativeInfinity, positiveInfinity);
-			// final int evaluation = search(depth, 0, negativeInfinity, positiveInfinity);
+			
+			eval = rootSearch(depth, negativeInfinity, positiveInfinity);
 
-			if (evaluation >= (positiveInfinity - depth))
+			if (eval >= (positiveInfinity - depth))
 			{
 				// System.out.println("Forced mate for engine found");
 				break;
 			}
-			else if (evaluation <= (negativeInfinity + depth))
+			else if (eval <= (negativeInfinity + depth))
 			{
 				// System.out.println("Forced mate against engine found");
 				break;
 			}
 		}
-		while (!searchCancelled && depth < MAX_DEPTH);
+		while (!searchCancelled && depth <= 6);
 
 		/*
-		 * System.out.println("Nodes visited (depth > 2): " + nodes);
-		 * System.out.println("Captures visited (depth > 2): " + captures);
-		 * System.out.println("qMoves visited (depth > 2): " + qMoves);
-		 * System.out.println("Average num captures by node: " + ((float) (captures) /
-		 * nodes)); System.out.println("Average num qmoves by node: " + ((float)
-		 * (qMoves) / nodes));
-		 */
-
+		System.out.println("Evaluation: " + eval);
+		System.out.println("Depth searched: " + (depth - 1));
+		System.out.println("Nodes visited: " + nodes);
+		System.out.println("Captures visited: " + captures);
+		System.out.println("qMoves visited: " + qMoves);
+		System.out.println("Average num captures by node: " + ((float) (captures) /
+		nodes)); System.out.println("Average num qmoves by node: " + ((float)
+		(qMoves) / nodes));
+		*/
+		
 		return bestMove;
 	}
 
 	public int rootSearch(final int depth, int alpha, int beta)
 	{
-		int numMoves = moveGen.generateMoves(false, 0);
+		int numMoves = moveGen.generateMoves(MoveGenerator.ALL_MOVES, 0);
 
 		// checkmate/stalemate
 		if (numMoves == 0)
-			return moveGen.inCheck ? negativeInfinity : 0;
+			return moveGen.inCheck() ? negativeInfinity : 0;
 
 		moveOrderer.guessMoveEvals(bestMove, false, 0, 0, numMoves);
 
@@ -143,7 +146,7 @@ public class MoveSearcher
 			bestMoveInPosition = transposition[TranspositionTable.MOVE_INDEX];
 			if (transposition[TranspositionTable.DEPTH_INDEX] >= depth)
 			{
-
+				
 				short bound = transposition[TranspositionTable.BOUND_INDEX];
 				short eval = transposition[TranspositionTable.EVAL_INDEX];
 				if (bound == TranspositionTable.EXACT_BOUND)
@@ -171,10 +174,10 @@ public class MoveSearcher
 			}
 		}
 
-		// if (depth > 2) nodes++;
-
 		if (depth == 0)
 			return searchCaptures(alpha, beta, moveIndex);
+		
+		//if (depth > 2) nodes++;
 
 		int bound = TranspositionTable.UPPER_BOUND;
 		boolean searchedFirst = false;
@@ -203,21 +206,15 @@ public class MoveSearcher
 				transpositionTable.storeEvaluation(zobristHash, beta, depth, TranspositionTable.LOWER_BOUND,
 						bestMoveInPosition);
 
-				// if (depth > 2) qMoves += 1;
 				return beta;
 			}
 		}
 
-		int numMoves = moveGen.generateMoves(false, moveIndex);
+		int numMoves = moveGen.generateMoves(MoveGenerator.ALL_MOVES, moveIndex);
 
 		// checkmate/stalemate
 		if (numMoves == 0)
-			return moveGen.inCheck ? negativeInfinity : 0;
-
-		if ((moveIndex + numMoves) > 500)
-		{
-			System.out.println("high value move index");
-		}
+			return moveGen.inCheck() ? negativeInfinity : 0;
 
 		// ensure the potentially first searched move gets boosted to top with highest
 		// score
@@ -250,16 +247,11 @@ public class MoveSearcher
 			{
 				// move was too good so opponent will avoid this branch
 				transpositionTable.storeEvaluation(zobristHash, beta, depth, TranspositionTable.LOWER_BOUND, move);
-
-				// if (depth > 2 && i == 0) qMoves += 1;
-				// if (depth > 2 && i != 0) captures += 1;
 				return beta;
 			}
 		}
 
 		transpositionTable.storeEvaluation(zobristHash, alpha, depth, bound, bestMoveInPosition);
-
-		// if (depth > 2) captures += 1;
 
 		return alpha;
 	}
@@ -269,6 +261,8 @@ public class MoveSearcher
 	{
 		final byte captured = board.movePiece(move);
 
+		//if (depth > 2) qMoves++;
+		
 		int searchDepth = calculateSearchDepth(move, captured, depth, moveNum);
 
 		int evaluation = -(search(searchDepth, plyFromRoot + 1, -beta, -alpha, moveIndex));
@@ -303,19 +297,21 @@ public class MoveSearcher
 	{
 		depth--;
 		if (board.inCheck())
-			return depth + 1;
+			depth++;
 
 		// give bonus to a pawn moving to one square from promotion
 		// maybe change this just to a promotion move itself
+		
 		int target = MoveHelper.getTargetIndex(move);
 		if (((board.squares[target] & PieceHelper.TYPE_MASK) == PieceHelper.PAWN)
 				&& (Utils.getSquareRank(target) == 2 || Utils.getSquareRank(target) == 7))
 		{
 			return depth + 1;
 		}
+		
 
 		// search reduction, ensure depth doesn't go negative
-		return Math.max(((moveNum >= 3 && captured == PieceHelper.NONE && depth >= 3) ? (depth - 1) : depth), 0);
+		return Math.max(((moveNum >= 2 && captured == PieceHelper.NONE && depth >= 3) ? (depth - 1) : depth), 0);
 	}
 
 	public int searchCaptures(int alpha, int beta, int moveIndex)
@@ -362,7 +358,7 @@ public class MoveSearcher
 		}
 		alpha = Math.max(alpha, evaluation);
 
-		int numMoves = moveGen.generateMoves(true, moveIndex);
+		int numMoves = moveGen.generateMoves(MoveGenerator.CAPTURES_ONLY, moveIndex);
 
 		moveOrderer.guessMoveEvals(bestMoveInPosition, true, 0, moveIndex, numMoves);
 
@@ -550,7 +546,7 @@ public class MoveSearcher
 
 	public void stopSearch()
 	{
-		searchCancelled = true;
+		//searchCancelled = true;
 	}
 
 	public void newPosition()

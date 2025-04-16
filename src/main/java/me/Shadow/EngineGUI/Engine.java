@@ -46,9 +46,8 @@ public class Engine
 	{
 		PrecomputedData.generateData();
 		PrecomputedMagicNumbers.precomputeMagics();
-		//PrecomputedMagicNumbers.printMagicsTableSize();
 		
-		Perft.runPerftSuite(5);
+		Perft.runPerftSuite();
 		
 		try
 		{
@@ -178,9 +177,9 @@ public class Engine
 		}
 		
 		MoveGenerator moveGen = new MoveGenerator(board, new short[MoveGenerator.MAXIMUM_LEGAL_MOVES]);
-		if (moveGen.generateMoves(false, 0) == 0)
+		if (moveGen.generateMoves(MoveGenerator.ALL_MOVES, 0) == 0)
 		{
-			if (moveGen.inCheck)
+			if (moveGen.inCheck())
 				gui.message.setText("Game Over! " + (board.colorToMove == PieceHelper.WHITE ? "Black" : "White") + " wins by checkmate!");
 			else
 				gui.message.setText("Game Over! " + "Draw by Stalemate!");

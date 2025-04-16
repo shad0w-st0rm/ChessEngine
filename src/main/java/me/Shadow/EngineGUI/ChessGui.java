@@ -348,7 +348,7 @@ public class ChessGui
 				if (piece != PieceHelper.NONE && PieceHelper.getColor(piece) != engine.engineColor)
 				{
 					short [] movesArray = new short[MoveGenerator.MAXIMUM_LEGAL_MOVES];
-					int numMoves = (new MoveGenerator(engine.board, movesArray)).generateMoves(false, 0);
+					int numMoves = (new MoveGenerator(engine.board, movesArray)).generateMoves(MoveGenerator.ALL_MOVES, 0);
 					
 					ArrayList<Short> moves = new ArrayList<Short>();
 					for (int i = 0; i < numMoves; i++)

@@ -28,6 +28,11 @@ public class MoveHelper
 	{
 		return ((move >>> 6) & 0b111111); // shift down 6 bits and then isolate last 6 bits
 	}
+	
+	public static boolean isSpecial(short move)
+	{
+		return isolateFlags(move) != NO_FLAG;
+	}
 
 	public static int getEnPassantCaptureIndex(short move)
 	{

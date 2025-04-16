@@ -37,7 +37,7 @@ public class Utils
 	{
 		short [] moves = new short[MoveGenerator.MAXIMUM_LEGAL_MOVES];
 		MoveGenerator moveGen = new MoveGenerator(board, moves);
-		int numMoves = moveGen.generateMoves(false, 0);
+		int numMoves = moveGen.generateMoves(MoveGenerator.ALL_MOVES, 0);
 		
 		uciMove = uciMove.replace("=", ""); // promotions sometimes have = (e.g. d7d8=q vs d7d8q)
 		for (int i = 0; i < numMoves; i++)
@@ -52,7 +52,7 @@ public class Utils
 	{
 		short [] moves = new short[MoveGenerator.MAXIMUM_LEGAL_MOVES];
 		MoveGenerator moveGen = new MoveGenerator(board, moves);
-		int numMoves = moveGen.generateMoves(false, 0);
+		int numMoves = moveGen.generateMoves(MoveGenerator.ALL_MOVES, 0);
 		
 		algebraicMove = algebraicMove.replace("-", "").replace("x", "").replace("+", "").replace("#", "");
 		for (int i = 0; i < numMoves; i++)
