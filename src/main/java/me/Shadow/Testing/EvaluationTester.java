@@ -6,10 +6,8 @@ import me.Shadow.Engine.PieceHelper;
 
 public class EvaluationTester
 {
-	public static void evalTest()
+	public static void evalTest(String [] positions)
 	{
-		// take the perft positions for now as a sample of positions
-		String [] positions = Perft.perfts;
 		boolean allPassed = true;
 		for (int i = 0; i < positions.length; i++)
 		{
@@ -39,7 +37,7 @@ public class EvaluationTester
 		//String boardString = board.toString();
 		Evaluation eval = new Evaluation(board);
 		int originalEval = eval.staticEvaluation();
-		flipBoard(board);
+		board.flipBoard();
 		int flippedEval = eval.staticEvaluation();
 
 		if (originalEval != flippedEval)
@@ -56,33 +54,5 @@ public class EvaluationTester
 		}
 		
 		return true;
-	}
-	
-	public static void flipBoard(Board board)
-	{
-		byte [] newSquaresArray = new byte[64];
-		
-		for (int i = 0; i < 64; i++)
-		{
-			int flippedIndex = i^56;
-			newSquaresArray[flippedIndex] = board.squares[i];
-			if (newSquaresArray[flippedIndex] != PieceHelper.NONE)
-			{
-				newSquaresArray[flippedIndex] ^= PieceHelper.BLACK;
-			}
-		}
-		byte whiteCastling = (byte) (board.castlingRights & Board.WHITE_CASTLING);
-		byte blackCastling = (byte) (board.castlingRights & Board.BLACK_CASTLING);
-		byte newCastling = (byte) (whiteCastling << 1 | blackCastling >> 1);
-		board.squares = newSquaresArray;
-		board.castlingRights = newCastling;
-		if (board.enPassantIndex != -1) board.enPassantIndex = (short) (board.enPassantIndex ^ 56);
-		board.colorToMove = (byte) (board.colorToMove ^ PieceHelper.BLACK);
-		
-		short [] newMaterial = new short[]{board.material[2], board.material[3], board.material[0], board.material[1]};
-		board.material = newMaterial;
-		
-		board.zobristHash = board.createZobristHash();
-		board.bitBoards.createBitboards(board);
 	}
 }

@@ -562,6 +562,34 @@ public class Board
 		return newFEN; // return the created FEN string
 	}
 	
+	public void flipBoard()
+	{
+		byte [] newSquaresArray = new byte[64];
+		
+		for (int i = 0; i < 64; i++)
+		{
+			int flippedIndex = i^56;
+			newSquaresArray[flippedIndex] = squares[i];
+			if (newSquaresArray[flippedIndex] != PieceHelper.NONE)
+			{
+				newSquaresArray[flippedIndex] ^= PieceHelper.BLACK;
+			}
+		}
+		byte whiteCastling = (byte) (castlingRights & Board.WHITE_CASTLING);
+		byte blackCastling = (byte) (castlingRights & Board.BLACK_CASTLING);
+		byte newCastling = (byte) (whiteCastling << 1 | blackCastling >> 1);
+		squares = newSquaresArray;
+		castlingRights = newCastling;
+		if (enPassantIndex != -1) enPassantIndex = (short) (enPassantIndex ^ 56);
+		colorToMove = (byte) (colorToMove ^ PieceHelper.BLACK);
+		
+		short [] newMaterial = new short[]{material[2], material[3], material[0], material[1]};
+		material = newMaterial;
+		
+		zobristHash = createZobristHash();
+		bitBoards.createBitboards(this);
+	}
+	
 	public String toString()
 	{
 		String output = "";
