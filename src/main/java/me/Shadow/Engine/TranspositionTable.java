@@ -58,8 +58,7 @@ public class TranspositionTable
 
 	public TranspositionTable(int sizeMB)
 	{
-		int totalTableBytes = sizeMB * 1024 * 1024;
-		int numEntries = (totalTableBytes / BYTES_PER_ENTRY);
+		int numEntries = sizeMB * 1024 * (1024 / BYTES_PER_ENTRY);
 		numEntries = Integer.highestOneBit(numEntries); // essentially floor of base 2 log
 		positionTable = new long[numEntries];
 		moveTable = new long[numEntries];

@@ -6,6 +6,8 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 import me.Shadow.Engine.*;
+import me.Shadow.Testing.BestMoveTester;
+import me.Shadow.Testing.EvaluationTester;
 
 public class Engine
 {
@@ -33,7 +35,7 @@ public class Engine
 		// originalFEN = "8/7k/4p3/2p1P2p/2P1P2P/8/8/7K w - - 0 1"; // king and pawns vs king and pawns
 		
 		engineColor = PieceHelper.BLACK;
-		searchTime = 1000;
+		searchTime = 100;
 	}
 
 	public static void main(String[] args)
@@ -47,8 +49,10 @@ public class Engine
 		PrecomputedData.generateData();
 		PrecomputedMagicNumbers.precomputeMagics();
 		
-		Perft.runPerftSuite(5);
+		//Perft.runPerftSuite(5);
 		//Perft.runPerft("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 ;D5 4865609 ;D6 119060324 ;D7 3195901860 ;D8 84998978956");
+		//EvaluationTester.evalTest();
+		BestMoveTester.runBestMoveSuite(100, 400, 2.0f, false, false);
 		
 		try
 		{

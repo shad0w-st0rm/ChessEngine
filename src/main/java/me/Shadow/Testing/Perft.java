@@ -1,5 +1,8 @@
-package me.Shadow.Engine;
+package me.Shadow.Testing;
 
+import me.Shadow.Engine.Board;
+import me.Shadow.Engine.MoveGenerator;
+import me.Shadow.Engine.TranspositionTable;
 
 public class Perft
 {

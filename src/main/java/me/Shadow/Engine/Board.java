@@ -14,28 +14,28 @@ public class Board
 	static final int ZOBRIST_EP_INDEX = ZOBRIST_NO_EP_INDEX + 1;
 	static final int ZOBRIST_CASTLING_INDEX = ZOBRIST_EP_INDEX + 8;
 	
-	static final long WHITE_KING_CASTLING = 0b1;
-	static final long BLACK_KING_CASTLING = 0b10;
-	static final long WHITE_QUEEN_CASTLING = 0b100;
-	static final long BLACK_QUEEN_CASTLING = 0b1000;
-	static final long WHITE_CASTLING = WHITE_KING_CASTLING | WHITE_QUEEN_CASTLING;
-	static final long BLACK_CASTLING = BLACK_KING_CASTLING | BLACK_QUEEN_CASTLING;
-	static final byte [] CASTLING_MASKS = new byte[64];
+	public static final byte WHITE_KING_CASTLING = 0b1;
+	public static final byte BLACK_KING_CASTLING = 0b10;
+	public static final byte WHITE_QUEEN_CASTLING = 0b100;
+	public static final byte BLACK_QUEEN_CASTLING = 0b1000;
+	public static final byte WHITE_CASTLING = WHITE_KING_CASTLING | WHITE_QUEEN_CASTLING;
+	public static final byte BLACK_CASTLING = BLACK_KING_CASTLING | BLACK_QUEEN_CASTLING;
+	public static final byte [] CASTLING_MASKS = new byte[64];
 
 	public Bitboards bitBoards;
 	public byte[] squares = new byte[64];
 	public byte colorToMove;
 	
 	public long zobristHash;
-	long pawnsHash;
-	short [] material = new short[4];
+	public long pawnsHash;
+	public short [] material = new short[4];
 	public short halfMoves;
 	private short moveNum;
-	short castlingRights;
-	short enPassantIndex;
+	public short castlingRights;
+	public short enPassantIndex;
 	
 	// ~100 positions for 50 move rule + about 28 depth deep search
-	public long [] repetitionHistory = new long[128];
+	public long [] repetitionHistory = new long[100 + MoveSearcher.MAX_DEPTH];
 	public int repetitionIndex;
 
 	boolean cachedCheckValue = false;
@@ -544,13 +544,14 @@ public class Board
 			newFEN += "k";
 		if ((castlingRights & BLACK_QUEEN_CASTLING) != 0)
 			newFEN += "q";
+		if (castlingRights == 0) newFEN += "-";
 		newFEN += " ";
 		if (enPassantIndex == -1)
 			newFEN += "- "; // add dash if no en passant index
 		else
 		{
 			int index = enPassantIndex;
-			newFEN += Utils.getSquareName(index);
+			newFEN += Utils.getSquareName(index) + " ";
 		}
 		if (includeMoveNums)
 			newFEN += halfMoves + " " + getMoveNum(); // add moves numbers if includeMoveNums
@@ -560,27 +561,34 @@ public class Board
 
 		return newFEN; // return the created FEN string
 	}
-
+	
+	public String toString()
+	{
+		String output = "";
+		for (int rank = 8; rank > 0; rank--)
+		{
+			output += ("\n+---+---+---+---+---+---+---+---+\n| ");
+			for (int file = 1; file <= 8; file++)
+			{
+				int square = Utils.getSquareIndexFromRankFile(rank, file);
+				if (squares[square] != PieceHelper.NONE) // if piece exists
+				{
+					output += (PieceHelper.getPieceSymbol(squares[square]) + " | "); // print the piece symbol
+				}
+				else
+					output += ("  | "); // or just print an empty space
+			}
+		}
+		output += ("\n+---+---+---+---+---+---+---+---+\n");
+		return output;
+	}
+	
 	/**
 	 * Prints the representation of the board onto the screen
 	 * 
 	 */
 	public void printBoard()
 	{
-		for (int rank = 8; rank > 0; rank--)
-		{
-			System.out.print("\n+---+---+---+---+---+---+---+---+\n| ");
-			for (int file = 1; file <= 8; file++)
-			{
-				int square = Utils.getSquareIndexFromRankFile(rank, file);
-				if (squares[square] != PieceHelper.NONE) // if piece exists
-				{
-					System.out.print(PieceHelper.getPieceSymbol(squares[square]) + " | "); // print the piece symbol
-				}
-				else
-					System.out.print("  | "); // or just print an empty space
-			}
-		}
-		System.out.println("\n+---+---+---+---+---+---+---+---+\n");
+		System.out.println(toString());
 	}
 }

@@ -28,6 +28,7 @@ public class MoveSearcher
 		moveGen = new MoveGenerator(board, moves);
 		moveOrderer = new MoveOrderer(board, moves);
 		transpositionTable = new TranspositionTable();
+		bestMove = MoveHelper.NULL_MOVE;
 	}
 
 	public short startSearch()
@@ -51,20 +52,20 @@ public class MoveSearcher
 
 			if (eval >= (positiveInfinity - depth))
 			{
-				// System.out.println("Forced mate for engine found");
+				//System.out.println("Forced mate for engine found");
 				break;
 			}
 			else if (eval <= (negativeInfinity + depth))
 			{
-				// System.out.println("Forced mate against engine found");
+				//System.out.println("Forced mate against engine found");
 				break;
 			}
 		}
-		while (!searchCancelled && depth <= 6);
+		while (!searchCancelled && depth <= MAX_DEPTH);
 
 		/*
 		System.out.println("Evaluation: " + eval);
-		System.out.println("Depth searched: " + (depth - 1));
+		System.out.println("Depth searched: " + depth);
 		System.out.println("Nodes visited: " + nodes);
 		System.out.println("Captures visited: " + captures);
 		System.out.println("qMoves visited: " + qMoves);
@@ -486,7 +487,7 @@ public class MoveSearcher
 
 			int rank = pawnIndex & 56;
 			long ranksAheadMask = -1; // All 1 bits
-			ranksAheadMask = whitePieces ? (ranksAheadMask << (rank + 8)) : (ranksAheadMask >>> (rank ^ 56 + 8));
+			ranksAheadMask = whitePieces ? (ranksAheadMask << (rank + 8)) : (ranksAheadMask >>> ((rank ^ 56) + 8));
 
 			int file = pawnIndex & 0x7;
 			long fileMask = MoveGenerator.A_FILE << (file); // mask last 3 bits, aka mod 8
@@ -546,7 +547,7 @@ public class MoveSearcher
 
 	public void stopSearch()
 	{
-		//searchCancelled = true;
+		searchCancelled = true;
 	}
 
 	public void newPosition()
