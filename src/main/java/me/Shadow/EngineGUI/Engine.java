@@ -9,6 +9,7 @@ import me.Shadow.Engine.*;
 import me.Shadow.Testing.BestMoveTester;
 import me.Shadow.Testing.EvaluationTester;
 import me.Shadow.Testing.MoveGenerationTester;
+import me.Shadow.Testing.MoveOrdererTester;
 import me.Shadow.Testing.Perft;
 
 public class Engine
@@ -55,7 +56,8 @@ public class Engine
 		//Perft.runPerft("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 ;D5 4865609 ;D6 119060324 ;D7 3195901860 ;D8 84998978956");
 		//EvaluationTester.evalTest(Perft.perftsExtended);
 		//BestMoveTester.runBestMoveSuite(100, 400, 2.0f, false, false);
-		MoveGenerationTester.testCapturesSuite(Perft.perftsExtended);
+		//MoveGenerationTester.testCapturesSuite(Perft.perftsExtended);
+		//MoveOrdererTester.testSEESuite();
 		
 		try
 		{

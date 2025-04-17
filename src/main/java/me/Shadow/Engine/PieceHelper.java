@@ -31,8 +31,10 @@ public class PieceHelper
 	public static final byte TYPE_MASK = 0b1110;
 	public static final byte COLOR_MASK = 1;
 	
-	private static final short [] mg_value = { 0, 82, 337, 365, 477, 1025, 0 };
-	private static final short [] eg_value = { 0, 94, 281, 297, 512, 936, 0 };
+	private static final short [] mg_value = { 0, 100, 300, 300, 500, 900, 0 };
+	private static final short [] eg_value = { 0, 100, 300, 300, 500, 900, 0 };
+	//private static final short [] mg_value = { 0, 82, 337, 365, 477, 1025, 0 };
+	//private static final short [] eg_value = { 0, 94, 281, 297, 512, 936, 0 };
 	
 	private static final short [] mg_pawn_table = {
 	      0,   0,   0,   0,   0,   0,  0,   0,

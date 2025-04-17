@@ -60,7 +60,7 @@ public class MoveOrderer
 				}
 				else
 				{
-					int captureSEE = SEE(board, start, target, piece, capturedPiece, gamePhase);
+					int captureSEE = SEE(board, move, gamePhase);
 					if (captureSEE >= 0)
 					{
 						evalGuess = goodCaptureBias + MVV * 100 - LVA;
@@ -99,8 +99,28 @@ public class MoveOrderer
 			scores[i] = evalGuess;
 		}
 	}
+	
+	public int SEE(Board board, short move, float mgWeight)
+	{
+		int start = MoveHelper.getStartIndex(move);
+		byte piece = board.squares[start];
+		int seeSquare = MoveHelper.getTargetIndex(move);
+		int capturePieceValue = PieceHelper.getValue(board.squares[seeSquare], mgWeight);
+		if (MoveHelper.getEPCaptureIndex(move) != -1)
+		{
+			capturePieceValue = PieceHelper.getValue(board.squares[MoveHelper.getEPCaptureIndex(move)], mgWeight);
+		}
+		else if (MoveHelper.getPromotedPiece(move) != PieceHelper.NONE)
+		{
+			capturePieceValue -= PieceHelper.getValue(piece, mgWeight);
+			piece = (byte) (MoveHelper.getPromotedPiece(move) | PieceHelper.getColor(piece));
+			capturePieceValue += PieceHelper.getValue(piece, mgWeight);
+		}
+		
+		return SEE(board, start, seeSquare, piece, capturePieceValue, mgWeight);
+	}
 
-	public int SEE(Board board, int start, int target, byte piece, byte captured, float mgWeight)
+	public int SEE(Board board, int start, int target, byte piece, int trophyValue, float mgWeight)
 	{
 		int[] gain = new int[32];
 		long xrayPieces = board.bitBoards.getXrayPieces();
@@ -108,19 +128,31 @@ public class MoveOrderer
 		long allPieces = board.bitBoards.colorBoards[PieceHelper.WHITE]
 				| board.bitBoards.colorBoards[PieceHelper.BLACK];
 		long squareAtksDefs = board.bitBoards.getAttacksTo(target, allPieces);
+		
 		int depth = 0;
 		int color = piece & PieceHelper.COLOR_MASK;
-		gain[depth] = PieceHelper.getValue(captured, mgWeight);
+		gain[depth] = trophyValue;
 		do
 		{
 			depth++;
-			gain[depth] = PieceHelper.getValue(piece, mgWeight) - gain[depth - 1];
+			
+			if (PieceHelper.getPieceType(piece) == PieceHelper.PAWN && (target >= 56 || target < 8))
+			{
+				gain[depth-1] += PieceHelper.getValue(PieceHelper.QUEEN, mgWeight) - PieceHelper.getValue(PieceHelper.PAWN, mgWeight);
+				gain[depth] = PieceHelper.getValue(PieceHelper.QUEEN, mgWeight) - gain[depth - 1];
+			}
+			else
+			{
+				gain[depth] = PieceHelper.getValue(piece, mgWeight) - gain[depth - 1];
+			}
 
+			/*
 			if (gain[depth] < 0 && -gain[depth - 1] < 0)
 				break;
+				*/
 
-			squareAtksDefs ^= fromBitboard;
-			allPieces ^= fromBitboard;
+			squareAtksDefs &= ~fromBitboard;
+			allPieces &= ~fromBitboard;
 			if ((xrayPieces & fromBitboard) != 0)
 			{
 				squareAtksDefs |= considerXrays(board, allPieces, target);
@@ -134,7 +166,6 @@ public class MoveOrderer
 
 		while (depth > 1)
 		{
-
 			depth--;
 			gain[depth - 1] = -Math.max(-gain[depth - 1], gain[depth]);
 		}

@@ -165,15 +165,15 @@ public class Board
 				material[colorToMove*2] += PieceHelper.getPieceSquareValue(piece, start, false);
 				material[colorToMove*2 + 1] += PieceHelper.getPieceSquareValue(piece, start, true);
 			}
-			else if (MoveHelper.getEnPassantCaptureIndex(move) != -1)
-				captureIndex = MoveHelper.getEnPassantCaptureIndex(move); // if en passant, change capture square
+			else if (MoveHelper.getEPCaptureIndex(move) != -1)
+				captureIndex = MoveHelper.getEPCaptureIndex(move); // if en passant, change capture square
 		}
 		
 		// if ep is -1, then mod 8 is -1, so it goes down to the ZOBRIST_NO_EP_INDEX
 		zobristHash ^= zobristHashes[ZOBRIST_EP_INDEX + (enPassantIndex % 8)]; // remove old enpassant index
 					
 		// set or reset en passant index
-		enPassantIndex = (short) MoveHelper.getEnPassantNewIndex(move);
+		enPassantIndex = (short) MoveHelper.getNewEPIndex(move);
 		
 		// if ep is -1, then mod 8 is -1, so it goes down to the ZOBRIST_NO_EP_INDEX
 		zobristHash ^= zobristHashes[ZOBRIST_EP_INDEX + (enPassantIndex % 8)]; // remove old enpassant index
@@ -277,9 +277,9 @@ public class Board
 				squares[start] = piece;
 				bitBoards.toggleSquare(piece, start);
 			}
-			else if (MoveHelper.getEnPassantCaptureIndex(move) != -1) // if en passant move
+			else if (MoveHelper.getEPCaptureIndex(move) != -1) // if en passant move
 			{
-				captureSquare = MoveHelper.getEnPassantCaptureIndex(move); // set captureSquare to the right place
+				captureSquare = MoveHelper.getEPCaptureIndex(move); // set captureSquare to the right place
 			}
 		}
 		

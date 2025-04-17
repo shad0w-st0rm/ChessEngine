@@ -4,15 +4,15 @@ public class MoveHelper
 {
 	public static final short NULL_MOVE = 0;
 
-	static final int NO_FLAG = 0b0000;
-	static final int EN_PASSANT_CAPTURE_FLAG = 0b0001;
-	static final int PAWN_DOUBLE_PUSH_FLAG = 0b0010;
-	static final int CASTLING_FLAG = 0b0011;
+	public static final int NO_FLAG = 0b0000;
+	public static final int EN_PASSANT_CAPTURE_FLAG = 0b0001;
+	public static final int PAWN_DOUBLE_PUSH_FLAG = 0b0010;
+	public static final int CASTLING_FLAG = 0b0011;
 	
-	static final int PROMOTION_KNIGHT_FLAG = 0b0100;
-	static final int PROMOTION_BISHOP_FLAG = 0b0101;
-	static final int PROMOTION_ROOK_FLAG = 0b0110;
-	static final int PROMOTION_QUEEN_FLAG = 0b0111;
+	public static final int PROMOTION_KNIGHT_FLAG = 0b0100;
+	public static final int PROMOTION_BISHOP_FLAG = 0b0101;
+	public static final int PROMOTION_ROOK_FLAG = 0b0110;
+	public static final int PROMOTION_QUEEN_FLAG = 0b0111;
 
 	public static short createMove(int start, int target, int flags)
 	{
@@ -34,7 +34,7 @@ public class MoveHelper
 		return isolateFlags(move) != NO_FLAG;
 	}
 
-	public static int getEnPassantCaptureIndex(short move)
+	public static int getEPCaptureIndex(short move)
 	{
 		if (isolateFlags(move) == EN_PASSANT_CAPTURE_FLAG)
 		{
@@ -42,8 +42,8 @@ public class MoveHelper
 		}
 		return -1;
 	}
-
-	public static int getEnPassantNewIndex(short move)
+	
+	public static int getNewEPIndex(short move)
 	{
 		if (isolateFlags(move) == PAWN_DOUBLE_PUSH_FLAG)
 		{

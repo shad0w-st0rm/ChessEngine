@@ -78,7 +78,7 @@ public class MoveGenerationTester
 	
 	public static boolean isMoveCapture(Board board, short move)
 	{
-		if (MoveHelper.getEnPassantCaptureIndex(move) != -1) return true;
+		if (MoveHelper.getEPCaptureIndex(move) != -1) return true;
 		if (MoveHelper.getPromotedPiece(move) == PieceHelper.QUEEN) return true;
 		else return (MoveHelper.getPromotedPiece(move) == PieceHelper.NONE && board.squares[MoveHelper.getTargetIndex(move)] != PieceHelper.NONE);
 	}
