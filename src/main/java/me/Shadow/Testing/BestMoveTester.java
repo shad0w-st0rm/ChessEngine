@@ -671,7 +671,7 @@ public class BestMoveTester
 		PositionTest posTest = getPosTest(wacPosition);
 		Board board = new Board(posTest.fen);
 		Player player = new Player(board);
-		short move = player.searchMove(thinkTimeMS);
+		short move = player.searchMoveTimed(thinkTimeMS);
 		boolean success = getAndPrintResult(posTest, move, printOnSuccess);
 		return success;
 	}

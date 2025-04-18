@@ -2,7 +2,11 @@ package me.Shadow.Engine;
 
 public class MoveSearcher
 {
-	static final int MAX_DEPTH = 9;
+	static final int MAX_DEPTH = 64;
+	static final int MAX_PV_LENGTH = 2*MAX_DEPTH;
+	
+	// ~16.6 million (fits evenly in move ordering)
+	static final int MAX_HIST_SCORE = (1 << 24);
 
 	static final int positiveInfinity = 0x3FFF;
 	static final int negativeInfinity = -positiveInfinity;
@@ -38,6 +42,15 @@ public class MoveSearcher
 
 	public short startSearch()
 	{
+		return startSearchDepth(MAX_DEPTH);
+	}
+	
+	public short startSearchDepth(int searchDepth)
+	{
+		// bookkeping to ensure search doesn't go infinite by accident
+		searchDepth = Math.min(searchDepth, MAX_DEPTH);
+		searchDepth = Math.max(searchDepth, 0);
+		
 		searchCancelled = false;
 
 		// clearSearchStats();
@@ -47,18 +60,21 @@ public class MoveSearcher
 		int depth = 0;
 		int eval = 0;
 		
+		short [] pvLine = new short[MAX_PV_LENGTH];
+		
 		do
 		{
+			depth++;
+			
 			long time = System.currentTimeMillis();
 			currentStats = new SearcherStats();
 			
-			depth++;
-			
-			eval = rootSearch(depth, negativeInfinity, positiveInfinity);
+			eval = rootSearch(depth, negativeInfinity, positiveInfinity, pvLine);
 			
 			currentStats.depth = depth;
 			currentStats.evaluation = eval;
 			currentStats.move = bestMove;
+			currentStats.pvLine = pvLine;
 			currentStats.time = System.currentTimeMillis() - time;
 			
 			currentStats.printSearchStats();
@@ -74,12 +90,12 @@ public class MoveSearcher
 				break;
 			}
 		}
-		while (!searchCancelled && depth < MAX_DEPTH);
+		while (!searchCancelled && depth < searchDepth);
 		
 		return bestMove;
 	}
 
-	public int rootSearch(final int depth, int alpha, final int beta)
+	public int rootSearch(final int depth, int alpha, final int beta, short [] pvLine)
 	{
 		currentStats.nodes++;
 		
@@ -89,8 +105,8 @@ public class MoveSearcher
 		if (numMoves == 0)
 			return moveGen.inCheck() ? negativeInfinity : 0;
 
-		moveOrderer.guessMoveEvals(bestMove, false, 0, 0, numMoves);
-
+		moveOrderer.guessMoveEvals(pvLine[0], bestMove, false, 0, 0, numMoves);
+		
 		int bound = ALL_NODE;
 		long zobristHash = board.zobristHash;
 		long pawnsHash = board.pawnsHash;
@@ -102,7 +118,7 @@ public class MoveSearcher
 
 			final short move = moves[i];
 
-			int evaluation = searchMove(move, alpha, beta, depth, 0, i, zobristHash, pawnsHash, boardInfoOld, numMoves);
+			int evaluation = searchMove(move, alpha, beta, depth, 0, i, zobristHash, pawnsHash, boardInfoOld, numMoves, pvLine);
 
 			if (searchCancelled)
 			{
@@ -179,7 +195,7 @@ public class MoveSearcher
 		return bestEval;
 	}
 
-	public int search(final int depth, final int plyFromRoot, int alpha, int beta, int moveIndex)
+	public int search(final int depth, final int plyFromRoot, int alpha, int beta, int moveIndex, short [] pvLine)
 	{
 		if (searchCancelled)
 			return 0;
@@ -209,6 +225,7 @@ public class MoveSearcher
 				if (bound == PV_NODE)
 				{
 					currentStats.pvNodes++;
+					pvLine[plyFromRoot] = bestMoveInPosition;
 					return transposition[TranspositionTable.EVAL_INDEX];
 				}
 				else if (bound == CUT_NODE)
@@ -251,7 +268,7 @@ public class MoveSearcher
 			searchedFirst = true;
 
 			int evaluation = searchMove(bestMoveInPosition, alpha, beta, depth, plyFromRoot, 0, zobristHash, pawnsHash,
-					boardInfoOld, moveIndex);
+					boardInfoOld, moveIndex, pvLine);
 
 			if (searchCancelled)
 				return evaluation;
@@ -298,7 +315,7 @@ public class MoveSearcher
 				{
 					currentStats.raiseAlphaQuiets++;
 				}
-				
+								
 				bound = PV_NODE;
 				alpha = evaluation;
 			}
@@ -312,7 +329,7 @@ public class MoveSearcher
 
 		// ensure the potentially first searched move gets boosted to top with highest
 		// score
-		moveOrderer.guessMoveEvals(bestMoveInPosition, false, plyFromRoot, moveIndex, numMoves);
+		moveOrderer.guessMoveEvals(pvLine[plyFromRoot], bestMoveInPosition, false, plyFromRoot, moveIndex, numMoves);
 		// push the first searched move to the top (guaranteed to be highest score)
 		if (searchedFirst)
 			moveOrderer.singleSelectionSort(moveIndex, moveIndex + numMoves);
@@ -325,7 +342,7 @@ public class MoveSearcher
 			final short move = moves[i];
 
 			int evaluation = searchMove(move, alpha, beta, depth, plyFromRoot, i - moveIndex, zobristHash, pawnsHash,
-					boardInfoOld, moveIndex + numMoves);
+					boardInfoOld, moveIndex + numMoves, pvLine);
 
 			if (searchCancelled)
 				return evaluation;
@@ -396,13 +413,14 @@ public class MoveSearcher
 		return bestEval;
 	}
 
-	public int searchMove(short move, int alpha, int beta, int depth, int plyFromRoot, int moveNum, long zobristHash, long pawnsHash, short[] boardInfoOld, int moveIndex)
+	public int searchMove(short move, int alpha, int beta, int depth, int plyFromRoot, int moveNum, long zobristHash, long pawnsHash, short[] boardInfoOld, int moveIndex, short [] pvLine)
 	{
 		final byte captured = board.movePiece(move);
 		
 		int searchDepth = calculateSearchDepth(move, captured, depth, moveNum);
+		short [] continuedPvLine = new short[MAX_PV_LENGTH];
 
-		int evaluation = -(search(searchDepth, plyFromRoot + 1, -beta, -alpha, moveIndex));
+		int evaluation = -(search(searchDepth, plyFromRoot + 1, -beta, -alpha, moveIndex, continuedPvLine));
 
 		board.moveBack(move, captured, zobristHash, pawnsHash, boardInfoOld);
 
@@ -422,8 +440,33 @@ public class MoveSearcher
 				}
 
 				// keep start/target square and add color to move for index
-				int index = (move & 0xFFF) | (board.colorToMove << 12);
+				//int index = (move & 0xFFF) | (board.colorToMove << 12);
+				int index = (board.squares[MoveHelper.getStartIndex(move)] << 6) | MoveHelper.getTargetIndex(move);
 				moveOrderer.historyHeuristic[index] += depth * depth;
+				
+				if (moveOrderer.historyHeuristic[index] >= MAX_HIST_SCORE)
+				{
+					for (int i = 0; i < moveOrderer.historyHeuristic.length; i++)
+					{
+						// scale values with respect to middle of max hist score
+						int newValue = moveOrderer.historyHeuristic[index] - (MAX_HIST_SCORE >>> 1);
+						newValue >>>= 3;
+						moveOrderer.historyHeuristic[index] = newValue + (MAX_HIST_SCORE >>> 1);
+					}
+				}
+			}
+		}
+		else if (evaluation > alpha)
+		{
+			pvLine[plyFromRoot] = move;
+			for (int i = plyFromRoot + 1; i < continuedPvLine.length; i++)
+			{
+				if (continuedPvLine[i] != MoveHelper.NULL_MOVE) pvLine[i] = continuedPvLine[i];
+				else
+				{
+					pvLine[i] = MoveHelper.NULL_MOVE;
+					break;
+				}
 			}
 		}
 
@@ -436,18 +479,20 @@ public class MoveSearcher
 		//return depth - 1;
 		
 		depth--;
-		if (board.inCheck())
-			depth++;
+		//if (board.inCheck())
+			//depth++;
 		
 		// give bonus to a pawn moving to one square from promotion
 		// maybe change this just to a promotion move itself
 		
+		/*
 		int target = MoveHelper.getTargetIndex(move);
 		if (((board.squares[target] & PieceHelper.TYPE_MASK) == PieceHelper.PAWN)
 				&& (Utils.getSquareRank(target) == 2 || Utils.getSquareRank(target) == 7))
 		{
 			return depth + 1;
 		}
+		*/
 		
 		if (moveNum >= 3 && captured == PieceHelper.NONE && depth >= 2) depth--;
 		
@@ -504,7 +549,7 @@ public class MoveSearcher
 
 		int numMoves = moveGen.generateMoves(MoveGenerator.CAPTURES_ONLY, moveIndex);
 
-		moveOrderer.guessMoveEvals(bestMoveInPosition, true, 0, moveIndex, numMoves);
+		moveOrderer.guessMoveEvals(MoveHelper.NULL_MOVE, bestMoveInPosition, true, 0, moveIndex, numMoves);
 
 		long pawnsHash = board.pawnsHash;
 		final short[] boardInfoOld = board.packBoardInfo();
@@ -557,6 +602,7 @@ public class MoveSearcher
 	{
 		int depth, evaluation;
 		short move;
+		short [] pvLine;
 		long time;
 		
 		int ttLookups;
@@ -589,6 +635,7 @@ public class MoveSearcher
 			System.out.println("+------------------------------------------------------------------------------------------------------------------------+");
 			System.out.println("Search completed to depth " + depth + " with evaluation " + evaluation);
 			System.out.println("Best Move " + MoveHelper.toString(move) + " found in " + time + " ms");
+			System.out.println(getPvLine());
 			System.out.println(nodes + " Nodes Searched -- " + pvNodes + " PV Nodes -- " + cutNodes + " Cut Nodes -- " + allNodes + " All Nodes");
 			System.out.println(movesSearched + " Moves Searched -- " + pvNodeMovesSearched + " PV Node Moves -- " + cutNodeMovesSearched + " Cut Node Moves -- " + allNodeMovesSearched + " All Node Moves");
 			System.out.println(betaCuts + " # Beta Cuts -- " + betaCutTT + " TT Cuts -- " + betaCutCaptures + " Captures -- " + betaCutQuiets + " Quiets");
@@ -596,6 +643,20 @@ public class MoveSearcher
 			System.out.println(betaFirstMoveCuts + " # Beta Cuts First Move -- " + betaFirstMoveCaptures + " Captures -- " + betaFirstMoveQuiets + " Quiets");
 			System.out.println(raiseAlphaMoves + " # Moves Raising Alpha -- " + raiseAlphaCaptures + " Captures -- " + raiseAlphaQuiets + " Quiets");
 			System.out.println("+------------------------------------------------------------------------------------------------------------------------+\n");
+		}
+		
+		public String getPvLine()
+		{
+			String pvLine = "PV Line: ";
+			for (short move : this.pvLine)
+			{
+				if (move != MoveHelper.NULL_MOVE)
+				{
+					pvLine += MoveHelper.toString(move) + " ";
+				}
+				else break;
+			}
+			return pvLine;
 		}
 	}
 }

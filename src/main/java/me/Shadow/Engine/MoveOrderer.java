@@ -2,14 +2,16 @@ package me.Shadow.Engine;
 
 public class MoveOrderer
 {
-	public static final int million = 1000000;
-	public static final int maxMoveBias = 10 * million;
-	public static final int firstMoveBias = 6 * million;
-	public static final int goodCaptureBias = 4 * million;
-	public static final int promotingBias = 3 * million;
-	public static final int killerMoveBias = 2 * million;
-	public static final int badCaptureBias = 1 * million;
-	public static final int noBias = 0;
+	public static final int MILLION = 1000000;
+	
+	public static final int MAX_MOVE_BIAS = 2100 * MILLION;
+	public static final int HASH_MOVE_BIAS = 2050 * MILLION;
+	public static final int PV_MOVE_BIAS = 2000 * MILLION;
+	public static final int GOOD_CAPTURE_BIAS = 1900 * MILLION;
+	public static final int PROMOTING_BIAS = 1850 * MILLION;
+	public static final int KILLER_MOVE_BIAS = 1800 * MILLION;
+	public static final int BAD_CAPTURE_BIAS = 1700 * MILLION;
+	public static final int NO_BIAS = 850 * MILLION;
 
 	public static final int maxKillerDepth = 32;
 
@@ -26,21 +28,30 @@ public class MoveOrderer
 		scores = new int[movesIn.length];
 
 		killers = new long[maxKillerDepth];
-		historyHeuristic = new int[2 * 64 * 64];
+		//historyHeuristic = new int[2 * 64 * 64];
+		historyHeuristic = new int[2 * 8 * 64];
 	}
 
-	public void guessMoveEvals(short firstMove, final boolean inQSearch, final int ply, int startIndex, int numMoves)
+	public void guessMoveEvals(short pvMove, short hashMove, final boolean inQSearch, final int ply, int startIndex, int numMoves)
 	{
 		float gamePhase = getGamePhase(board);
 		for (int i = startIndex; i < (startIndex + numMoves); i++)
 		{
 			final short move = moves[i];
 
-			if (move == firstMove)
+			
+			if (move == hashMove)
 			{
-				scores[i] = firstMoveBias;
+				scores[i] = HASH_MOVE_BIAS;
 				continue;
 			}
+			else if (move == pvMove)
+			{
+				System.out.println(MoveHelper.toString(move));
+				scores[i] = PV_MOVE_BIAS;
+				continue;
+			}
+			
 			final int start = MoveHelper.getStartIndex(move);
 			final int target = MoveHelper.getTargetIndex(move);
 			final byte piece = board.squares[start];
@@ -56,23 +67,23 @@ public class MoveOrderer
 
 				if (MVV >= LVA)
 				{
-					evalGuess = goodCaptureBias + MVV * 100 - LVA;
+					evalGuess = GOOD_CAPTURE_BIAS + MVV * 100 - LVA;
 				}
 				else if(!inQSearch)
 				{
 					int captureSEE = SEE(board, move, gamePhase);
 					if (captureSEE >= 0)
 					{
-						evalGuess = goodCaptureBias + MVV * 100 - LVA;
+						evalGuess = GOOD_CAPTURE_BIAS + MVV * 100 - LVA;
 					}
 					else
 					{
-						evalGuess += badCaptureBias + captureSEE;
+						evalGuess += BAD_CAPTURE_BIAS + captureSEE;
 					}
 				}
 				else
 				{
-					evalGuess += badCaptureBias;
+					evalGuess += BAD_CAPTURE_BIAS;
 				}
 
 				scores[i] = evalGuess;
@@ -81,7 +92,7 @@ public class MoveOrderer
 
 			if (MoveHelper.getPromotedPiece(move) != PieceHelper.NONE)
 			{
-				evalGuess += promotingBias + PieceHelper.getValue(MoveHelper.getPromotedPiece(move), gamePhase)
+				evalGuess += PROMOTING_BIAS + PieceHelper.getValue(MoveHelper.getPromotedPiece(move), gamePhase)
 						- PieceHelper.getValue(piece, gamePhase);
 			}
 
@@ -92,14 +103,18 @@ public class MoveOrderer
 			// unlikely to be losing capture
 			final boolean isKillerMove = !inQSearch && ply < maxKillerDepth && isKiller(move, ply);
 			if (isKillerMove)
-				evalGuess += killerMoveBias;
+			{
+				evalGuess += KILLER_MOVE_BIAS;
+			}
 			else
-				evalGuess += noBias;
-
-			// keep start/target square and add color to move for index
-			int index = (move & 0xFFF) | (PieceHelper.getColor(piece) << 12);
-			evalGuess += 100 * historyHeuristic[index];
-
+			{
+				evalGuess += NO_BIAS;
+				// keep start/target square and add color to move for index
+				//int index = (move & 0xFFF) | (PieceHelper.getColor(piece) << 12);
+				int index = (piece << 6) | target;
+				evalGuess += 50 * historyHeuristic[index];
+			}
+			
 			scores[i] = evalGuess;
 		}
 	}

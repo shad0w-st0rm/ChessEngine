@@ -41,7 +41,7 @@ public class TranspositionTable
 
 	// first 17 bits are unused
 	// last 15 bits represent the move
-	long[] moveTable;
+	short[] moveTable;
 
 	long[] pawnsTable;
 
@@ -57,7 +57,7 @@ public class TranspositionTable
 		int numEntries = sizeMB * 1024 * (1024 / BYTES_PER_ENTRY);
 		numEntries = Integer.highestOneBit(numEntries); // essentially floor of base 2 log
 		positionTable = new long[numEntries];
-		moveTable = new long[numEntries];
+		moveTable = new short[numEntries];
 		indexBitMask = numEntries - 1; // sets all lower bits to 1 for mask (10...00 -> 011...11)
 		pawnsTable = new long[1 << 12];
 	}
@@ -65,7 +65,7 @@ public class TranspositionTable
 	public void clearTable()
 	{
 		positionTable = new long[moveTable.length];
-		moveTable = new long[positionTable.length];
+		moveTable = new short[positionTable.length];
 		pawnsTable = new long[1 << 12];
 	}
 
@@ -109,10 +109,10 @@ public class TranspositionTable
 		posEntry |= ((long) depth) << DEPTH_SHIFT;
 		posEntry |= (zobristKey >>> ZOBRIST_SHIFT);
 
-		int moveEntry = move << MOVE_SHIFT;
+		//int moveEntry = move << MOVE_SHIFT;
 
 		positionTable[index] = posEntry;
-		moveTable[index] = moveEntry;
+		moveTable[index] = move;
 	}
 
 	public void storePawnsEvaluation(long pawnsKey, int evaluation)
@@ -123,6 +123,7 @@ public class TranspositionTable
 		pawnsTable[index] = pawnsEntry;
 	}
 	
+	/*
 	// transposition table test using perft
 	// use positionTable to store full zobrist key (just for ease of use, only non key bits are required)
 	// use moveTable to stores movesCount
@@ -149,4 +150,5 @@ public class TranspositionTable
 		}
 		return LOOKUP_FAILED;
 	}
+	*/
 }

@@ -41,7 +41,7 @@ public class GamePlayer
 	
 	public static short searchMove(GamePlayer player, Integer movetime)
 	{
-		return player.player.searchMove(movetime);
+		return player.player.tryBookOrSearchTimed(movetime);
 	}
 	
 	public static short searchMove(GamePlayer player, Integer wtime, Integer btime, Integer winc, Integer binc)

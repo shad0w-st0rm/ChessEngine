@@ -16,33 +16,49 @@ public class Player
 		searcher = new MoveSearcher(boardIn);
 	}
 	
-	public short searchMove(int thinkTimeMS)
+	public short tryBookOrSearchTimed(int thinkTimeMS)
+	{
+		short move = tryGetBookMove(false);
+		if (move == MoveHelper.NULL_MOVE)
+		{
+			return searchMoveTimed(thinkTimeMS);
+		}
+		
+		return move;
+	}
+	
+	public short tryBookOrSearchDepth(int searchDepth)
+	{
+		short move = tryGetBookMove(false);
+		if (move == MoveHelper.NULL_MOVE)
+		{
+			return searchMoveDepth(searchDepth);
+		}
+		
+		return move;
+	}
+	
+	public short searchMoveTimed(int thinkTimeMS)
 	{
 		searchNum++;
 		int currentSearchNum = searchNum;
 		
-		short move = tryGetBookMove(false);
-		if (move == MoveHelper.NULL_MOVE)
+		Timer timer = new Timer();
+		timer.schedule(new TimerTask()
 		{
-			Timer timer = new Timer();
-			timer.schedule(new TimerTask()
+			@Override
+			public void run()
 			{
-				@Override
-				public void run()
-				{
-					stopSearching(currentSearchNum);
-				}
-			}, thinkTimeMS);
-			
-			move = searcher.startSearch();
-			//searcher.printSearchStats();
-		}
-		else
-		{
-			//System.out.println("Found move from opening book");
-		}
+				stopSearching(currentSearchNum);
+			}
+		}, thinkTimeMS);
 		
-		return move;
+		return searcher.startSearch();
+	}
+	
+	public short searchMoveDepth(int searchDepth)
+	{
+		return searcher.startSearchDepth(searchDepth);
 	}
 	
 	private short tryGetBookMove(boolean random)

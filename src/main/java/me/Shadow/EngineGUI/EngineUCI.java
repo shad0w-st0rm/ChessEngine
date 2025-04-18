@@ -46,7 +46,7 @@ public class EngineUCI
 			nextLine = scanner.nextLine().trim();
 			final String nextLineCopy = nextLine;
 			commandsProcessing++;
-			//new Thread(() -> commandReceived(nextLineCopy)).start();
+			// new Thread(() -> commandReceived(nextLineCopy)).start();
 			commandReceived(nextLineCopy);
 		}
 		scanner.close();
@@ -165,31 +165,30 @@ public class EngineUCI
 		{
 			String trimmed = fullCommand.substring(fullCommand.indexOf("movetime")).trim();
 			int thinkTimeMS = Integer.parseInt(trimmed.split(" ")[1]);
-			moveFound = engine.searchMove(thinkTimeMS);
+			moveFound = engine.tryBookOrSearchTimed(thinkTimeMS);
 		}
 		else
 		{
 			String trimmed = fullCommand.substring(fullCommand.indexOf("wtime")).trim();
-			int whiteTimeMS = Integer.parseInt(trimmed.split(" ")[1]);
+			int wTimeMS = Integer.parseInt(trimmed.split(" ")[1]);
 			trimmed = fullCommand.substring(fullCommand.indexOf("btime")).trim();
-			int blackTimeMS = Integer.parseInt(trimmed.split(" ")[1]);
+			int bTimeMS = Integer.parseInt(trimmed.split(" ")[1]);
 
-			int whiteIncrementMS = 0;
+			int wIncMS = 0;
 			if (fullCommand.contains("winc"))
 			{
 				trimmed = fullCommand.substring(fullCommand.indexOf("winc")).trim();
-				whiteIncrementMS = Integer.parseInt(trimmed.split(" ")[1]);
+				wIncMS = Integer.parseInt(trimmed.split(" ")[1]);
 			}
 
-			int blackIncrementMS = 0;
+			int bIncMS = 0;
 			if (fullCommand.contains("binc"))
 			{
 				trimmed = fullCommand.substring(fullCommand.indexOf("binc")).trim();
-				blackIncrementMS = Integer.parseInt(trimmed.split(" ")[1]);
+				bIncMS = Integer.parseInt(trimmed.split(" ")[1]);
 			}
 
-			moveFound = engine
-					.searchMove(engine.chooseTimeToThink(whiteTimeMS, blackTimeMS, whiteIncrementMS, blackIncrementMS));
+			moveFound = engine.tryBookOrSearchTimed(engine.chooseTimeToThink(wTimeMS, bTimeMS, wIncMS, bIncMS));
 		}
 
 		return MoveHelper.toString(moveFound);
