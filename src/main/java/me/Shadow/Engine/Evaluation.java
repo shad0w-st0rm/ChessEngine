@@ -24,14 +24,14 @@ public class Evaluation
 		float evaluation = 0;
 
 		float gamePhase = getGamePhase();
-		//evaluation = evaluateMaterial(gamePhase);
+		evaluation = evaluateMaterial(gamePhase);
 		
 		
 		final int wkIndex = Bitboards.getLSB(board.bitBoards.pieceBoards[PieceHelper.WHITE_KING]);
 		final int bkIndex = Bitboards.getLSB(board.bitBoards.pieceBoards[PieceHelper.BLACK_KING]);
 
-		//evaluation += forceKingToCorner(wkIndex, bkIndex, 1 - (gamePhase * (24 / 5.0f)));
-		//evaluation -= forceKingToCorner(bkIndex, wkIndex, 1 - (gamePhase * (24 / 5.0f)));
+		evaluation += forceKingToCorner(wkIndex, bkIndex, 1 - (gamePhase * (24 / 5.0f)));
+		evaluation -= forceKingToCorner(bkIndex, wkIndex, 1 - (gamePhase * (24 / 5.0f)));
 
 		evaluation += evaluatePawns();
 

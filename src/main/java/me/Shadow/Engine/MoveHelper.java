@@ -102,4 +102,10 @@ public class MoveHelper
 		}
 		return notation;
 	}
+	
+	public static boolean isCapture(Board board, short move)
+	{
+		if (board.squares[getTargetIndex(move)] != PieceHelper.NONE) return true;
+		return false;
+	}
 }

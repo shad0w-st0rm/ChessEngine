@@ -4,10 +4,6 @@ public class TranspositionTable
 {
 	static final int LOOKUP_FAILED = Integer.MIN_VALUE;
 
-	static final short EXACT_BOUND = 0;
-	static final short LOWER_BOUND = 1;
-	static final short UPPER_BOUND = 2;
-
 	static final int DEFAULT_TABLE_SIZE_MB = 8;
 	static final int BYTES_PER_ENTRY = 8;
 

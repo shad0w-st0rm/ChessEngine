@@ -30,15 +30,15 @@ public class Engine
 	public Engine()
 	{
 		originalFEN = Board.defaultFEN;
-		// originalFEN = "r1b2rk1/p1q4p/2n1pp2/1p1p4/2pP4/P3QN2/1PP2PPP/R3KB1R w KQ - 1 17";	// first "balanced" position
+		originalFEN = "r1b2rk1/p1q4p/2n1pp2/1p1p4/2pP4/P3QN2/1PP2PPP/R3KB1R w KQ - 1 17";	// first "balanced" position
 		// originalFEN = "1k1r3q/1ppn3p/p4b2/4p3/8/P2N2P1/1PP1R1BP/2K1Q3 w - - ";	// SEE cpw test position
 		// originalFEN = "8/3KP3/8/8/8/8/6k1/7q b - - 0 1"; //white king + pawn vs black king + queen
 		// originalFEN = "3r4/3r4/3k4/8/8/3K4/8/8 w - - 0 1"; //white king vs black king + 2 rooks
 		// originalFEN = "3r4/8/3k4/8/8/3K4/8/8 w - - 0 1"; //white king vs black king + rook
 		// originalFEN = "8/7k/4p3/2p1P2p/2P1P2P/8/8/7K w - - 0 1"; // king and pawns vs king and pawns
 		
-		engineColor = PieceHelper.BLACK;
-		searchTime = 100;
+		engineColor = PieceHelper.WHITE;
+		searchTime = 1_000_000;
 	}
 
 	public static void main(String[] args)

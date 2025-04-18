@@ -78,13 +78,18 @@ public class Player
 	public boolean makeMove(String moveString)
 	{
 		short move = Utils.getMoveFromUCINotation(board, moveString);
-		if (!searcher.makeMove(move))
+		if (move != MoveHelper.NULL_MOVE)
+		{
+			board.movePiece(move);
+			board.repetitionIndex = board.halfMoves;
+			return true;
+		}
+		else
 		{
 			board.printBoard();
 			System.out.println(moveString);
 			return false;
 		}
-		return true;
 	}
 	
 	public void stopSearching()

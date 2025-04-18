@@ -2,24 +2,28 @@ package me.Shadow.Engine;
 
 public class MoveSearcher
 {
-	static final int MAX_DEPTH = 64;
+	static final int MAX_DEPTH = 9;
 
 	static final int positiveInfinity = 0x3FFF;
 	static final int negativeInfinity = -positiveInfinity;
+	
+	static final short PV_NODE = 0;
+	static final short CUT_NODE = 1;
+	static final short ALL_NODE = 2;
+	static final short UNKNOWN_NODE = 3;
 
 	short bestMove;
 
 	boolean searchCancelled;
 
 	private Board board;
+	private Evaluation evaluator;
 	private MoveGenerator moveGen;
 	private MoveOrderer moveOrderer;
 	private TranspositionTable transpositionTable;
 	private short[] moves;
-
-	//int nodes = 0;
-	//int qMoves = 0;
-	//int captures = 0;
+	
+	private SearcherStats currentStats;
 
 	public MoveSearcher(Board board)
 	{
@@ -28,6 +32,7 @@ public class MoveSearcher
 		moveGen = new MoveGenerator(board, moves);
 		moveOrderer = new MoveOrderer(board, moves);
 		transpositionTable = new TranspositionTable();
+		evaluator = new Evaluation(board, transpositionTable);
 		bestMove = MoveHelper.NULL_MOVE;
 	}
 
@@ -41,14 +46,22 @@ public class MoveSearcher
 		moveOrderer.clearKillers();
 		int depth = 0;
 		int eval = 0;
-
+		
 		do
 		{
-			//nodes = qMoves = captures = 0;
-			//nodes++;
+			long time = System.currentTimeMillis();
+			currentStats = new SearcherStats();
+			
 			depth++;
 			
 			eval = rootSearch(depth, negativeInfinity, positiveInfinity);
+			
+			currentStats.depth = depth;
+			currentStats.evaluation = eval;
+			currentStats.move = bestMove;
+			currentStats.time = System.currentTimeMillis() - time;
+			
+			currentStats.printSearchStats();
 
 			if (eval >= (positiveInfinity - depth))
 			{
@@ -61,24 +74,15 @@ public class MoveSearcher
 				break;
 			}
 		}
-		while (!searchCancelled && depth <= MAX_DEPTH);
-
-		/*
-		System.out.println("Evaluation: " + eval);
-		System.out.println("Depth searched: " + depth);
-		System.out.println("Nodes visited: " + nodes);
-		System.out.println("Captures visited: " + captures);
-		System.out.println("qMoves visited: " + qMoves);
-		System.out.println("Average num captures by node: " + ((float) (captures) /
-		nodes)); System.out.println("Average num qmoves by node: " + ((float)
-		(qMoves) / nodes));
-		*/
+		while (!searchCancelled && depth < MAX_DEPTH);
 		
 		return bestMove;
 	}
 
-	public int rootSearch(final int depth, int alpha, int beta)
+	public int rootSearch(final int depth, int alpha, final int beta)
 	{
+		currentStats.nodes++;
+		
 		int numMoves = moveGen.generateMoves(MoveGenerator.ALL_MOVES, 0);
 
 		// checkmate/stalemate
@@ -87,10 +91,11 @@ public class MoveSearcher
 
 		moveOrderer.guessMoveEvals(bestMove, false, 0, 0, numMoves);
 
-		int bound = TranspositionTable.UPPER_BOUND;
+		int bound = ALL_NODE;
 		long zobristHash = board.zobristHash;
 		long pawnsHash = board.pawnsHash;
 		short[] boardInfoOld = board.packBoardInfo();
+		int bestEval = negativeInfinity;
 		for (int i = 0; i < numMoves; i++)
 		{
 			moveOrderer.singleSelectionSort(i, numMoves);
@@ -106,26 +111,72 @@ public class MoveSearcher
 				return evaluation;
 			}
 
+			if (evaluation >= beta)
+			{
+				currentStats.cutNodes++;
+				currentStats.betaCuts++;
+				if (i == 0) currentStats.betaFirstMoveCuts++;
+				if (MoveHelper.isCapture(board, move))
+				{
+					currentStats.betaCutCaptures++;
+					if (i == 0) currentStats.betaFirstMoveCaptures++;
+				}
+				else
+				{
+					currentStats.betaCutQuiets++;
+					if (i == 0) currentStats.betaFirstMoveQuiets++;
+				}
+				
+				currentStats.movesSearched += i + 1;
+				currentStats.cutNodeMovesSearched += i + 1;
+				currentStats.betaCutPriorMoves += i;
+				
+				// move was too good so opponent will avoid this branch
+				transpositionTable.storeEvaluation(board.zobristHash, evaluation, depth, CUT_NODE,
+						move);
+				
+				// fail soft
+				return evaluation;
+			}
+			
+			bestEval = Math.max(evaluation, bestEval);
+			
 			if (evaluation > alpha)
 			{
-				bound = TranspositionTable.EXACT_BOUND;
+				currentStats.raiseAlphaMoves++;
+				if (MoveHelper.isCapture(board, move))
+				{
+					currentStats.raiseAlphaCaptures++;
+				}
+				else
+				{
+					currentStats.raiseAlphaQuiets++;
+				}
+				
+				bound = PV_NODE;
 				alpha = evaluation;
 
 				bestMove = move;
 			}
-
-			if (evaluation >= beta)
-			{
-				// move was too good so opponent will avoid this branch
-				transpositionTable.storeEvaluation(board.zobristHash, beta, depth, TranspositionTable.LOWER_BOUND,
-						move);
-				return beta;
-			}
 		}
+		
+		currentStats.movesSearched += numMoves;
+		if (bound == ALL_NODE)
+		{
+			currentStats.allNodes++;
+			currentStats.allNodeMovesSearched += numMoves;
+		}
+		else
+		{
+			currentStats.pvNodes++;
+			currentStats.pvNodeMovesSearched += numMoves;
+		}
+		
+		// store fail soft
+		transpositionTable.storeEvaluation(board.zobristHash, bestEval, depth, bound, bestMove);
 
-		transpositionTable.storeEvaluation(board.zobristHash, alpha, depth, bound, bestMove);
-
-		return alpha;
+		// fail soft
+		return bestEval;
 	}
 
 	public int search(final int depth, final int plyFromRoot, int alpha, int beta, int moveIndex)
@@ -137,6 +188,11 @@ public class MoveSearcher
 		{
 			return 0;
 		}
+		
+		if (depth == 0)
+			return searchCaptures(alpha, beta, moveIndex);
+		
+		currentStats.nodes++;
 
 		long zobristHash = board.zobristHash;
 		short bestMoveInPosition = MoveHelper.NULL_MOVE;
@@ -150,40 +206,45 @@ public class MoveSearcher
 				
 				short bound = transposition[TranspositionTable.BOUND_INDEX];
 				short eval = transposition[TranspositionTable.EVAL_INDEX];
-				if (bound == TranspositionTable.EXACT_BOUND)
+				if (bound == PV_NODE)
 				{
+					currentStats.pvNodes++;
 					return transposition[TranspositionTable.EVAL_INDEX];
 				}
-				else if (bound == TranspositionTable.LOWER_BOUND)
+				else if (bound == CUT_NODE)
 				{
 					if (eval >= beta)
 					{
-						return beta;
+						currentStats.cutNodes++;
+						currentStats.betaCuts++;
+						currentStats.betaCutTT++;
+						
+						// fail soft
+						return eval;
 					}
 					else
 						alpha = Math.max(alpha, eval);
 				}
-				else if (bound == TranspositionTable.UPPER_BOUND)
+				else if (bound == ALL_NODE)
 				{
 					if (eval <= alpha)
 					{
-						return alpha;
+						currentStats.allNodes++;
+						
+						// fail soft
+						return eval;
 					}
 					else
 						beta = Math.max(beta, eval);
 				}
 			}
 		}
-
-		if (depth == 0)
-			return searchCaptures(alpha, beta, moveIndex);
 		
-		//if (depth > 2) nodes++;
-
-		int bound = TranspositionTable.UPPER_BOUND;
+		int bound = ALL_NODE;
 		boolean searchedFirst = false;
 		long pawnsHash = board.pawnsHash;
 		short[] boardInfoOld = board.packBoardInfo();
+		int bestEval = negativeInfinity;
 
 		if (bestMoveInPosition != MoveHelper.NULL_MOVE)
 		{
@@ -194,20 +255,52 @@ public class MoveSearcher
 
 			if (searchCancelled)
 				return evaluation;
-
-			if (evaluation > alpha)
-			{
-				bound = TranspositionTable.EXACT_BOUND;
-				alpha = evaluation;
-			}
+			
+			bestEval = evaluation;
 
 			if (evaluation >= beta)
 			{
+				currentStats.cutNodes++;
+				currentStats.betaCuts++;
+				currentStats.betaPreMoveGenCuts++;
+				if (MoveHelper.isCapture(board, bestMoveInPosition))
+				{
+					currentStats.betaCutCaptures++;
+					currentStats.betaPreMoveGenCaptures++;
+				}
+				else
+				{
+					currentStats.betaCutQuiets++;
+					currentStats.betaPreMoveGenQuiets++;
+				}
+				
+				currentStats.movesSearched += 1;
+				currentStats.cutNodeMovesSearched += 1;
+				currentStats.betaCutPriorMoves += 0;
+				
 				// move was too good so opponent will avoid this branch
-				transpositionTable.storeEvaluation(zobristHash, beta, depth, TranspositionTable.LOWER_BOUND,
+				// store fail soft
+				transpositionTable.storeEvaluation(zobristHash, evaluation, depth, CUT_NODE,
 						bestMoveInPosition);
 
-				return beta;
+				// fail soft
+				return evaluation;
+			}
+			
+			if (evaluation > alpha)
+			{
+				currentStats.raiseAlphaMoves++;
+				if (MoveHelper.isCapture(board, bestMoveInPosition))
+				{
+					currentStats.raiseAlphaCaptures++;
+				}
+				else
+				{
+					currentStats.raiseAlphaQuiets++;
+				}
+				
+				bound = PV_NODE;
+				alpha = evaluation;
 			}
 		}
 
@@ -237,32 +330,75 @@ public class MoveSearcher
 			if (searchCancelled)
 				return evaluation;
 
+			if (evaluation >= beta)
+			{
+				currentStats.cutNodes++;
+				currentStats.betaCuts++;
+				if (i == moveIndex) currentStats.betaFirstMoveCuts++;
+				if (MoveHelper.isCapture(board, move))
+				{
+					currentStats.betaCutCaptures++;
+					if (i == moveIndex) currentStats.betaFirstMoveCaptures++;
+				}
+				else
+				{
+					currentStats.betaCutQuiets++;
+					if (i == moveIndex) currentStats.betaFirstMoveQuiets++;
+				}
+				
+				currentStats.movesSearched += i - moveIndex + 1;
+				currentStats.cutNodeMovesSearched += i - moveIndex + 1;
+				currentStats.betaCutPriorMoves += i - moveIndex;
+				
+				// move was too good so opponent will avoid this branch
+				// store fail soft
+				transpositionTable.storeEvaluation(zobristHash, evaluation, depth, CUT_NODE, move);
+				// fail soft
+				return evaluation;
+			}
+			
+			bestEval = Math.max(evaluation, bestEval);
+			
 			if (evaluation > alpha)
 			{
-				bound = TranspositionTable.EXACT_BOUND;
+				currentStats.raiseAlphaMoves++;
+				if (MoveHelper.isCapture(board, move))
+				{
+					currentStats.raiseAlphaCaptures++;
+				}
+				else
+				{
+					currentStats.raiseAlphaQuiets++;
+				}
+				
+				bound = PV_NODE;
 				alpha = evaluation;
 				bestMoveInPosition = move;
 			}
-
-			if (evaluation >= beta)
-			{
-				// move was too good so opponent will avoid this branch
-				transpositionTable.storeEvaluation(zobristHash, beta, depth, TranspositionTable.LOWER_BOUND, move);
-				return beta;
-			}
+		}
+		
+		currentStats.movesSearched += numMoves;
+		if (bound == ALL_NODE)
+		{
+			currentStats.allNodes++;
+			currentStats.allNodeMovesSearched += numMoves;
+		}
+		else
+		{
+			currentStats.pvNodes++;
+			currentStats.pvNodeMovesSearched += numMoves;
 		}
 
-		transpositionTable.storeEvaluation(zobristHash, alpha, depth, bound, bestMoveInPosition);
+		// store fail soft
+		transpositionTable.storeEvaluation(zobristHash, bestEval, depth, bound, bestMoveInPosition);
 
-		return alpha;
+		// fail soft
+		return bestEval;
 	}
 
-	public int searchMove(short move, int alpha, int beta, int depth, int plyFromRoot, int moveNum, long zobristHash,
-			long pawnsHash, short[] boardInfoOld, int moveIndex)
+	public int searchMove(short move, int alpha, int beta, int depth, int plyFromRoot, int moveNum, long zobristHash, long pawnsHash, short[] boardInfoOld, int moveIndex)
 	{
 		final byte captured = board.movePiece(move);
-
-		//if (depth > 2) qMoves++;
 		
 		int searchDepth = calculateSearchDepth(move, captured, depth, moveNum);
 
@@ -296,10 +432,13 @@ public class MoveSearcher
 
 	public int calculateSearchDepth(short move, int captured, int depth, int moveNum)
 	{
+		// base case, no extensions or reductions
+		//return depth - 1;
+		
 		depth--;
 		if (board.inCheck())
 			depth++;
-
+		
 		// give bonus to a pawn moving to one square from promotion
 		// maybe change this just to a promotion move itself
 		
@@ -310,9 +449,9 @@ public class MoveSearcher
 			return depth + 1;
 		}
 		
-
-		// search reduction, ensure depth doesn't go negative
-		return Math.max(((moveNum >= 2 && captured == PieceHelper.NONE && depth >= 3) ? (depth - 1) : depth), 0);
+		if (moveNum >= 3 && captured == PieceHelper.NONE && depth >= 2) depth--;
+		
+		return Math.max(depth, 0);
 	}
 
 	public int searchCaptures(int alpha, int beta, int moveIndex)
@@ -330,33 +469,37 @@ public class MoveSearcher
 			bestMoveInPosition = transposition[TranspositionTable.MOVE_INDEX];
 			short bound = transposition[TranspositionTable.BOUND_INDEX];
 			short eval = transposition[TranspositionTable.EVAL_INDEX];
-			if (bound == TranspositionTable.EXACT_BOUND)
+			if (bound == PV_NODE)
 			{
 				return transposition[TranspositionTable.EVAL_INDEX];
 			}
-			else if (bound == TranspositionTable.LOWER_BOUND)
+			else if (bound == CUT_NODE)
 			{
+				// fail soft
 				if (eval >= beta)
-					return beta;
+					return eval;
 				else
 					alpha = Math.max(alpha, eval);
 			}
-			else if (bound == TranspositionTable.UPPER_BOUND)
+			else if (bound == ALL_NODE)
 			{
+				// fail soft
 				if (eval <= alpha)
-					return alpha;
+					return eval;
 				else
 					beta = Math.max(beta, eval);
 			}
 		}
 
 		// captures arent forced so check eval before capturing something
-		int evaluation = staticEvaluation();
+		int evaluation = evaluator.staticEvaluation();
 
 		if (evaluation >= beta)
 		{
+			// fail soft
 			return evaluation;
 		}
+		
 		alpha = Math.max(alpha, evaluation);
 
 		int numMoves = moveGen.generateMoves(MoveGenerator.CAPTURES_ONLY, moveIndex);
@@ -381,13 +524,15 @@ public class MoveSearcher
 
 			if (evaluation >= beta)
 			{
+				// fail soft
 				// move was too good so opponent will avoid this branch
 				return evaluation;
 			}
 			alpha = Math.max(alpha, evaluation);
 		}
 
-		return alpha;
+		// fail soft
+		return evaluation;
 	}
 
 	public boolean isDuplicatePosition()
@@ -403,155 +548,54 @@ public class MoveSearcher
 		return false;
 	}
 
-	public int staticEvaluation()
-	{
-		float evaluation = 0;
-
-		float gamePhase = getGamePhase();
-		evaluation = evaluateMaterial(gamePhase);
-
-		final int wkIndex = Bitboards.getLSB(board.bitBoards.pieceBoards[PieceHelper.WHITE_KING]);
-		final int bkIndex = Bitboards.getLSB(board.bitBoards.pieceBoards[PieceHelper.BLACK_KING]);
-
-		evaluation += forceKingToCorner(wkIndex, bkIndex, 1 - (gamePhase * (24 / 5.0f)));
-		evaluation -= forceKingToCorner(bkIndex, wkIndex, 1 - (gamePhase * (24 / 5.0f)));
-
-		evaluation += evaluatePawns();
-
-		evaluation *= board.colorToMove == PieceHelper.WHITE ? 1 : -1;
-
-		return (int) evaluation;
-	}
-
-	public float evaluateMaterial(float gamePhase)
-	{
-		int mgScore = board.material[PieceHelper.WHITE * 2] - board.material[PieceHelper.BLACK * 2];
-		int egScore = board.material[PieceHelper.WHITE * 2 + 1] - board.material[PieceHelper.BLACK * 2 + 1];
-		return mgScore * gamePhase + egScore * (1 - gamePhase);
-	}
-
-	public float getGamePhase()
-	{
-		int mgPhase = 0;
-		mgPhase += Long
-				.bitCount(board.bitBoards.pieceBoards[PieceHelper.WHITE_QUEEN]
-						| board.bitBoards.pieceBoards[PieceHelper.BLACK_QUEEN])
-				* PieceHelper.getGamePhaseValue(PieceHelper.QUEEN);
-
-		mgPhase += Long
-				.bitCount(board.bitBoards.pieceBoards[PieceHelper.WHITE_ROOK]
-						| board.bitBoards.pieceBoards[PieceHelper.BLACK_ROOK])
-				* PieceHelper.getGamePhaseValue(PieceHelper.QUEEN);
-
-		mgPhase += Long
-				.bitCount(board.bitBoards.pieceBoards[PieceHelper.WHITE_BISHOP]
-						| board.bitBoards.pieceBoards[PieceHelper.BLACK_BISHOP])
-				* PieceHelper.getGamePhaseValue(PieceHelper.QUEEN);
-
-		if (mgPhase > 24)
-			mgPhase = 24;
-		return mgPhase / 24.0f;
-	}
-
-	public int evaluatePawns()
-	{
-		long pawnsHash = board.pawnsHash;
-		int pawnsEval = transpositionTable.getPawnsEval(pawnsHash);
-		if (pawnsEval != TranspositionTable.LOOKUP_FAILED)
-		{
-			return pawnsEval;
-		}
-		else
-		{
-			int newEval = evaluatePawns(PieceHelper.WHITE, PieceHelper.BLACK)
-					- evaluatePawns(PieceHelper.BLACK, PieceHelper.WHITE);
-			transpositionTable.storePawnsEvaluation(pawnsHash, newEval);
-			return newEval;
-		}
-	}
-
-	public int evaluatePawns(int friendlyColor, int enemyColor)
-	{
-		final int[] passedPawnsBonus = { 0, 10, 15, 25, 40, 60, 100, 0 };
-		boolean whitePieces = friendlyColor == PieceHelper.WHITE;
-		int evaluation = 0;
-
-		long pawnsBitboard = board.bitBoards.pieceBoards[friendlyColor | PieceHelper.PAWN];
-		long friendlyPawns = pawnsBitboard;
-		long enemyPawns = board.bitBoards.pieceBoards[enemyColor | PieceHelper.PAWN];
-
-		while (pawnsBitboard != 0)
-		{
-			int pawnIndex = Bitboards.getLSB(pawnsBitboard);
-			pawnsBitboard = Bitboards.toggleBit(pawnsBitboard, pawnIndex);
-
-			int rank = pawnIndex & 56;
-			long ranksAheadMask = -1; // All 1 bits
-			ranksAheadMask = whitePieces ? (ranksAheadMask << (rank + 8)) : (ranksAheadMask >>> ((rank ^ 56) + 8));
-
-			int file = pawnIndex & 0x7;
-			long fileMask = MoveGenerator.A_FILE << (file); // mask last 3 bits, aka mod 8
-			long tripleFileMask = fileMask;
-			if (file > 0)
-				tripleFileMask |= (tripleFileMask >>> 1); // left file
-			if (file < 7)
-				tripleFileMask |= (tripleFileMask << 1); // right file
-
-			long passedPawnMask = ranksAheadMask & tripleFileMask & enemyPawns;
-			if (passedPawnMask == 0)
-				evaluation += passedPawnsBonus[whitePieces ? (pawnIndex / 8) : (7 - (pawnIndex / 8))]; // getting the
-																										// rank
-
-			long friendlyPawnsAhead = (ranksAheadMask & fileMask & friendlyPawns);
-			evaluation -= 10 * (Long.bitCount(friendlyPawnsAhead) * Long.bitCount(friendlyPawnsAhead));
-
-			/*
-			 * // next/prev rank are swapped for white/black pawns long nextRankMask =
-			 * MoveGenerator.FIRST_RANK << ((pawnIndex & ~7) + (whitePieces ? 8 : -8)); long
-			 * prevRankMask = MoveGenerator.FIRST_RANK << ((pawnIndex & ~7) - (whitePieces ?
-			 * 8 : -8)); long friendlyPawnsSupported = tripleFileMask & ~fileMask &
-			 * nextRankMask & friendlyPawns; long friendlyPawnsSupporting = tripleFileMask &
-			 * ~fileMask & prevRankMask & friendlyPawns;
-			 * 
-			 * evaluation += 5 * Long.bitCount(friendlyPawnsSupported) *
-			 * Long.bitCount(friendlyPawnsSupported) + 5; evaluation += 5 *
-			 * Long.bitCount(friendlyPawnsSupporting) *
-			 * Long.bitCount(friendlyPawnsSupporting) + 5;
-			 */
-		}
-
-		return evaluation;
-	}
-
-	public float forceKingToCorner(final int friendlyKingIndex, final int enemyKingIndex, final float endgameWeight)
-	{
-		if (endgameWeight < 0)
-			return 0;
-
-		float evaluation = (PrecomputedData.distToCenter[enemyKingIndex] * 15)
-				+ (PrecomputedData.orthoSquaresDist[(friendlyKingIndex << 6) | enemyKingIndex] * 8);
-
-		return evaluation * endgameWeight;
-	}
-
-	public boolean makeMove(short move)
-	{
-		if (move != MoveHelper.NULL_MOVE)
-		{
-			board.movePiece(move);
-			board.repetitionIndex = board.halfMoves;
-			return true;
-		}
-		return false;
-	}
-
 	public void stopSearch()
 	{
 		searchCancelled = true;
 	}
-
-	public void newPosition()
+	
+	class SearcherStats
 	{
-		transpositionTable.clearTable();
+		int depth, evaluation;
+		short move;
+		long time;
+		
+		int ttLookups;
+		int ttHits;
+		int ttMisses, ttDepthLow;
+		
+		// done
+		int betaCuts, betaCutTT, betaCutCaptures, betaCutQuiets;
+		
+		// done
+		int betaPreMoveGenCuts, betaPreMoveGenCaptures, betaPreMoveGenQuiets;
+		
+		// done
+		int betaFirstMoveCuts, betaFirstMoveCaptures, betaFirstMoveQuiets;
+		
+		
+		int betaCutPriorMoves, betaCutPriorCaptures, betaCutPriorQuiets;
+		
+		// done
+		int raiseAlphaMoves, raiseAlphaCaptures, raiseAlphaQuiets;
+		
+		// done
+		int nodes, pvNodes, cutNodes, allNodes;
+		
+		// done
+		int movesSearched, pvNodeMovesSearched, cutNodeMovesSearched, allNodeMovesSearched;
+		
+		public void printSearchStats()
+		{
+			System.out.println("+------------------------------------------------------------------------------------------------------------------------+");
+			System.out.println("Search completed to depth " + depth + " with evaluation " + evaluation);
+			System.out.println("Best Move " + MoveHelper.toString(move) + " found in " + time + " ms");
+			System.out.println(nodes + " Nodes Searched -- " + pvNodes + " PV Nodes -- " + cutNodes + " Cut Nodes -- " + allNodes + " All Nodes");
+			System.out.println(movesSearched + " Moves Searched -- " + pvNodeMovesSearched + " PV Node Moves -- " + cutNodeMovesSearched + " Cut Node Moves -- " + allNodeMovesSearched + " All Node Moves");
+			System.out.println(betaCuts + " # Beta Cuts -- " + betaCutTT + " TT Cuts -- " + betaCutCaptures + " Captures -- " + betaCutQuiets + " Quiets");
+			System.out.println(betaPreMoveGenCuts + " # Beta Cuts Pre MoveGen -- " + betaPreMoveGenCaptures + " Captures -- " + betaPreMoveGenQuiets + " Quiets");
+			System.out.println(betaFirstMoveCuts + " # Beta Cuts First Move -- " + betaFirstMoveCaptures + " Captures -- " + betaFirstMoveQuiets + " Quiets");
+			System.out.println(raiseAlphaMoves + " # Moves Raising Alpha -- " + raiseAlphaCaptures + " Captures -- " + raiseAlphaQuiets + " Quiets");
+			System.out.println("+------------------------------------------------------------------------------------------------------------------------+\n");
+		}
 	}
 }

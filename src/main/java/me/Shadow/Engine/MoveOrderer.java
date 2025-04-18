@@ -58,7 +58,7 @@ public class MoveOrderer
 				{
 					evalGuess = goodCaptureBias + MVV * 100 - LVA;
 				}
-				else
+				else if(!inQSearch)
 				{
 					int captureSEE = SEE(board, move, gamePhase);
 					if (captureSEE >= 0)
@@ -69,6 +69,10 @@ public class MoveOrderer
 					{
 						evalGuess += badCaptureBias + captureSEE;
 					}
+				}
+				else
+				{
+					evalGuess += badCaptureBias;
 				}
 
 				scores[i] = evalGuess;
@@ -108,13 +112,7 @@ public class MoveOrderer
 		int capturePieceValue = PieceHelper.getValue(board.squares[seeSquare], mgWeight);
 		if (MoveHelper.getEPCaptureIndex(move) != -1)
 		{
-			capturePieceValue = PieceHelper.getValue(board.squares[MoveHelper.getEPCaptureIndex(move)], mgWeight);
-		}
-		else if (MoveHelper.getPromotedPiece(move) != PieceHelper.NONE)
-		{
-			capturePieceValue -= PieceHelper.getValue(piece, mgWeight);
-			piece = (byte) (MoveHelper.getPromotedPiece(move) | PieceHelper.getColor(piece));
-			capturePieceValue += PieceHelper.getValue(piece, mgWeight);
+			capturePieceValue = PieceHelper.getValue(PieceHelper.PAWN, mgWeight);
 		}
 		
 		return SEE(board, start, seeSquare, piece, capturePieceValue, mgWeight);
@@ -146,10 +144,10 @@ public class MoveOrderer
 				gain[depth] = PieceHelper.getValue(piece, mgWeight) - gain[depth - 1];
 			}
 
-			/*
+			
 			if (gain[depth] < 0 && -gain[depth - 1] < 0)
 				break;
-				*/
+				
 
 			squareAtksDefs &= ~fromBitboard;
 			allPieces &= ~fromBitboard;
