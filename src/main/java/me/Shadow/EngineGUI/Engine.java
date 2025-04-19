@@ -14,10 +14,10 @@ import me.Shadow.Testing.Perft;
 
 public class Engine
 {
-	static final int SEARCH_TIME_MS = 100000;
-	static final int SEARCH_DEPTH = 9;
-	static final boolean SEARCH_BY_TIME = false;
-	static final int ENGINE_COLOR = PieceHelper.WHITE;
+	static final int SEARCH_TIME_MS = 100;
+	static final int SEARCH_DEPTH = 6;
+	static final boolean SEARCH_BY_TIME = true;
+	static final int ENGINE_COLOR = PieceHelper.BLACK;
 	
 	ChessGui gui;
 	Board board;
@@ -34,7 +34,8 @@ public class Engine
 	public Engine()
 	{
 		originalFEN = Board.defaultFEN;
-		// originalFEN = "r1b2rk1/p1q4p/2n1pp2/1p1p4/2pP4/P3QN2/1PP2PPP/R3KB1R w KQ - 1 17";	// first "balanced" position
+		// originalFEN = "4r1k1/1pq2p1p/p5p1/1b1QN3/3P4/P7/1r3PPP/3RR1K1 w - - 0 26";
+		originalFEN = "r1b2rk1/p1q4p/2n1pp2/1p1p4/2pP4/P3QN2/1PP2PPP/R3KB1R w KQ - 1 17";	// first "balanced" position
 		// originalFEN = "1k1r3q/1ppn3p/p4b2/4p3/8/P2N2P1/1PP1R1BP/2K1Q3 w - - ";	// SEE cpw test position
 		// originalFEN = "8/3KP3/8/8/8/8/6k1/7q b - - 0 1"; //white king + pawn vs black king + queen
 		// originalFEN = "3r4/3r4/3k4/8/8/3K4/8/8 w - - 0 1"; //white king vs black king + 2 rooks
@@ -56,7 +57,7 @@ public class Engine
 		//Perft.runPerftSuite(5);
 		//Perft.runPerft("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 ;D5 4865609 ;D6 119060324 ;D7 3195901860 ;D8 84998978956");
 		//EvaluationTester.evalTest(Perft.perftsExtended);
-		BestMoveTester.runBestMoveSuite(30 * 1000, 32 * 60 * 1000, 2.0f, false, true);
+		//BestMoveTester.runBestMoveSuite(30 * 1000, 32 * 60 * 1000, 2.0f, false, true);
 		//MoveGenerationTester.testCapturesSuite(Perft.perftsExtended);
 		//MoveOrdererTester.testSEESuite();
 		

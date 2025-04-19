@@ -47,7 +47,6 @@ public class MoveOrderer
 			}
 			else if (move == pvMove)
 			{
-				//System.out.println(MoveHelper.toString(move));
 				scores[i] = PV_MOVE_BIAS;
 				continue;
 			}

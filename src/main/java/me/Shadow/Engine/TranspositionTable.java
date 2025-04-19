@@ -75,7 +75,6 @@ public class TranspositionTable
 		long entry = positionTable[index];
 		if ((entry & PARTIAL_KEY_MASK) == (zobristKey >>> ZOBRIST_SHIFT))
 		{
-			// lookupHits++;
 			short depth = (short) ((entry >>> DEPTH_SHIFT) & DEPTH_MASK);
 			short evaluation = (short) (entry >> EVAL_SHIFT); // take advantage of sign extending here
 			short bound = (short) ((entry >>> BOUND_SHIFT) & BOUND_MASK); // shift 41 times and then isolate last 2 bits

@@ -62,54 +62,7 @@ public class Board
 			CASTLING_MASKS[i] = castlingRights;
 		}
 	}
-
-	public boolean inCheck()
-	{
-		if (isCachedCheckValid)
-			return cachedCheckValue;
-		else
-		{
-			cachedCheckValue = isInCheck();
-			isCachedCheckValid = true;
-			return cachedCheckValue;
-		}
-	}
-
-	private boolean isInCheck()
-	{
-		byte enemyColor = (byte) (colorToMove ^ PieceHelper.BLACK);
-
-		int friendlyKingIndex = Bitboards.getLSB(bitBoards.pieceBoards[PieceHelper.KING | colorToMove]);
-
-		long friendlyPiecesBitboard = bitBoards.colorBoards[colorToMove];
-		long enemyPiecesBitboard = bitBoards.colorBoards[enemyColor];
-		long allPiecesBitboard = friendlyPiecesBitboard | enemyPiecesBitboard;
-
-		long orthoSlidersBitboard = bitBoards.getOrthogonalSliders(enemyColor);
-		long diagSlidersBitboard = bitBoards.getDiagonalSliders(enemyColor);
-
-		if (orthoSlidersBitboard != 0 && (PrecomputedMagicNumbers.getRookMoves(friendlyKingIndex, allPiecesBitboard)
-				& orthoSlidersBitboard) != 0)
-			return true;
-
-		if (diagSlidersBitboard != 0 && (PrecomputedMagicNumbers.getBishopMoves(friendlyKingIndex, allPiecesBitboard)
-				& diagSlidersBitboard) != 0)
-			return true;
-
-		long enemyKnightsBitboard = bitBoards.pieceBoards[PieceHelper.KNIGHT | enemyColor];
-
-		if ((PrecomputedData.KNIGHT_MOVES[friendlyKingIndex] & enemyKnightsBitboard) != 0)
-			return true;
-
-		long potentialPawnLocations = PrecomputedData.getPawnCaptures(friendlyKingIndex, colorToMove);
-		long enemyPawnsBitboard = bitBoards.pieceBoards[PieceHelper.PAWN | enemyColor];
-
-		if ((potentialPawnLocations & enemyPawnsBitboard) != 0)
-			return true;
-
-		return false;
-	}
-
+	
 	public byte movePiece(final short move)
 	{
 		final int start = MoveHelper.getStartIndex(move);
@@ -235,6 +188,25 @@ public class Board
 		return capturedPiece; // return the captured piece
 	}
 	
+	public void makeNullMove()
+	{
+		// flip side to move
+		colorToMove ^= PieceHelper.BLACK;
+		zobristHash ^= zobristHashes[ZOBRIST_COLOR_INDEX];
+		// most likely not needed, but stops any weird behavior with en passant early
+		// e.g. white pawn double pushes offering en passant square and then null move occurs
+		// neighboring white pawn still on 2nd rank sees EP square as valid EP capture square
+		// white pawn captures its own white pawn via EP... simply avoid that mess
+		enPassantIndex = -1;
+	}
+	
+	public void undoNullMove(long zobristHash, short [] boardInfoOld)
+	{
+		colorToMove ^= PieceHelper.BLACK;
+		this.zobristHash = zobristHash;
+		unpackBoardInfo(boardInfoOld);
+	}
+	
 	public void moveBack(final short move, final byte captured, long zobristHash, long pawnsHash, short [] boardInfoOld)
 	{
 		this.zobristHash = zobristHash;
@@ -292,6 +264,53 @@ public class Board
 		}
 
 		isCachedCheckValid = false;
+	}
+	
+	public boolean inCheck()
+	{
+		if (isCachedCheckValid)
+			return cachedCheckValue;
+		else
+		{
+			cachedCheckValue = isInCheck();
+			isCachedCheckValid = true;
+			return cachedCheckValue;
+		}
+	}
+
+	private boolean isInCheck()
+	{
+		byte enemyColor = (byte) (colorToMove ^ PieceHelper.BLACK);
+
+		int friendlyKingIndex = Bitboards.getLSB(bitBoards.pieceBoards[PieceHelper.KING | colorToMove]);
+
+		long friendlyPiecesBitboard = bitBoards.colorBoards[colorToMove];
+		long enemyPiecesBitboard = bitBoards.colorBoards[enemyColor];
+		long allPiecesBitboard = friendlyPiecesBitboard | enemyPiecesBitboard;
+
+		long orthoSlidersBitboard = bitBoards.getOrthogonalSliders(enemyColor);
+		long diagSlidersBitboard = bitBoards.getDiagonalSliders(enemyColor);
+
+		if (orthoSlidersBitboard != 0 && (PrecomputedMagicNumbers.getRookMoves(friendlyKingIndex, allPiecesBitboard)
+				& orthoSlidersBitboard) != 0)
+			return true;
+
+		if (diagSlidersBitboard != 0 && (PrecomputedMagicNumbers.getBishopMoves(friendlyKingIndex, allPiecesBitboard)
+				& diagSlidersBitboard) != 0)
+			return true;
+
+		long enemyKnightsBitboard = bitBoards.pieceBoards[PieceHelper.KNIGHT | enemyColor];
+
+		if ((PrecomputedData.KNIGHT_MOVES[friendlyKingIndex] & enemyKnightsBitboard) != 0)
+			return true;
+
+		long potentialPawnLocations = PrecomputedData.getPawnCaptures(friendlyKingIndex, colorToMove);
+		long enemyPawnsBitboard = bitBoards.pieceBoards[PieceHelper.PAWN | enemyColor];
+
+		if ((potentialPawnLocations & enemyPawnsBitboard) != 0)
+			return true;
+
+		return false;
 	}
 	
 	public short[] packBoardInfo()
