@@ -3,20 +3,18 @@ package me.Shadow.Engine;
 public class MoveSearcher
 {
 	static final int MAX_DEPTH = 64;
-	static final int MAX_PV_LENGTH = 2*MAX_DEPTH;
-	
+	static final int MAX_PV_LENGTH = 2 * MAX_DEPTH;
+
 	// ~16.6 million (fits evenly in move ordering)
 	static final int MAX_HIST_SCORE = (1 << 24);
 
 	static final int positiveInfinity = 0x3FFF;
 	static final int negativeInfinity = -positiveInfinity;
-	
+
 	static final short PV_NODE = 0;
 	static final short CUT_NODE = 1;
 	static final short ALL_NODE = 2;
-	static final short UNKNOWN_NODE = 3;
-
-	short bestMove;
+	static final short UNK_NODE = ALL_NODE;
 
 	boolean searchCancelled;
 
@@ -26,7 +24,7 @@ public class MoveSearcher
 	private MoveOrderer moveOrderer;
 	private TranspositionTable transpositionTable;
 	private short[] moves;
-	
+
 	private SearcherStats currentStats;
 
 	public MoveSearcher(Board board)
@@ -37,365 +35,186 @@ public class MoveSearcher
 		moveOrderer = new MoveOrderer(board, moves);
 		transpositionTable = new TranspositionTable();
 		evaluator = new Evaluation(board, transpositionTable);
-		bestMove = MoveHelper.NULL_MOVE;
 	}
 
 	public short startSearch()
 	{
 		return startSearchDepth(MAX_DEPTH);
 	}
-	
+
 	public short startSearchDepth(int searchDepth)
 	{
 		// bookkeping to ensure search doesn't go infinite by accident
 		searchDepth = Math.min(searchDepth, MAX_DEPTH);
 		searchDepth = Math.max(searchDepth, 0);
-		
+
 		searchCancelled = false;
 
 		// clearSearchStats();
-		bestMove = MoveHelper.NULL_MOVE;
 		moveOrderer.clearHistoryHeuristic();
 		moveOrderer.clearKillers();
 		int depth = 0;
 		int eval = 0;
-		
-		short [] pvLine = new short[MAX_PV_LENGTH];
-		
+		short bestMove = MoveHelper.NULL_MOVE;
+
+		short[] pvLine = new short[MAX_PV_LENGTH];
+
 		do
 		{
 			depth++;
-			
+
 			long time = System.currentTimeMillis();
 			currentStats = new SearcherStats();
+
+			SearchContext context = new SearchContext();
+			context.setAlphaBetaParams(depth, 0, negativeInfinity, positiveInfinity);
+			context.setBestEvalMoveParams(negativeInfinity, bestMove, pvLine, UNK_NODE);
+			context.setBoardInfoParams(board.zobristHash, board.pawnsHash, board.packBoardInfo());
+			context.setMovesParams(0, 0, 0);
+
+			eval = search(context);
 			
-			eval = rootSearch(depth, negativeInfinity, positiveInfinity, pvLine);
-			
+			bestMove = context.bestMove;
+
 			currentStats.depth = depth;
 			currentStats.evaluation = eval;
 			currentStats.move = bestMove;
 			currentStats.pvLine = pvLine;
 			currentStats.time = System.currentTimeMillis() - time;
-			
-			currentStats.printSearchStats();
+
+			//currentStats.printSearchStats();
 
 			if (eval >= (positiveInfinity - depth))
 			{
-				//System.out.println("Forced mate for engine found");
+				// System.out.println("Forced mate for engine found");
 				break;
 			}
 			else if (eval <= (negativeInfinity + depth))
 			{
-				//System.out.println("Forced mate against engine found");
+				// System.out.println("Forced mate against engine found");
 				break;
 			}
 		}
 		while (!searchCancelled && depth < searchDepth);
-		
+
 		return bestMove;
 	}
 
-	public int rootSearch(final int depth, int alpha, final int beta, short [] pvLine)
+	public int search(SearchContext context)
 	{
-		currentStats.nodes++;
-		
-		int numMoves = moveGen.generateMoves(MoveGenerator.ALL_MOVES, 0);
-
-		// checkmate/stalemate
-		if (numMoves == 0)
-			return moveGen.inCheck() ? negativeInfinity : 0;
-
-		moveOrderer.guessMoveEvals(pvLine[0], bestMove, false, 0, 0, numMoves);
-		
-		int bound = ALL_NODE;
-		long zobristHash = board.zobristHash;
-		long pawnsHash = board.pawnsHash;
-		short[] boardInfoOld = board.packBoardInfo();
-		int bestEval = negativeInfinity;
-		for (int i = 0; i < numMoves; i++)
-		{
-			moveOrderer.singleSelectionSort(i, numMoves);
-
-			final short move = moves[i];
-
-			int evaluation = searchMove(move, alpha, beta, depth, 0, i, zobristHash, pawnsHash, boardInfoOld, numMoves, pvLine);
-
-			if (searchCancelled)
-			{
-				if (bestMove == MoveHelper.NULL_MOVE)
-					bestMove = move;
-				return evaluation;
-			}
-
-			if (evaluation >= beta)
-			{
-				currentStats.cutNodes++;
-				currentStats.betaCuts++;
-				if (i == 0) currentStats.betaFirstMoveCuts++;
-				if (MoveHelper.isCapture(board, move))
-				{
-					currentStats.betaCutCaptures++;
-					if (i == 0) currentStats.betaFirstMoveCaptures++;
-				}
-				else
-				{
-					currentStats.betaCutQuiets++;
-					if (i == 0) currentStats.betaFirstMoveQuiets++;
-				}
-				
-				currentStats.movesSearched += i + 1;
-				currentStats.cutNodeMovesSearched += i + 1;
-				currentStats.betaCutPriorMoves += i;
-				
-				// move was too good so opponent will avoid this branch
-				transpositionTable.storeEvaluation(board.zobristHash, evaluation, depth, CUT_NODE,
-						move);
-				
-				// fail soft
-				return evaluation;
-			}
-			
-			bestEval = Math.max(evaluation, bestEval);
-			
-			if (evaluation > alpha)
-			{
-				currentStats.raiseAlphaMoves++;
-				if (MoveHelper.isCapture(board, move))
-				{
-					currentStats.raiseAlphaCaptures++;
-				}
-				else
-				{
-					currentStats.raiseAlphaQuiets++;
-				}
-				
-				bound = PV_NODE;
-				alpha = evaluation;
-
-				bestMove = move;
-			}
-		}
-		
-		currentStats.movesSearched += numMoves;
-		if (bound == ALL_NODE)
-		{
-			currentStats.allNodes++;
-			currentStats.allNodeMovesSearched += numMoves;
-		}
-		else
-		{
-			currentStats.pvNodes++;
-			currentStats.pvNodeMovesSearched += numMoves;
-		}
-		
-		// store fail soft
-		transpositionTable.storeEvaluation(board.zobristHash, bestEval, depth, bound, bestMove);
-
-		// fail soft
-		return bestEval;
-	}
-
-	public int search(final int depth, final int plyFromRoot, int alpha, int beta, int moveIndex, short [] pvLine)
-	{
-		if (searchCancelled)
+		if (context.plyFromRoot > 0 && searchCancelled)
 			return 0;
 
-		if (isDuplicatePosition() || board.halfMoves >= 100)
+		if (context.plyFromRoot > 0 && (isDuplicatePosition() || board.halfMoves >= 100))
 		{
 			return 0;
 		}
-		
-		if (depth == 0)
-			return searchCaptures(alpha, beta, moveIndex);
-		
+
+		if (context.depth == 0)
+			return searchCaptures(context.alpha, context.beta, context.movesStartIndex);
+
 		currentStats.nodes++;
 
-		long zobristHash = board.zobristHash;
-		short bestMoveInPosition = MoveHelper.NULL_MOVE;
-		short[] transposition = transpositionTable.getEntry(zobristHash);
-
-		if (transposition != null)
+		short[] transposition = transpositionTable.getEntry(context.zobristHash);
+		if (context.plyFromRoot > 0 && transposition != null)
 		{
-			bestMoveInPosition = transposition[TranspositionTable.MOVE_INDEX];
-			if (transposition[TranspositionTable.DEPTH_INDEX] >= depth)
+			context.bestMove = transposition[TranspositionTable.MOVE_INDEX];
+			if (transposition[TranspositionTable.DEPTH_INDEX] >= context.depth)
 			{
-				
+
 				short bound = transposition[TranspositionTable.BOUND_INDEX];
 				short eval = transposition[TranspositionTable.EVAL_INDEX];
 				if (bound == PV_NODE)
 				{
 					currentStats.pvNodes++;
-					pvLine[plyFromRoot] = bestMoveInPosition;
+					context.pvLine[context.plyFromRoot] = context.bestMove;
 					return transposition[TranspositionTable.EVAL_INDEX];
 				}
 				else if (bound == CUT_NODE)
 				{
-					if (eval >= beta)
+					if (eval >= context.beta)
 					{
 						currentStats.cutNodes++;
 						currentStats.betaCuts++;
 						currentStats.betaCutTT++;
-						
+
 						// fail soft
 						return eval;
 					}
 					else
-						alpha = Math.max(alpha, eval);
+					{
+						context.alpha = Math.max(context.alpha, eval);
+					}
 				}
 				else if (bound == ALL_NODE)
 				{
-					if (eval <= alpha)
+					if (eval <= context.alpha)
 					{
 						currentStats.allNodes++;
-						
+
 						// fail soft
 						return eval;
 					}
 					else
-						beta = Math.max(beta, eval);
+						context.beta = Math.min(context.beta, eval);
 				}
 			}
 		}
 		
-		int bound = ALL_NODE;
-		boolean searchedFirst = false;
-		long pawnsHash = board.pawnsHash;
-		short[] boardInfoOld = board.packBoardInfo();
-		int bestEval = negativeInfinity;
-
-		if (bestMoveInPosition != MoveHelper.NULL_MOVE)
+		if (context.plyFromRoot > 0 && context.bestMove != MoveHelper.NULL_MOVE)
 		{
-			searchedFirst = true;
-
-			int evaluation = searchMove(bestMoveInPosition, alpha, beta, depth, plyFromRoot, 0, zobristHash, pawnsHash,
-					boardInfoOld, moveIndex, pvLine);
+			searchMove(context.bestMove, context, context.movesStartIndex);
 
 			if (searchCancelled)
-				return evaluation;
-			
-			bestEval = evaluation;
+				return 0;
 
-			if (evaluation >= beta)
+			if (context.bestEval >= context.beta)
 			{
-				currentStats.cutNodes++;
-				currentStats.betaCuts++;
-				currentStats.betaPreMoveGenCuts++;
-				if (MoveHelper.isCapture(board, bestMoveInPosition))
-				{
-					currentStats.betaCutCaptures++;
-					currentStats.betaPreMoveGenCaptures++;
-				}
-				else
-				{
-					currentStats.betaCutQuiets++;
-					currentStats.betaPreMoveGenQuiets++;
-				}
-				
-				currentStats.movesSearched += 1;
-				currentStats.cutNodeMovesSearched += 1;
-				currentStats.betaCutPriorMoves += 0;
-				
-				// move was too good so opponent will avoid this branch
-				// store fail soft
-				transpositionTable.storeEvaluation(zobristHash, evaluation, depth, CUT_NODE,
-						bestMoveInPosition);
-
 				// fail soft
-				return evaluation;
-			}
-			
-			if (evaluation > alpha)
-			{
-				currentStats.raiseAlphaMoves++;
-				if (MoveHelper.isCapture(board, bestMoveInPosition))
-				{
-					currentStats.raiseAlphaCaptures++;
-				}
-				else
-				{
-					currentStats.raiseAlphaQuiets++;
-				}
-								
-				bound = PV_NODE;
-				alpha = evaluation;
+				return context.bestEval;
 			}
 		}
-
-		int numMoves = moveGen.generateMoves(MoveGenerator.ALL_MOVES, moveIndex);
+		
+		int numMoves = moveGen.generateMoves(MoveGenerator.ALL_MOVES, context.movesStartIndex);
 
 		// checkmate/stalemate
 		if (numMoves == 0)
 			return moveGen.inCheck() ? negativeInfinity : 0;
-
-		// ensure the potentially first searched move gets boosted to top with highest
-		// score
-		moveOrderer.guessMoveEvals(pvLine[plyFromRoot], bestMoveInPosition, false, plyFromRoot, moveIndex, numMoves);
+		
+		//if searched a move already, push it to top
+		moveOrderer.guessMoveEvals(context.pvLine[context.plyFromRoot], context.bestMove, false, context.plyFromRoot, context.movesStartIndex, numMoves);
+		
 		// push the first searched move to the top (guaranteed to be highest score)
-		if (searchedFirst)
-			moveOrderer.singleSelectionSort(moveIndex, moveIndex + numMoves);
+		if (context.numMovesSearched > 0)
+		{
+			moveOrderer.singleSelectionSort(context.movesStartIndex, context.movesStartIndex + numMoves);
+		}
 
 		// ignore first move if we already searched it
-		for (int i = moveIndex + (searchedFirst ? 1 : 0); i < (moveIndex + numMoves); i++)
+		for (int i = context.movesStartIndex + context.numMovesSearched; i < (context.movesStartIndex + numMoves); i++)
 		{
-			moveOrderer.singleSelectionSort(i, moveIndex + numMoves);
+			moveOrderer.singleSelectionSort(i, context.movesStartIndex + numMoves);
 
 			final short move = moves[i];
-
-			int evaluation = searchMove(move, alpha, beta, depth, plyFromRoot, i - moveIndex, zobristHash, pawnsHash,
-					boardInfoOld, moveIndex + numMoves, pvLine);
+			
+			searchMove(move, context, context.movesStartIndex + numMoves);
 
 			if (searchCancelled)
-				return evaluation;
-
-			if (evaluation >= beta)
 			{
-				currentStats.cutNodes++;
-				currentStats.betaCuts++;
-				if (i == moveIndex) currentStats.betaFirstMoveCuts++;
-				if (MoveHelper.isCapture(board, move))
-				{
-					currentStats.betaCutCaptures++;
-					if (i == moveIndex) currentStats.betaFirstMoveCaptures++;
-				}
-				else
-				{
-					currentStats.betaCutQuiets++;
-					if (i == moveIndex) currentStats.betaFirstMoveQuiets++;
-				}
-				
-				currentStats.movesSearched += i - moveIndex + 1;
-				currentStats.cutNodeMovesSearched += i - moveIndex + 1;
-				currentStats.betaCutPriorMoves += i - moveIndex;
-				
-				// move was too good so opponent will avoid this branch
-				// store fail soft
-				transpositionTable.storeEvaluation(zobristHash, evaluation, depth, CUT_NODE, move);
-				// fail soft
-				return evaluation;
+				if (context.plyFromRoot == 0 && context.bestMove == MoveHelper.NULL_MOVE)
+					context.bestMove = move;
+				return 0;
 			}
 			
-			bestEval = Math.max(evaluation, bestEval);
-			
-			if (evaluation > alpha)
+			if (context.bestEval >= context.beta)
 			{
-				currentStats.raiseAlphaMoves++;
-				if (MoveHelper.isCapture(board, move))
-				{
-					currentStats.raiseAlphaCaptures++;
-				}
-				else
-				{
-					currentStats.raiseAlphaQuiets++;
-				}
-				
-				bound = PV_NODE;
-				alpha = evaluation;
-				bestMoveInPosition = move;
+				// fail soft
+				return context.bestEval;
 			}
 		}
-		
+
 		currentStats.movesSearched += numMoves;
-		if (bound == ALL_NODE)
+		if (context.nodeType == ALL_NODE || context.nodeType == UNK_NODE)
 		{
 			currentStats.allNodes++;
 			currentStats.allNodeMovesSearched += numMoves;
@@ -407,43 +226,54 @@ public class MoveSearcher
 		}
 
 		// store fail soft
-		transpositionTable.storeEvaluation(zobristHash, bestEval, depth, bound, bestMoveInPosition);
+		transpositionTable.storeEvaluation(context.zobristHash, context.bestEval, context.depth, context.nodeType,
+				context.bestMove);
 
 		// fail soft
-		return bestEval;
+		return context.bestEval;
 	}
 
-	public int searchMove(short move, int alpha, int beta, int depth, int plyFromRoot, int moveNum, long zobristHash, long pawnsHash, short[] boardInfoOld, int moveIndex, short [] pvLine)
+	public void searchMove(short move, SearchContext context, int nextMoveGenIndex)
 	{
+		context.numMovesSearched++;
+
 		final byte captured = board.movePiece(move);
+
+		short[] continuedPvLine = new short[MAX_PV_LENGTH];
+
+		SearchContext newContext = new SearchContext();
+		newContext.setAlphaBetaParams(context.depth - 1, context.plyFromRoot + 1, -context.beta, -context.alpha);
+		// TODO: set expected child node type based on parent type
+		newContext.setBestEvalMoveParams(negativeInfinity, MoveHelper.NULL_MOVE, continuedPvLine, UNK_NODE);
+		newContext.setBoardInfoParams(board.zobristHash, board.pawnsHash, board.packBoardInfo());
+		newContext.setMovesParams(0, context.numExtensions, nextMoveGenIndex);
 		
-		int searchDepth = calculateSearchDepth(move, captured, depth, moveNum);
-		short [] continuedPvLine = new short[MAX_PV_LENGTH];
+		searchExtensionsReductions(move, captured, context, newContext);
 
-		int evaluation = -(search(searchDepth, plyFromRoot + 1, -beta, -alpha, moveIndex, continuedPvLine));
+		int evaluation = -(search(newContext));
 
-		board.moveBack(move, captured, zobristHash, pawnsHash, boardInfoOld);
+		board.moveBack(move, captured, context.zobristHash, context.pawnsHash, context.boardInfo);
 
-		if (evaluation > (positiveInfinity - depth) || evaluation < (negativeInfinity + depth))
+		if (evaluation > (positiveInfinity - context.depth) || evaluation < (negativeInfinity + context.depth))
 			evaluation += ((evaluation > 0) ? -1 : 1);
+		
+		context.bestEval = Math.max(evaluation, context.bestEval);
 
-		if (searchCancelled)
-			return 0;
-
-		if (evaluation >= beta)
+		if (evaluation >= context.beta)
 		{
 			if (captured == PieceHelper.NONE) // ignore captures for killer moves
 			{
-				if (plyFromRoot < MoveOrderer.maxKillerDepth)
+				if (context.plyFromRoot < MoveOrderer.maxKillerDepth)
 				{
-					moveOrderer.addKiller(move, plyFromRoot);
+					moveOrderer.addKiller(move, context.plyFromRoot);
 				}
 
 				// keep start/target square and add color to move for index
-				//int index = (move & 0xFFF) | (board.colorToMove << 12);
-				int index = (board.squares[MoveHelper.getStartIndex(move)] << 6) | MoveHelper.getTargetIndex(move);
-				moveOrderer.historyHeuristic[index] += depth * depth;
-				
+				int index = (move & 0xFFF) | (board.colorToMove << 12);
+				// int index = (board.squares[MoveHelper.getStartIndex(move)] << 6) |
+				// MoveHelper.getTargetIndex(move);
+				moveOrderer.historyHeuristic[index] += context.depth * context.depth;
+
 				if (moveOrderer.historyHeuristic[index] >= MAX_HIST_SCORE)
 				{
 					for (int i = 0; i < moveOrderer.historyHeuristic.length; i++)
@@ -455,48 +285,98 @@ public class MoveSearcher
 					}
 				}
 			}
-		}
-		else if (evaluation > alpha)
-		{
-			pvLine[plyFromRoot] = move;
-			for (int i = plyFromRoot + 1; i < continuedPvLine.length; i++)
+
+			currentStats.cutNodes++;
+			currentStats.betaCuts++;
+			if (context.numMovesSearched == 0)
+				currentStats.betaFirstMoveCuts++;
+
+			if (MoveHelper.isCapture(board, move))
 			{
-				if (continuedPvLine[i] != MoveHelper.NULL_MOVE) pvLine[i] = continuedPvLine[i];
+				currentStats.betaCutCaptures++;
+				if (context.numMovesSearched == 0)
+					currentStats.betaFirstMoveCaptures++;
+			}
+			else
+			{
+				currentStats.betaCutQuiets++;
+				if (context.numMovesSearched == 0)
+					currentStats.betaFirstMoveQuiets++;
+			}
+
+			currentStats.movesSearched += context.numMovesSearched;
+			currentStats.cutNodeMovesSearched += context.numMovesSearched;
+			currentStats.betaCutPriorMoves += context.numMovesSearched - 1;
+
+			context.nodeType = CUT_NODE;
+
+			// move was too good so opponent will avoid this branch
+			// store fail soft
+			transpositionTable.storeEvaluation(board.zobristHash, evaluation, context.depth, context.nodeType, move);
+		}
+		else if (evaluation > context.alpha)
+		{
+			currentStats.raiseAlphaMoves++;
+			if (MoveHelper.isCapture(board, move))
+			{
+				currentStats.raiseAlphaCaptures++;
+			}
+			else
+			{
+				currentStats.raiseAlphaQuiets++;
+			}
+
+			context.nodeType = PV_NODE;
+			context.alpha = evaluation;
+			context.bestMove = move;
+			
+			context.pvLine[context.plyFromRoot] = move;
+			for (int i = context.plyFromRoot + 1; i < continuedPvLine.length; i++)
+			{
+				if (continuedPvLine[i] != MoveHelper.NULL_MOVE)
+					context.pvLine[i] = continuedPvLine[i];
 				else
 				{
-					pvLine[i] = MoveHelper.NULL_MOVE;
+					context.pvLine[i] = MoveHelper.NULL_MOVE;
 					break;
 				}
 			}
 		}
-
-		return evaluation;
 	}
 
-	public int calculateSearchDepth(short move, int captured, int depth, int moveNum)
+	public void searchExtensionsReductions(short move, int captured, SearchContext parentContext, SearchContext childContext)
 	{
-		// base case, no extensions or reductions
-		//return depth - 1;
-		
-		depth--;
-		//if (board.inCheck())
-			//depth++;
-		
-		// give bonus to a pawn moving to one square from promotion
-		// maybe change this just to a promotion move itself
-		
-		/*
-		int target = MoveHelper.getTargetIndex(move);
-		if (((board.squares[target] & PieceHelper.TYPE_MASK) == PieceHelper.PAWN)
-				&& (Utils.getSquareRank(target) == 2 || Utils.getSquareRank(target) == 7))
+		if (childContext.numExtensions < 3)
 		{
-			return depth + 1;
+			if (board.inCheck())
+			{
+				childContext.numExtensions++;
+				childContext.depth++;
+				// do not extend and reduce at the same node
+				return;
+			}
+			else
+			{
+				// give bonus to a pawn moving to one square from promotion
+				// maybe change this just to a promotion move itself
+				int target = MoveHelper.getTargetIndex(move);
+				if (((board.squares[target] & PieceHelper.TYPE_MASK) == PieceHelper.PAWN)
+						&& (Utils.getSquareRank(target) == 2 || Utils.getSquareRank(target) == 7))
+				{
+					childContext.numExtensions++;
+					childContext.depth++;
+					// do not extend and reduce at the same node
+					return;
+				}
+			}
 		}
-		*/
 		
-		if (moveNum >= 3 && captured == PieceHelper.NONE && depth >= 2) depth--;
-		
-		return Math.max(depth, 0);
+		if (parentContext.numMovesSearched >= 3 && captured == PieceHelper.NONE && childContext.depth >= 2)
+		{
+			// avoid negative search depths
+			// TODO: Not necessary due to already checked depth condition
+			childContext.depth = Math.max(0, childContext.depth - 1);
+		}
 	}
 
 	public int searchCaptures(int alpha, int beta, int moveIndex)
@@ -507,10 +387,11 @@ public class MoveSearcher
 		long zobristHash = board.zobristHash;
 		short bestMoveInPosition = MoveHelper.NULL_MOVE;
 		short[] transposition = transpositionTable.getEntry(zobristHash);
+		int bestEval = negativeInfinity;
 
 		if (transposition != null)
 		{
-			// transposition depth is always greater than 0
+			// transposition depth is always greater than equal 0
 			bestMoveInPosition = transposition[TranspositionTable.MOVE_INDEX];
 			short bound = transposition[TranspositionTable.BOUND_INDEX];
 			short eval = transposition[TranspositionTable.EVAL_INDEX];
@@ -524,7 +405,9 @@ public class MoveSearcher
 				if (eval >= beta)
 					return eval;
 				else
+				{
 					alpha = Math.max(alpha, eval);
+				}
 			}
 			else if (bound == ALL_NODE)
 			{
@@ -532,7 +415,7 @@ public class MoveSearcher
 				if (eval <= alpha)
 					return eval;
 				else
-					beta = Math.max(beta, eval);
+					beta = Math.min(beta, eval);
 			}
 		}
 
@@ -544,7 +427,8 @@ public class MoveSearcher
 			// fail soft
 			return evaluation;
 		}
-		
+
+		bestEval = Math.max(bestEval, evaluation);
 		alpha = Math.max(alpha, evaluation);
 
 		int numMoves = moveGen.generateMoves(MoveGenerator.CAPTURES_ONLY, moveIndex);
@@ -573,11 +457,12 @@ public class MoveSearcher
 				// move was too good so opponent will avoid this branch
 				return evaluation;
 			}
+			bestEval = Math.max(evaluation, bestEval);
 			alpha = Math.max(alpha, evaluation);
 		}
 
 		// fail soft
-		return evaluation;
+		return bestEval;
 	}
 
 	public boolean isDuplicatePosition()
@@ -597,54 +482,128 @@ public class MoveSearcher
 	{
 		searchCancelled = true;
 	}
-	
+
+	class SearchContext
+	{
+		int depth, plyFromRoot;
+		int alpha, beta;
+		
+		int bestEval;
+		short bestMove;
+		short[] pvLine;
+		int nodeType;
+		
+		long zobristHash;
+		long pawnsHash;
+		short[] boardInfo;
+
+		int numMovesSearched;
+		int numExtensions;
+		int movesStartIndex;
+
+		public SearchContext()
+		{
+			setAlphaBetaParams(0, 0, negativeInfinity, positiveInfinity);
+			setBestEvalMoveParams(negativeInfinity, MoveHelper.NULL_MOVE, null, UNK_NODE);
+			setBoardInfoParams(0, 0, null);
+			setMovesParams(0, 0, 0);
+		}
+
+		public SearchContext(int depth, int plyFromRoot, int bestEval, short bestMove, int alpha, int beta,
+				short[] pvLine, long zobristHash, long pawnsHash, short[] boardInfo, int numMovesSearched, int numExtensions, 
+				int movesStartIndex, int nodeType)
+		{
+			setAlphaBetaParams(depth, plyFromRoot, alpha, beta);
+			setBestEvalMoveParams(bestEval, bestMove, pvLine, nodeType);
+			setBoardInfoParams(zobristHash, pawnsHash, boardInfo);
+			setMovesParams(numMovesSearched, numExtensions, movesStartIndex);
+		}
+
+		public void setAlphaBetaParams(int depth, int plyFromRoot, int alpha, int beta)
+		{
+			this.depth = depth;
+			this.plyFromRoot = plyFromRoot;
+			this.alpha = alpha;
+			this.beta = beta;
+		}
+
+		public void setBestEvalMoveParams(int bestEval, short bestMove, short[] pvLine, int nodeType)
+		{
+			this.bestEval = bestEval;
+			this.bestMove = bestMove;
+			this.pvLine = pvLine;
+			this.nodeType = nodeType;
+		}
+
+		public void setBoardInfoParams(long zobristHash, long pawnsHash, short[] boardInfo)
+		{
+			this.zobristHash = zobristHash;
+			this.pawnsHash = pawnsHash;
+			this.boardInfo = boardInfo;
+		}
+		
+		public void setMovesParams(int numMovesSearched, int numExtensions, int movesStartIndex)
+		{
+			this.numMovesSearched = numMovesSearched;
+			this.numExtensions = 0;
+			this.movesStartIndex = movesStartIndex;
+		}
+	}
+
 	class SearcherStats
 	{
 		int depth, evaluation;
 		short move;
-		short [] pvLine;
+		short[] pvLine;
 		long time;
-		
+
 		int ttLookups;
 		int ttHits;
 		int ttMisses, ttDepthLow;
-		
+
 		// done
 		int betaCuts, betaCutTT, betaCutCaptures, betaCutQuiets;
-		
+
 		// done
 		int betaPreMoveGenCuts, betaPreMoveGenCaptures, betaPreMoveGenQuiets;
-		
+
 		// done
 		int betaFirstMoveCuts, betaFirstMoveCaptures, betaFirstMoveQuiets;
-		
-		
+
 		int betaCutPriorMoves, betaCutPriorCaptures, betaCutPriorQuiets;
-		
+
 		// done
 		int raiseAlphaMoves, raiseAlphaCaptures, raiseAlphaQuiets;
-		
+
 		// done
 		int nodes, pvNodes, cutNodes, allNodes;
-		
+
 		// done
 		int movesSearched, pvNodeMovesSearched, cutNodeMovesSearched, allNodeMovesSearched;
-		
+
 		public void printSearchStats()
 		{
-			System.out.println("+------------------------------------------------------------------------------------------------------------------------+");
+			System.out.println(
+					"+------------------------------------------------------------------------------------------------------------------------+");
 			System.out.println("Search completed to depth " + depth + " with evaluation " + evaluation);
 			System.out.println("Best Move " + MoveHelper.toString(move) + " found in " + time + " ms");
 			System.out.println(getPvLine());
-			System.out.println(nodes + " Nodes Searched -- " + pvNodes + " PV Nodes -- " + cutNodes + " Cut Nodes -- " + allNodes + " All Nodes");
-			System.out.println(movesSearched + " Moves Searched -- " + pvNodeMovesSearched + " PV Node Moves -- " + cutNodeMovesSearched + " Cut Node Moves -- " + allNodeMovesSearched + " All Node Moves");
-			System.out.println(betaCuts + " # Beta Cuts -- " + betaCutTT + " TT Cuts -- " + betaCutCaptures + " Captures -- " + betaCutQuiets + " Quiets");
-			System.out.println(betaPreMoveGenCuts + " # Beta Cuts Pre MoveGen -- " + betaPreMoveGenCaptures + " Captures -- " + betaPreMoveGenQuiets + " Quiets");
-			System.out.println(betaFirstMoveCuts + " # Beta Cuts First Move -- " + betaFirstMoveCaptures + " Captures -- " + betaFirstMoveQuiets + " Quiets");
-			System.out.println(raiseAlphaMoves + " # Moves Raising Alpha -- " + raiseAlphaCaptures + " Captures -- " + raiseAlphaQuiets + " Quiets");
-			System.out.println("+------------------------------------------------------------------------------------------------------------------------+\n");
+			System.out.println(nodes + " Nodes Searched -- " + pvNodes + " PV Nodes -- " + cutNodes + " Cut Nodes -- "
+					+ allNodes + " All Nodes");
+			System.out.println(movesSearched + " Moves Searched -- " + pvNodeMovesSearched + " PV Node Moves -- "
+					+ cutNodeMovesSearched + " Cut Node Moves -- " + allNodeMovesSearched + " All Node Moves");
+			System.out.println(betaCuts + " # Beta Cuts -- " + betaCutTT + " TT Cuts -- " + betaCutCaptures
+					+ " Captures -- " + betaCutQuiets + " Quiets");
+			System.out.println(betaPreMoveGenCuts + " # Beta Cuts Pre MoveGen -- " + betaPreMoveGenCaptures
+					+ " Captures -- " + betaPreMoveGenQuiets + " Quiets");
+			System.out.println(betaFirstMoveCuts + " # Beta Cuts First Move -- " + betaFirstMoveCaptures
+					+ " Captures -- " + betaFirstMoveQuiets + " Quiets");
+			System.out.println(raiseAlphaMoves + " # Moves Raising Alpha -- " + raiseAlphaCaptures + " Captures -- "
+					+ raiseAlphaQuiets + " Quiets");
+			System.out.println(
+					"+------------------------------------------------------------------------------------------------------------------------+\n");
 		}
-		
+
 		public String getPvLine()
 		{
 			String pvLine = "PV Line: ";
@@ -654,7 +613,8 @@ public class MoveSearcher
 				{
 					pvLine += MoveHelper.toString(move) + " ";
 				}
-				else break;
+				else
+					break;
 			}
 			return pvLine;
 		}

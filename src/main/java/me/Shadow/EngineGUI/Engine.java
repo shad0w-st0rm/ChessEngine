@@ -56,7 +56,7 @@ public class Engine
 		//Perft.runPerftSuite(5);
 		//Perft.runPerft("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 ;D5 4865609 ;D6 119060324 ;D7 3195901860 ;D8 84998978956");
 		//EvaluationTester.evalTest(Perft.perftsExtended);
-		//BestMoveTester.runBestMoveSuite(100, 400, 2.0f, false, false);
+		BestMoveTester.runBestMoveSuite(30 * 1000, 32 * 60 * 1000, 2.0f, false, true);
 		//MoveGenerationTester.testCapturesSuite(Perft.perftsExtended);
 		//MoveOrdererTester.testSEESuite();
 		

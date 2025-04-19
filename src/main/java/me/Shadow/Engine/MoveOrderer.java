@@ -2,7 +2,7 @@ package me.Shadow.Engine;
 
 public class MoveOrderer
 {
-	public static final int MILLION = 1000000;
+	public static final int MILLION = 1_000_000;
 	
 	public static final int MAX_MOVE_BIAS = 2100 * MILLION;
 	public static final int HASH_MOVE_BIAS = 2050 * MILLION;
@@ -14,6 +14,8 @@ public class MoveOrderer
 	public static final int NO_BIAS = 850 * MILLION;
 
 	public static final int maxKillerDepth = 32;
+	
+	public static final int HIST_SIZE = 2 * 64 * 64;
 
 	Board board;
 	private int[] scores;
@@ -28,8 +30,7 @@ public class MoveOrderer
 		scores = new int[movesIn.length];
 
 		killers = new long[maxKillerDepth];
-		//historyHeuristic = new int[2 * 64 * 64];
-		historyHeuristic = new int[2 * 8 * 64];
+		historyHeuristic = new int[HIST_SIZE];
 	}
 
 	public void guessMoveEvals(short pvMove, short hashMove, final boolean inQSearch, final int ply, int startIndex, int numMoves)
@@ -38,7 +39,6 @@ public class MoveOrderer
 		for (int i = startIndex; i < (startIndex + numMoves); i++)
 		{
 			final short move = moves[i];
-
 			
 			if (move == hashMove)
 			{
@@ -47,7 +47,7 @@ public class MoveOrderer
 			}
 			else if (move == pvMove)
 			{
-				System.out.println(MoveHelper.toString(move));
+				//System.out.println(MoveHelper.toString(move));
 				scores[i] = PV_MOVE_BIAS;
 				continue;
 			}
@@ -110,8 +110,8 @@ public class MoveOrderer
 			{
 				evalGuess += NO_BIAS;
 				// keep start/target square and add color to move for index
-				//int index = (move & 0xFFF) | (PieceHelper.getColor(piece) << 12);
-				int index = (piece << 6) | target;
+				int index = (move & 0xFFF) | (PieceHelper.getColor(piece) << 12);
+				//int index = (piece << 6) | target;
 				evalGuess += 50 * historyHeuristic[index];
 			}
 			
@@ -241,7 +241,7 @@ public class MoveOrderer
 
 	public void clearHistoryHeuristic()
 	{
-		historyHeuristic = new int[2 * 64 * 64];
+		historyHeuristic = new int[HIST_SIZE];
 	}
 
 	public boolean isKiller(short move, int ply)
