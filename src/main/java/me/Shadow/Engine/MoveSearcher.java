@@ -242,7 +242,7 @@ public class MoveSearcher
 
 		final byte captured = board.movePiece(move);
 
-		short[] continuedPvLine = new short[MAX_PV_LENGTH];
+		
 		int childNodeType = UNK_NODE;
 		if (context.nodeType == ALL_NODE)
 			childNodeType = CUT_NODE;
@@ -257,24 +257,53 @@ public class MoveSearcher
 		}
 		else if (context.nodeType == UNK_NODE)
 			childNodeType = UNK_NODE;
+		
+		short[] continuedPvLine = new short[MAX_PV_LENGTH];
 
 		SearchContext newContext = new SearchContext();
-		newContext.setAlphaBetaParams(context.depth - 1, context.plyFromRoot + 1, -context.beta, -context.alpha);
-		// TODO: set expected child node type based on parent type
-		newContext.setBestEvalMoveParams(negativeInfinity, MoveHelper.NULL_MOVE, continuedPvLine, childNodeType);
+		newContext.setAlphaBetaParams(context.depth - 1, context.plyFromRoot + 1, -context.beta, -(context.alpha));
+		newContext.setBestEvalMoveParams(negativeInfinity, MoveHelper.NULL_MOVE, new short[MAX_PV_LENGTH], childNodeType);
 		newContext.setBoardInfoParams(board.zobristHash, board.pawnsHash, board.packBoardInfo());
 		newContext.setMovesParams(0, context.numExtensions, nextMoveGenIndex);
 
-		searchExtensionsReductions(move, captured, context, newContext);
-
-		int evaluation = -(search(newContext));
+		if (extendSearch(move, context))
+		{
+			newContext.numExtensions++;
+			newContext.depth++;
+		}
+		else if (canReduce(captured, context))
+		{
+			// TODO: more sophisticated reduction strategy
+			newContext.depth = Math.max(newContext.depth - 2, 0);
+			//newContext.depth--;
+		}
+		
+		int evaluation = 0;
+		
+		if (context.numMovesSearched == 0)
+		{
+			evaluation = -(search(newContext));
+		}
+		else
+		{
+			newContext.resetContext(newContext.depth, -(context.alpha + 1), -context.alpha, childNodeType);
+			newContext.isZeroWindow = true;
+			
+			evaluation = -(search(newContext));
+			
+			if (evaluation > context.alpha && (context.beta - context.alpha) > 1)
+			{
+				newContext.resetContext(newContext.depth, -context.beta, -context.alpha, childNodeType);
+				evaluation = -(search(newContext));
+			}
+		}
 
 		board.moveBack(move, captured, context.zobristHash, context.pawnsHash, context.boardInfo);
-
-		if (evaluation > (positiveInfinity - context.depth) || evaluation < (negativeInfinity + context.depth))
-			evaluation += ((evaluation > 0) ? -1 : 1);
 		
 		if (searchCancelled) return;
+		
+		if (evaluation > (positiveInfinity - context.depth) || evaluation < (negativeInfinity + context.depth))
+			evaluation += ((evaluation > 0) ? -1 : 1);
 
 		context.bestEval = Math.max(evaluation, context.bestEval);
 
@@ -325,63 +354,13 @@ public class MoveSearcher
 		return colorBoard != 0;
 	}
 
-	public void updateNodeType(SearchContext context)
+	public boolean extendSearch(short move, SearchContext context)
 	{
-		if (context.nodeType == PV_NODE && !context.raisedAlpha)
-		{
-			// handle expected PV node not raising alpha
-			currentStats.wrongPVNodes++;
-			context.nodeType = ALL_NODE;
-		}
-		else if (context.nodeType == CUT_NODE)
-		{
-			// handle a cut node not failing high
-			if (context.raisedAlpha)
-			{
-				currentStats.wrongCutNodesPV++;
-				context.nodeType = PV_NODE;
-			}
-			else
-			{
-				currentStats.wrongCutNodesAll++;
-				context.nodeType = ALL_NODE;
-			}
-		}
-		else if (context.nodeType == ALL_NODE && context.raisedAlpha)
-		{
-			// should not be possible
-			context.nodeType = PV_NODE;
-		}
-		else if (context.nodeType == UNK_NODE)
-		{
-			// should not be possible, UNK node is currently unused
-			context.nodeType = context.raisedAlpha ? PV_NODE : ALL_NODE;
-		}
-
-		currentStats.movesSearched += context.numMovesSearched;
-		if (context.nodeType == ALL_NODE)
-		{
-			currentStats.allNodes++;
-			currentStats.allNodeMovesSearched += context.numMovesSearched;
-		}
-		else
-		{
-			currentStats.pvNodes++;
-			currentStats.pvNodeMovesSearched += context.numMovesSearched;
-		}
-	}
-
-	public void searchExtensionsReductions(short move, int captured, SearchContext parentContext,
-			SearchContext childContext)
-	{
-		if (childContext.numExtensions < 3)
+		if (context.numExtensions < 3)
 		{
 			if (board.inCheck())
 			{
-				childContext.numExtensions++;
-				childContext.depth++;
-				// do not extend and reduce at the same node
-				return;
+				return true;
 			}
 			else
 			{
@@ -391,20 +370,21 @@ public class MoveSearcher
 				if (((board.squares[target] & PieceHelper.TYPE_MASK) == PieceHelper.PAWN)
 						&& (Utils.getSquareRank(target) == 2 || Utils.getSquareRank(target) == 7))
 				{
-					childContext.numExtensions++;
-					childContext.depth++;
 					// do not extend and reduce at the same node
-					return;
+					return true;
 				}
 			}
 		}
-
-		if (parentContext.numMovesSearched >= 3 && captured == PieceHelper.NONE && childContext.depth >= 2)
+		return false;
+	}
+	
+	public boolean canReduce(byte captured, SearchContext parent)
+	{
+		if (parent.plyFromRoot > 0 && parent.numMovesSearched >= 3 && captured == PieceHelper.NONE && parent.depth >= 2)
 		{
-			// avoid negative search depths
-			// TODO: Not necessary due to already checked depth condition
-			childContext.depth = Math.max(0, childContext.depth - 1);
+			return true;
 		}
+		return false;
 	}
 
 	public void handleAlphaRaise(short move, int evaluation, SearchContext context, short[] childPvLine)
@@ -508,6 +488,52 @@ public class MoveSearcher
 
 			int reduceIndex = (qMove & 0xFFF) | (board.colorToMove << 12);
 			moveOrderer.historyHeuristic[reduceIndex] -= context.depth * context.depth;
+		}
+	}
+	
+	public void updateNodeType(SearchContext context)
+	{
+		if (context.nodeType == PV_NODE && !context.raisedAlpha)
+		{
+			// handle expected PV node not raising alpha
+			currentStats.wrongPVNodes++;
+			context.nodeType = ALL_NODE;
+		}
+		else if (context.nodeType == CUT_NODE)
+		{
+			// handle a cut node not failing high
+			if (context.raisedAlpha)
+			{
+				currentStats.wrongCutNodesPV++;
+				context.nodeType = PV_NODE;
+			}
+			else
+			{
+				currentStats.wrongCutNodesAll++;
+				context.nodeType = ALL_NODE;
+			}
+		}
+		else if (context.nodeType == ALL_NODE && context.raisedAlpha)
+		{
+			// should not be possible
+			context.nodeType = PV_NODE;
+		}
+		else if (context.nodeType == UNK_NODE)
+		{
+			// should not be possible, UNK node is currently unused
+			context.nodeType = context.raisedAlpha ? PV_NODE : ALL_NODE;
+		}
+
+		currentStats.movesSearched += context.numMovesSearched;
+		if (context.nodeType == ALL_NODE)
+		{
+			currentStats.allNodes++;
+			currentStats.allNodeMovesSearched += context.numMovesSearched;
+		}
+		else
+		{
+			currentStats.pvNodes++;
+			currentStats.pvNodeMovesSearched += context.numMovesSearched;
 		}
 	}
 
@@ -620,6 +646,7 @@ public class MoveSearcher
 		int depth, plyFromRoot;
 		int alpha, beta;
 		boolean raisedAlpha;
+		boolean isZeroWindow;
 
 		int bestEval;
 		short bestMove;
@@ -680,6 +707,17 @@ public class MoveSearcher
 			this.numMovesSearched = numMovesSearched;
 			this.numExtensions = 0;
 			this.movesStartIndex = movesStartIndex;
+		}
+		
+		public void resetContext(int depth, int alpha, int beta, int nodeType)
+		{
+			setAlphaBetaParams(depth, plyFromRoot, alpha, beta);
+			this.nodeType = nodeType;
+			raisedAlpha = false;
+			bestEval = negativeInfinity;
+			bestMove = MoveHelper.NULL_MOVE;
+			pvLine = new short[MAX_PV_LENGTH];
+			numMovesSearched = 0;
 		}
 	}
 

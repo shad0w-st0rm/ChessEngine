@@ -100,7 +100,7 @@ public class TranspositionTable
 	}
 
 	public void storeEvaluation(long zobristKey, int evaluation, int depth, int bound, short move)
-	{
+	{		
 		int index = (int) (zobristKey & indexBitMask);
 
 		long posEntry = ((long) evaluation) << EVAL_SHIFT;
